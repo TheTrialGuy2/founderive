@@ -1,0 +1,1164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="founderive — a structured founder self-diligence interview."
+    />
+    <title>founderive — derive a credible founder brief</title>
+    <style>
+      :root {
+        --ink: #1f2430;
+        --muted: #686d79;
+        --line: #e7e4dd;
+        --canvas: #f7f6f1;
+        --paper: #fffefa;
+        --navy: #17283c;
+        --navy-light: #243b56;
+        --lime: #d7ee63;
+        --coral: #ef806d;
+        --aqua: #c4e9e3;
+        --sand: #eee5d4;
+        --shadow: 0 16px 45px rgba(23, 40, 60, 0.09);
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--canvas);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.45;
+      }
+      button, input, textarea, select { font: inherit; }
+      button { cursor: pointer; }
+      button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible {
+        outline: 3px solid #e29a33;
+        outline-offset: 3px;
+      }
+      .app-shell { min-height: 100vh; display: grid; grid-template-columns: 314px 1fr; }
+      .sidebar {
+        position: sticky; top: 0; height: 100vh; padding: 26px 18px;
+        color: #f8f8f4; background: var(--navy); display: flex; flex-direction: column;
+      }
+      .brand { display: flex; gap: 9px; align-items: center; color: white; font-weight: 780; letter-spacing: -.055em; font-size: 1.12rem; }
+      .brand-mark { width: 27px; height: 27px; display: grid; place-items: center; flex: none; }
+      .brand-mark svg { width: 27px; height: 27px; display: block; }
+      .eyebrow { font-size: .72rem; letter-spacing: .12em; font-weight: 800; text-transform: uppercase; }
+      .side-progress { padding: 31px 3px 24px; border-bottom: 1px solid rgba(255,255,255,.16); }
+      .side-progress p { color: rgba(255,255,255,.72); font-size: .83rem; margin: 0 0 9px; }
+      .progress-track { height: 7px; border-radius: 99px; overflow: hidden; background: rgba(255,255,255,.15); }
+      .progress-fill { width: 0%; height: 100%; border-radius: inherit; background: var(--lime); transition: width .25s ease; }
+      .section-nav { display: grid; gap: 15px; min-height: 0; flex: 1; overflow-y: auto; padding: 18px 3px 10px; scrollbar-color: rgba(255,255,255,.3) transparent; }
+      .nav-section { display: grid; gap: 5px; }
+      .nav-section-title { color: rgba(255,255,255,.92); border: 0; border-radius: 8px; background: transparent; padding: 6px; display: flex; align-items: center; gap: 8px; text-align: left; font-size: .78rem; font-weight: 800; }
+      .nav-section-title:hover { background: rgba(255,255,255,.08); }
+      .nav-section-title[aria-current="step"] { background: rgba(255,255,255,.12); }
+      .nav-dot { width: 19px; height: 19px; display: grid; place-items: center; color: var(--navy); background: rgba(255,255,255,.38); border-radius: 50%; font-size: .65rem; font-weight: 800; flex: none; }
+      .nav-section.complete .nav-dot { background: var(--lime); }
+      .nav-question-list { display: grid; gap: 2px; padding-left: 11px; border-left: 1px solid rgba(255,255,255,.14); }
+      .nav-question { color: rgba(255,255,255,.61); border: 0; border-radius: 6px; background: transparent; padding: 5px 7px; display: grid; grid-template-columns: 17px 1fr; gap: 6px; text-align: left; font-size: .69rem; line-height: 1.25; }
+      .nav-question:hover { color: white; background: rgba(255,255,255,.08); }
+      .nav-question[aria-current="step"] { color: white; background: rgba(215,238,99,.15); font-weight: 750; }
+      .nav-question.answered .nav-question-index { color: var(--lime); }
+      .nav-question-index { color: rgba(255,255,255,.42); font-variant-numeric: tabular-nums; }
+      .nav-question-text { display: block; }
+      .side-bottom { margin-top: auto; padding: 20px 8px 0; font-size: .75rem; color: rgba(255,255,255,.54); }
+      .side-bottom strong { display: block; color: rgba(255,255,255,.9); margin-bottom: 4px; }
+
+      main { min-width: 0; }
+      .topbar { min-height: 74px; padding: 16px clamp(20px, 4vw, 64px); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: rgba(247,246,241,.9); }
+      .topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+      .saving-status { color: var(--muted); font-size: .82rem; min-height: 1.2em; }
+      .button { border: 0; border-radius: 8px; padding: 11px 16px; font-weight: 750; font-size: .87rem; transition: transform .15s ease, background .15s ease; }
+      .button:hover { transform: translateY(-1px); }
+      .button-primary { color: var(--navy); background: var(--lime); }
+      .button-primary:hover { background: #e2f486; }
+      .button-dark { color: white; background: var(--navy); }
+      .button-dark:hover { background: var(--navy-light); }
+      .button-quiet { color: var(--navy); background: transparent; border: 1px solid #c9c8c1; }
+      .button-danger { color: #9a3024; background: #fff0ed; border: 1px solid #f1b9af; }
+      .button-text { padding: 9px 8px; color: var(--muted); border: 0; background: transparent; font-size: .81rem; font-weight: 750; }
+      .button-text:hover { color: var(--navy); }
+      .main-content { width: min(100%, 1040px); margin: 0 auto; padding: clamp(28px, 5vw, 66px) clamp(20px, 4vw, 64px) 64px; }
+      .screen { display: none; animation: enter .35s ease both; }
+      .screen.active { display: block; }
+      @keyframes enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      .hero { padding: 24px 0 6px; max-width: 770px; }
+      .hero .eyebrow { color: #7b5b15; }
+      h1, h2, h3, p { margin-top: 0; }
+      h1 { max-width: 780px; margin: 14px 0 20px; color: var(--navy); font-family: Georgia, "Times New Roman", serif; font-size: clamp(2.55rem, 6vw, 5.1rem); font-weight: 500; line-height: .98; letter-spacing: -.065em; }
+      h2 { margin-bottom: 9px; color: var(--navy); font-family: Georgia, "Times New Roman", serif; font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 500; line-height: 1; letter-spacing: -.05em; }
+      h3 { color: var(--navy); font-size: 1rem; margin-bottom: 7px; }
+      .hero-copy { max-width: 625px; color: #4f5661; font-size: 1.08rem; line-height: 1.62; }
+      .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 29px 0 47px; }
+      .hero .button { padding: 13px 19px; }
+      .signal-grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); }
+      .signal { padding: 19px 23px 10px 0; border-right: 1px solid var(--line); }
+      .signal + .signal { padding-left: 23px; }
+      .signal:last-child { border-right: 0; }
+      .signal-value { display: block; margin-bottom: 5px; color: var(--navy); font-family: Georgia, "Times New Roman", serif; font-size: 2rem; }
+      .signal-label { color: var(--muted); font-size: .82rem; }
+      .truth-card { margin-top: 48px; padding: clamp(23px, 4vw, 38px); background: var(--aqua); border-radius: 16px; display: grid; grid-template-columns: 45px 1fr; gap: 16px; }
+      .quote-mark { color: var(--navy); font-family: Georgia, serif; font-size: 4rem; line-height: .7; }
+      .truth-card p { max-width: 680px; margin: 0; color: #284356; font-family: Georgia, serif; font-size: clamp(1.25rem, 2.3vw, 1.7rem); line-height: 1.3; }
+      .truth-card small { display: block; color: #4f6c75; margin-top: 15px; font-size: .8rem; }
+
+      .auth-layout { width: min(100%, 760px); margin: 16px auto 0; display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; align-items: stretch; }
+      .auth-card, .auth-aside, .dashboard-card { border: 1px solid var(--line); border-radius: 15px; }
+      .auth-card { padding: clamp(24px, 4vw, 40px); background: var(--paper); box-shadow: var(--shadow); }
+      .auth-card h2 { margin-top: 10px; }
+      .auth-card > p { color: var(--muted); font-size: .91rem; }
+      .auth-form { display: none; margin-top: 23px; }
+      .auth-form.active { display: block; }
+      .auth-form .form-grid { margin-top: 0; }
+      .auth-switch { margin: 18px 0 0; color: var(--muted); font-size: .8rem; }
+      .auth-switch button { padding: 0; color: var(--navy); border: 0; border-bottom: 1px solid #9aa4a6; background: transparent; font-weight: 750; }
+      .auth-aside { padding: 25px 22px; color: #dfe8e4; background: var(--navy); }
+      .auth-aside .eyebrow { color: var(--lime); }
+      .auth-aside h3 { margin: 11px 0 12px; color: white; font-family: Georgia, serif; font-size: 1.38rem; line-height: 1.1; letter-spacing: -.04em; }
+      .auth-aside p { color: rgba(255,255,255,.7); font-size: .8rem; line-height: 1.55; }
+      .auth-aside hr { margin: 22px 0; border: 0; border-top: 1px solid rgba(255,255,255,.16); }
+      .auth-aside small { color: rgba(255,255,255,.52); font-size: .72rem; line-height: 1.45; }
+
+      .dashboard-intro { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 27px; }
+      .dashboard-intro p { margin: 0; color: var(--muted); }
+      .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(220px,.7fr); gap: 17px; align-items: start; }
+      .dashboard-card { padding: clamp(20px, 3vw, 30px); background: var(--paper); }
+      .dashboard-card h3 { margin-bottom: 7px; font-size: 1.1rem; }
+      .dashboard-card p { color: var(--muted); font-size: .87rem; }
+      .dashboard-brief { background: linear-gradient(135deg, #fffefa, #f4f8e8); }
+      .dashboard-kicker { color: #7b5b15; font-size: .7rem; font-weight: 850; letter-spacing: .11em; text-transform: uppercase; }
+      .dashboard-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
+      .brief-list { display: grid; gap: 10px; margin-top: 20px; }
+      .brief-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 16px; border: 1px solid #d9d8ce; border-radius: 10px; background: rgba(255,255,255,.72); }
+      .brief-row-main { min-width: 0; }
+      .brief-row-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+      .brief-row-title h4 { overflow: hidden; margin: 0; color: var(--navy); font-size: .96rem; text-overflow: ellipsis; white-space: nowrap; }
+      .brief-meta { display: flex; flex-wrap: wrap; gap: 5px 12px; margin-top: 5px; color: var(--muted); font-size: .73rem; }
+      .brief-meta span + span::before { content: '·'; margin-right: 12px; color: #a2a8a0; }
+      .brief-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
+      .status-pill { display: inline-flex; align-items: center; min-height: 20px; padding: 2px 7px; border-radius: 99px; font-size: .64rem; font-weight: 850; letter-spacing: .07em; line-height: 1; text-transform: uppercase; }
+      .status-pill.draft { color: #69551c; background: #f5edcf; }
+      .status-pill.published { color: #1b665b; background: #dcefe8; }
+      .brief-empty { margin-top: 20px; padding: 30px 20px; border: 1px dashed #c6c9bb; border-radius: 10px; text-align: center; }
+      .brief-empty p { max-width: 370px; margin: 7px auto 17px; }
+      .dashboard-progress { margin: 23px 0 7px; }
+      .dashboard-progress .progress-track { background: #dedfd6; }
+      .dashboard-progress .progress-fill { background: var(--navy); }
+      .dashboard-progress-line { display: flex; justify-content: space-between; color: var(--muted); font-size: .77rem; }
+      .dashboard-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 23px; }
+      .account-line { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+      .account-avatar { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: var(--navy); background: var(--lime); font-size: .75rem; font-weight: 850; }
+      .account-line strong, .account-line span { display: block; }
+      .account-line strong { color: var(--navy); font-size: .8rem; }
+      .account-line span { color: var(--muted); font-size: .73rem; }
+      .local-notice { margin-top: 15px; padding: 10px 11px; color: #5d624e; border-radius: 7px; background: #f6f3e7; font-size: .74rem; line-height: 1.45; }
+      .account-stat { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: .75rem; }
+      .account-stat strong { color: var(--navy); font-size: .83rem; }
+
+      dialog { width: min(100% - 34px, 510px); padding: 0; color: var(--ink); border: 0; border-radius: 15px; box-shadow: 0 24px 70px rgba(17,41,55,.28); }
+      dialog::backdrop { background: rgba(17,41,55,.52); backdrop-filter: blur(2px); }
+      .dialog-card { padding: clamp(23px, 5vw, 34px); background: var(--paper); }
+      .dialog-card h3 { margin: 8px 0; color: var(--navy); font-family: Georgia, serif; font-size: 1.6rem; letter-spacing: -.04em; }
+      .dialog-card p { color: var(--muted); font-size: .86rem; line-height: 1.55; }
+      .share-link-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; margin: 20px 0 10px; }
+      .share-link-row input { min-width: 0; font-size: .76rem; }
+      .dialog-note { margin-top: 16px; padding: 10px 11px; border-radius: 8px; color: #5d624e !important; background: #f6f3e7; font-size: .75rem !important; }
+      .dialog-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 24px; }
+      .dialog-actions .button-text { color: #9b392e; }
+      .dialog-actions > div { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+      .share-view { max-width: 760px; margin: 0 auto; }
+      .share-view-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 22px; }
+      .share-view-header h2 { margin-top: 8px; }
+      .share-view-card { padding: clamp(24px, 5vw, 45px); background: var(--paper); border: 1px solid var(--line); border-radius: 15px; box-shadow: var(--shadow); }
+
+      .setup-card, .question-card, .report-panel { background: var(--paper); border: 1px solid var(--line); border-radius: 15px; box-shadow: var(--shadow); }
+      .setup-card { margin-top: 29px; padding: clamp(22px, 4vw, 40px); max-width: 720px; }
+      .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 19px; margin-top: 25px; }
+      .field { display: grid; gap: 7px; }
+      .field.full { grid-column: 1 / -1; }
+      label { font-weight: 750; color: var(--navy); font-size: .88rem; }
+      .field-hint { color: var(--muted); font-size: .76rem; }
+      input, textarea, select { width: 100%; color: var(--ink); background: #fff; border: 1px solid #cdcac2; border-radius: 7px; padding: 11px 12px; }
+      textarea { min-height: 150px; line-height: 1.55; resize: vertical; }
+      .form-footer, .card-footer { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-top: 25px; }
+      .form-footer p { color: var(--muted); font-size: .78rem; margin: 0; }
+      .error-text { color: #ad392b !important; }
+
+      .section-heading { max-width: 730px; }
+      .section-heading .eyebrow { color: #7b5b15; margin-bottom: 13px; }
+      .section-heading p { color: var(--muted); font-size: 1rem; }
+      .chat-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 21px; align-items: start; }
+      .conversation-shell { overflow: hidden; min-height: 650px; background: var(--paper); border: 1px solid var(--line); border-radius: 15px; box-shadow: var(--shadow); }
+      .coach-header { min-height: 74px; padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fcfbf7; }
+      .coach-profile { min-width: 0; display: flex; align-items: center; gap: 11px; }
+      .coach-avatar, .message-avatar { display: grid; place-items: center; border-radius: 50%; flex: none; font-family: Georgia, serif; }
+      .coach-avatar { width: 38px; height: 38px; color: var(--navy); background: var(--aqua); font-size: 1.15rem; }
+      .coach-profile strong, .coach-profile span { display: block; }
+      .coach-profile strong { color: var(--navy); font-size: .88rem; }
+      .coach-profile span { overflow: hidden; color: var(--muted); font-size: .72rem; white-space: nowrap; text-overflow: ellipsis; }
+      .coach-status { display: flex; align-items: center; gap: 6px; color: #51716e; font-size: .72rem; white-space: nowrap; }
+      .coach-status::before { content: ""; width: 7px; height: 7px; background: #76bdb2; border-radius: 50%; }
+      .conversation-context { padding: 12px 19px; display: flex; justify-content: space-between; gap: 12px; color: #675826; background: #fbf8ea; border-bottom: 1px solid #eee7d0; font-size: .73rem; font-weight: 750; }
+      .thread-wrap { position: relative; min-height: 0; }
+      .chat-thread { max-height: min(480px, calc(100vh - 285px)); min-height: 312px; overflow-y: auto; scroll-behavior: smooth; padding: 25px 20px 17px; }
+      .latest-button { position: absolute; right: 18px; bottom: 14px; z-index: 1; display: none; padding: 7px 10px; color: var(--navy); border: 1px solid #c9d5d1; border-radius: 99px; background: #fffefa; box-shadow: 0 4px 14px rgba(23,40,60,.13); font-size: .72rem; font-weight: 800; }
+      .latest-button.show { display: inline-flex; align-items: center; gap: 5px; }
+      .latest-button:hover { background: #f3faf8; }
+      .message { display: flex; align-items: flex-end; gap: 9px; margin: 0 0 18px; }
+      .message.coach { padding-right: 58px; }
+      .message.user { justify-content: flex-end; padding-left: 58px; }
+      .message-avatar { width: 27px; height: 27px; color: var(--navy); background: var(--aqua); font-size: .83rem; }
+      .message.user .message-avatar { order: 2; color: white; background: var(--navy); font-family: inherit; font-size: .68rem; font-weight: 800; }
+      .message-body { min-width: 0; }
+      .message-name { display: block; margin: 0 0 5px 3px; color: var(--muted); font-size: .69rem; font-weight: 750; }
+      .message.user .message-name { margin-right: 3px; text-align: right; }
+      .bubble { padding: 12px 14px; border-radius: 3px 14px 14px 14px; color: #334758; background: #edf7f5; font-size: .91rem; line-height: 1.5; }
+      .message.current .bubble { color: var(--navy); background: #e2f3f0; box-shadow: inset 3px 0 0 #76bdb2; }
+      .message.user .bubble { color: white; background: var(--navy); border-radius: 14px 3px 14px 14px; }
+      .bubble p { margin: 0; }
+      .bubble .prompt-text { color: var(--navy); font-family: Georgia, "Times New Roman", serif; font-size: 1.16rem; line-height: 1.27; }
+      .bubble .prompt-purpose { margin-top: 8px; color: #587174; font-size: .77rem; line-height: 1.45; }
+      .evidence-pill { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; padding: 3px 7px; color: #c9f0e9; border: 1px solid rgba(198,233,227,.32); border-radius: 99px; font-size: .65rem; font-weight: 750; }
+      .evidence-pill::before { content: "✓"; }
+      .captured-card { max-width: min(440px, calc(100% - 36px)); margin: -8px 0 18px 36px; padding: 10px 12px; border: 1px solid #d6e4df; border-radius: 9px; background: #fbfdfa; }
+      .captured-card > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+      .captured-card strong { color: #365f60; font-size: .74rem; }
+      .captured-card p { margin: 4px 0 0; color: var(--muted); font-size: .71rem; line-height: 1.4; }
+      .captured-card.confirmed { border-color: #b8d9d0; background: #f2fbf8; }
+      .captured-card.confirmed strong::before { content: "✓ "; }
+      .capture-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 9px; }
+      .capture-actions button { padding: 4px 7px; border: 0; border-radius: 5px; background: transparent; color: #4f666e; font-size: .71rem; font-weight: 800; }
+      .capture-actions button:hover { color: var(--navy); background: #e5f3ef; }
+      .capture-actions .confirm-capture { color: #173e47; background: var(--aqua); }
+      .section-transition { max-width: 430px; margin: 5px auto 22px; padding: 10px 13px; color: #536b70; border: 1px solid #dce4d8; border-radius: 9px; background: #fafbf4; text-align: center; font-size: .76rem; line-height: 1.42; }
+      .section-transition strong { display: block; margin-bottom: 2px; color: var(--navy); }
+      .chat-intro { margin: 0 0 23px 36px; max-width: 400px; color: var(--muted); font-size: .78rem; line-height: 1.5; }
+      .typing-indicator { display: none; align-items: center; gap: 5px; margin: 0 0 14px 36px; color: var(--muted); font-size: .75rem; }
+      .typing-indicator.show { display: flex; }
+      .typing-dots { display: inline-flex; gap: 3px; }
+      .typing-dots i { width: 5px; height: 5px; border-radius: 50%; background: #83aaa5; animation: blink 1.05s infinite both; }
+      .typing-dots i:nth-child(2) { animation-delay: .15s; } .typing-dots i:nth-child(3) { animation-delay: .3s; }
+      @keyframes blink { 0%, 80%, 100% { transform: scale(.65); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
+      .composer { padding: 15px 18px 17px; border-top: 1px solid var(--line); background: #fffefa; }
+      .composer label { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 7px; color: var(--navy); font-size: .78rem; }
+      .composer textarea { min-height: 86px; max-height: 182px; border-color: #cfd6d2; border-radius: 10px; box-shadow: 0 1px 0 rgba(23,40,60,.03); }
+      .composer textarea::placeholder { color: #989c9b; }
+      .composer-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+      .composer-tools { display: flex; align-items: center; gap: 10px; min-width: 0; }
+      .word-count { color: var(--muted); font-size: .71rem; white-space: nowrap; }
+      .evidence-row { display: flex; align-items: center; gap: 7px; color: #3f5c68; font-size: .72rem; line-height: 1.25; }
+      .evidence-row input { width: 16px; height: 16px; accent-color: var(--navy); flex: none; }
+      .back-button { color: var(--muted); border: 0; padding: 8px 0; background: transparent; font-size: .86rem; font-weight: 700; }
+      .back-button:hover { color: var(--navy); }
+      .composer-actions { display: flex; align-items: center; gap: 10px; }
+      .composer-actions .button { white-space: nowrap; }
+      .completion-note { display: none; margin: 0 18px 14px; padding: 10px 12px; border-radius: 7px; color: #2d5362; background: #edf8f6; font-size: .77rem; }
+      .completion-note.show { display: block; }
+      .conversation-guide { position: sticky; top: 98px; padding: 17px; border: 1px solid var(--line); border-radius: 12px; background: #faf9f4; }
+      .guide-icon { width: 26px; height: 26px; display: grid; place-items: center; margin-bottom: 13px; color: var(--navy); background: var(--lime); border-radius: 7px; font-size: .9rem; }
+      .conversation-guide .eyebrow { color: #7b5b15; font-size: .64rem; }
+      .conversation-guide h3 { margin: 5px 0 8px; font-size: .94rem; line-height: 1.25; }
+      .conversation-guide p { margin: 0; color: var(--muted); font-size: .76rem; line-height: 1.55; }
+      .guide-rule { margin-top: 16px !important; padding-top: 13px; border-top: 1px solid var(--line); color: #536d77 !important; }
+      .foundation-preview { display: none; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+      .foundation-preview.show { display: block; }
+      .foundation-preview h4 { margin: 0 0 8px; color: var(--navy); font-size: .76rem; }
+      .foundation-preview ul { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
+      .foundation-preview li { color: var(--muted); font-size: .7rem; line-height: 1.35; }
+      .foundation-preview li strong { display: block; color: #435b65; font-size: .66rem; }
+      .foundation-preview li span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      .report-header { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 25px; }
+      .report-header p { color: var(--muted); margin-bottom: 0; }
+      .report-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      .report-panel { padding: clamp(22px, 4vw, 42px); }
+      .profile-line { padding-bottom: 27px; border-bottom: 1px solid var(--line); display: flex; gap: 18px; align-items: center; }
+      .initials { width: 54px; height: 54px; display: grid; place-items: center; flex: none; color: var(--navy); background: var(--lime); border-radius: 50%; font-family: Georgia, serif; font-size: 1.25rem; }
+      .profile-line h3 { margin: 0; font-size: 1.32rem; }
+      .profile-line p { margin: 3px 0 0; color: var(--muted); font-size: .87rem; }
+      .report-disclaimer { margin: 22px 0; color: #4d5a68; background: #f4f0e8; border-radius: 8px; padding: 12px 14px; font-size: .82rem; }
+      .dimension-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 24px 0 34px; }
+      .dimension { padding: 15px; background: #faf9f4; border: 1px solid var(--line); border-radius: 9px; }
+      .dimension-heading { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 10px; color: var(--navy); font-size: .83rem; font-weight: 800; }
+      .dimension-heading span:last-child { color: #737b59; font-size: .74rem; }
+      .dimension .progress-track { height: 5px; background: #e1e0da; }
+      .dimension .progress-fill { background: var(--coral); }
+      .summary-label { margin: 30px 0 10px; color: #7b5b15; font-size: .73rem; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+      .evidence-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 13px; }
+      .evidence-list li { padding: 15px 16px; border-left: 3px solid var(--aqua); background: #fbfbf8; }
+      .evidence-list strong { display: block; color: var(--navy); font-size: .83rem; margin-bottom: 4px; }
+      .evidence-list span { color: #4d5561; font-size: .88rem; line-height: 1.55; white-space: pre-line; }
+      .missing-list { color: var(--muted); font-size: .88rem; padding-left: 19px; }
+      .missing-list li { margin-bottom: 7px; }
+      .empty-report { padding: 40px 10px; text-align: center; color: var(--muted); }
+      .empty-report .button { margin-top: 14px; }
+      .toast { position: fixed; z-index: 4; right: 22px; bottom: 22px; transform: translateY(130px); opacity: 0; color: white; background: var(--navy); border-radius: 8px; padding: 12px 16px; box-shadow: var(--shadow); transition: .25s ease; font-size: .85rem; }
+      .toast.show { opacity: 1; transform: translateY(0); }
+
+      @media (max-width: 780px) {
+        .app-shell { display: block; }
+        .sidebar { position: sticky; z-index: 3; top: 0; height: auto; padding: 13px 19px; flex-direction: row; align-items: center; justify-content: space-between; }
+        .brand { font-size: 1rem; }
+        .side-progress { min-width: 115px; padding: 0; border: 0; }
+        .side-progress p { display: none; }
+        .section-nav, .side-bottom { display: none; }
+        .topbar { min-height: 57px; padding: 10px 20px; }
+        .main-content { padding-top: 38px; }
+        .chat-workspace { grid-template-columns: 1fr; }
+        .conversation-guide { display: none; }
+        .chat-thread { max-height: none; }
+        .auth-layout, .dashboard-grid { grid-template-columns: 1fr; }
+        .auth-aside { order: -1; }
+        .brief-row { grid-template-columns: 1fr; gap: 12px; }
+        .brief-row-actions { justify-content: flex-start; }
+      }
+      @media (max-width: 570px) {
+        h1 { font-size: clamp(2.45rem, 13vw, 4rem); }
+        .signal-grid { grid-template-columns: 1fr; }
+        .signal, .signal + .signal { padding: 14px 0; border-right: 0; border-bottom: 1px solid var(--line); }
+        .signal:last-child { border-bottom: 0; }
+        .form-grid, .dimension-grid { grid-template-columns: 1fr; }
+        .report-header { display: block; }
+        .report-actions { margin-top: 17px; }
+        .composer-footer { align-items: flex-start; flex-direction: column; }
+        .composer-tools { width: 100%; justify-content: space-between; }
+        .composer-actions { width: 100%; justify-content: space-between; }
+        .form-footer { flex-direction: column; align-items: stretch; }
+        .form-footer .button { width: 100%; }
+        .dashboard-intro, .share-view-header { display: block; }
+        .dashboard-intro > .button, .share-view-header > .button { margin-top: 16px; }
+        .brief-row-actions .button, .brief-row-actions .button-quiet { flex: 1 1 auto; }
+        .share-link-row { grid-template-columns: 1fr; }
+        .dialog-actions { align-items: stretch; flex-direction: column-reverse; }
+        .dialog-actions > div { justify-content: stretch; }
+        .dialog-actions > div .button { flex: 1; }
+        .conversation-shell { min-height: 0; }
+        .chat-thread { min-height: 260px; padding: 20px 14px 13px; }
+        .latest-button { right: 12px; bottom: 10px; }
+        .composer { padding: 14px; }
+        .message.coach { padding-right: 21px; }
+        .message.user { padding-left: 21px; }
+        .captured-card { max-width: calc(100% - 36px); margin-left: 32px; }
+        .dashboard-intro { display: block; }
+      }
+      @media print {
+        body { background: white; }
+        .sidebar, .topbar, .screen:not(#report-screen), .report-actions, .toast { display: none !important; }
+        .app-shell, main, .main-content, #report-screen { display: block !important; width: auto; margin: 0; padding: 0; }
+        #report-screen { animation: none; }
+        .report-header { margin: 0 0 20px; }
+        .report-panel { box-shadow: none; border: 0; padding: 0; }
+        .dimension { break-inside: avoid; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M5.5 20.4 15.9 5.1l10.6 15.3-10.6 6.4L5.5 20.4Z" fill="#d7ee63"/><path d="m15.9 5.1 10.6 15.3-10.6-2.5V5.1Z" fill="#9cb936"/><path d="m5.5 20.4 10.4-2.5v8.9L5.5 20.4Z" fill="#f6ffbf"/></svg></span><span>founderive</span></div>
+        <div class="side-progress">
+          <p id="progress-label">Your diligence brief</p>
+          <div class="progress-track" aria-label="Interview progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="progress-fill"></div></div>
+        </div>
+        <nav class="section-nav" aria-label="Founder interview sections" id="section-nav"></nav>
+        <div class="side-bottom"><strong>Private by default</strong>Your answers stay in this browser until you choose to export.</div>
+      </aside>
+      <main>
+        <header class="topbar">
+          <span class="saving-status" id="saving-status" aria-live="polite"></span>
+          <div class="topbar-actions"><button class="button-text" id="dashboard-button" type="button" hidden>Dashboard</button><button class="button-text" id="sign-out-button" type="button" hidden>Sign out</button><button class="button button-quiet" id="reset-button" type="button" hidden>Start new brief</button></div>
+        </header>
+        <div class="main-content">
+          <section class="screen active" id="welcome-screen">
+            <div class="hero">
+              <div class="eyebrow">Founder self-diligence</div>
+              <h1>Derive the story a serious partner needs to know.</h1>
+              <p class="hero-copy">founderive turns the questions investors actually use into a private, evidence-first founder brief. It is not a pitch deck—and it should not make you look flawless.</p>
+              <div class="hero-actions">
+                <button class="button button-primary" type="button" id="welcome-primary">Create free account <span aria-hidden="true">→</span></button>
+                <button class="button button-quiet" type="button" id="welcome-secondary">Sign in</button>
+              </div>
+              <div class="signal-grid" aria-label="Interview overview">
+                <div class="signal"><span class="signal-value">15</span><span class="signal-label">high-signal questions</span></div>
+                <div class="signal"><span class="signal-value">5</span><span class="signal-label">diligence dimensions</span></div>
+                <div class="signal"><span class="signal-value">~20</span><span class="signal-label">quiet, focused minutes</span></div>
+              </div>
+            </div>
+            <div class="truth-card"><div class="quote-mark" aria-hidden="true">“</div><div><p>A credible founder story has room for both conviction and the things you are still proving.</p><small>founderive helps you make both visible.</small></div></div>
+          </section>
+
+          <section class="screen" id="auth-screen">
+            <div class="auth-layout">
+              <div class="auth-card">
+                <div class="eyebrow" style="color:#7b5b15">Your founderive account</div>
+                <h2 id="auth-title">Start your free brief.</h2>
+                <p id="auth-copy">Save your progress and return when you have the space to think clearly.</p>
+                <form class="auth-form active" id="signup-form" novalidate>
+                  <div class="form-grid">
+                    <div class="field full"><label for="signup-name">Your name</label><input id="signup-name" autocomplete="name" placeholder="Sam" required /></div>
+                    <div class="field full"><label for="signup-email">Email</label><input id="signup-email" type="email" autocomplete="email" placeholder="you@example.com" required /></div>
+                    <div class="field"><label for="signup-password">Password</label><input id="signup-password" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters" required /></div>
+                    <div class="field"><label for="signup-password-confirm">Confirm password</label><input id="signup-password-confirm" type="password" autocomplete="new-password" placeholder="Type it again" required /></div>
+                  </div>
+                  <div class="form-footer"><p id="signup-error" role="alert"></p><button class="button button-dark" type="submit">Create free account <span aria-hidden="true">→</span></button></div>
+                  <p class="auth-switch">Already have an account in this browser? <button type="button" data-auth-mode="signin">Sign in</button></p>
+                </form>
+                <form class="auth-form" id="signin-form" novalidate>
+                  <div class="form-grid">
+                    <div class="field full"><label for="signin-email">Email</label><input id="signin-email" type="email" autocomplete="email" placeholder="you@example.com" required /></div>
+                    <div class="field full"><label for="signin-password">Password</label><input id="signin-password" type="password" autocomplete="current-password" placeholder="Your password" required /></div>
+                  </div>
+                  <div class="form-footer"><p id="signin-error" role="alert"></p><button class="button button-dark" type="submit">Sign in <span aria-hidden="true">→</span></button></div>
+                  <p class="auth-switch">New here? <button type="button" data-auth-mode="signup">Create a free account</button></p>
+                </form>
+              </div>
+              <aside class="auth-aside"><div class="eyebrow">What you get</div><h3>A calmer way to prepare.</h3><p>Your brief stays private, saves as you go, and turns scattered founder experience into a conversation-ready record.</p><hr /><small>Preview account: stored only in this browser until hosted authentication and Supabase are connected. Use a temporary password, not one you reuse.</small></aside>
+            </div>
+          </section>
+
+          <section class="screen" id="dashboard-screen">
+            <div class="dashboard-intro"><div><div class="eyebrow" style="color:#7b5b15">Your workspace</div><h2 id="dashboard-greeting">Your founder briefs.</h2><p>Draft in private, publish when the story is ready, and return whenever you need to.</p></div><button class="button button-dark" type="button" id="dashboard-new-brief">New brief <span aria-hidden="true">+</span></button></div>
+            <div class="dashboard-grid">
+              <section class="dashboard-card dashboard-brief"><div class="dashboard-card-heading"><div><div class="dashboard-kicker">Your founderive briefs</div><h3>Keep the work moving.</h3><p>Each brief holds its own answers, status, and share link.</p></div></div><div class="brief-list" id="dashboard-brief-list"></div></section>
+              <aside class="dashboard-card"><div class="dashboard-kicker">Free account</div><div class="account-line"><div class="account-avatar" id="account-avatar">F</div><div><strong id="account-name">Founder</strong><span id="account-email"></span></div></div><div class="account-stat"><span>Briefs in this browser</span><strong id="account-brief-count">0</strong></div><p class="local-notice">This MVP saves your account and briefs only in this browser. Publishing creates a working preview link here; hosted sharing and cross-device access come with Supabase.</p></aside>
+            </div>
+          </section>
+
+          <section class="screen" id="setup-screen">
+            <div class="section-heading"><div class="eyebrow">Before we begin</div><h2>Give the brief a point of view.</h2><p>These details personalize your export. You can change them anytime.</p></div>
+            <form class="setup-card" id="setup-form" novalidate>
+              <div class="form-grid">
+                <div class="field"><label for="founder-name">Your name</label><input id="founder-name" name="founderName" autocomplete="name" placeholder="e.g. Sam" required /><span class="field-hint">How should a reader address you?</span></div>
+                <div class="field"><label for="company-name">Company or working idea</label><input id="company-name" name="companyName" placeholder="e.g. founderive" /></div>
+                <div class="field full"><label for="company-stage">What are you building right now?</label><select id="company-stage" name="stage"><option value="Exploring a problem">Exploring a problem</option><option value="Testing a prototype">Testing a prototype</option><option value="Seeking first customers">Seeking first customers</option><option value="Building an operating company">Building an operating company</option></select></div>
+              </div>
+              <div class="form-footer"><p id="setup-error" role="alert"></p><div class="composer-actions"><button class="button-text" id="setup-save-exit" type="button">Save and exit</button><button class="button button-dark" type="submit">Start the interview <span aria-hidden="true">→</span></button></div></div>
+            </form>
+          </section>
+
+          <section class="screen" id="interview-screen">
+            <div class="chat-workspace">
+              <article class="conversation-shell" aria-label="Guided founder conversation">
+                <header class="coach-header">
+                  <div class="coach-profile"><div class="coach-avatar" aria-hidden="true">✦</div><div><strong>founderive coach</strong><span>Guided self-diligence session</span></div></div>
+                  <span class="coach-status">Present</span>
+                </header>
+                <div class="conversation-context"><span id="chat-dimension"></span><span id="question-position"></span></div>
+                <div class="thread-wrap"><div class="chat-thread" id="chat-thread" role="log" aria-live="polite" aria-relevant="additions text"></div><button class="latest-button" type="button" id="latest-button">Latest <span aria-hidden="true">↓</span></button></div>
+                <div class="typing-indicator" id="typing-indicator" aria-live="polite"><span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span> founderive coach is taking notes</div>
+                <div class="completion-note" id="completion-note" role="status">The core interview is complete. Your brief is ready to review.</div>
+                <form class="composer" id="answer-form">
+                  <label for="answer"><span>Your response</span><span class="word-count" id="word-count">0 words</span></label>
+                  <textarea id="answer" placeholder="Write it as you would tell it. A real example is more useful than a polished answer."></textarea>
+                  <div class="composer-footer">
+                    <div class="composer-tools"><label class="evidence-row"><input id="has-evidence" type="checkbox" /> I can point to a specific example or outcome.</label></div>
+                    <div class="composer-actions"><button class="back-button" type="button" id="previous-button">← Back</button><button class="button-text" type="button" id="save-exit-button">Save and exit</button><button class="button button-dark" type="submit" id="next-button">Send <span aria-hidden="true">↑</span></button></div>
+                  </div>
+                </form>
+              </article>
+              <aside class="conversation-guide" aria-label="Why this question matters">
+                <div class="guide-icon" aria-hidden="true">✦</div>
+                <div class="eyebrow">Current dimension</div>
+                <h3 id="guide-title"></h3>
+                <p id="guide-copy"></p>
+                <div class="foundation-preview" id="foundation-preview"></div>
+                <p class="guide-rule">The useful answer is honest, specific, and grounded in something another person could verify.</p>
+              </aside>
+            </div>
+          </section>
+
+          <section class="screen" id="report-screen">
+            <div class="report-header"><div><div class="eyebrow" style="color:#7b5b15">Your founderive brief</div><h2>What is clear. What needs proof.</h2><p>A candid conversation starter, built from your own words.</p></div><div class="report-actions"><button class="button button-quiet" type="button" id="download-button">Download .md</button><button class="button button-dark" type="button" id="print-button">Print / Save PDF</button></div></div>
+            <div class="report-panel" id="report-content"></div>
+          </section>
+
+          <section class="screen" id="share-screen">
+            <div class="share-view"><div class="share-view-header"><div><div class="eyebrow" style="color:#7b5b15">Shared founderive brief</div><h2 id="share-brief-title">Founder brief</h2><p id="share-brief-meta">Shared from founderive</p></div><button class="button button-quiet" type="button" id="share-back-button">Back to founderive</button></div><div class="share-view-card" id="share-brief-content"></div></div>
+          </section>
+        </div>
+      </main>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <dialog id="share-dialog" aria-labelledby="share-dialog-title">
+      <div class="dialog-card"><div class="dashboard-kicker">Published link</div><h3 id="share-dialog-title">Share this brief.</h3><p>Anyone with the link can view this founder brief once sharing is hosted.</p><div class="share-link-row"><input id="share-link-input" type="text" readonly aria-label="Share link" /><button class="button button-dark" type="button" id="copy-share-link">Copy link</button></div><p class="dialog-note">MVP preview: this link is randomized and opens from this browser only. It will become a true shareable URL once the brief is stored in Supabase.</p><div class="dialog-actions"><button class="button-text" type="button" id="unpublish-brief">Unpublish</button><div><button class="button button-quiet" type="button" id="close-share-dialog">Done</button></div></div></div>
+    </dialog>
+    <dialog id="delete-dialog" aria-labelledby="delete-dialog-title">
+      <div class="dialog-card"><div class="dashboard-kicker">Delete brief</div><h3 id="delete-dialog-title">Delete this brief?</h3><p id="delete-dialog-copy">Its saved answers and published preview link will be removed from this browser.</p><div class="dialog-actions"><button class="button-text" type="button" id="confirm-delete-brief">Delete brief</button><div><button class="button button-quiet" type="button" id="cancel-delete-brief">Keep brief</button></div></div></div>
+    </dialog>
+
+    <script>
+      const sections = [
+        { id: 'motivation', name: 'Origin & commitment', description: 'Find the durable reason behind this company—not the version that just sounds good in a deck.', questions: [
+          { title: 'Why do you need to build this company, rather than simply wanting to?', purpose: 'Surfaces the motivation that has to survive after the novelty, praise, and optionality fade.' },
+          { title: 'Why are you specifically positioned to solve this problem?', purpose: 'Tests founder–market fit. Ground your answer in lived experience, learned skill, access, or a repeated observation.' },
+          { title: 'What kind of company and life are you actually trying to build?', purpose: 'Clarifies whether venture scale, profitability, autonomy, or a durable mission is the real goal.' }
+        ]},
+        { id: 'reality', name: 'Reality & learning', description: 'Strong opinions are useful. The ability to revise them under evidence is what makes them investable.', questions: [
+          { title: 'Tell the story of a belief you changed after reality contradicted it.', purpose: 'Looks for evidence over ego. Name the original belief, the signal you saw, and the action you took.' },
+          { title: 'How do you distinguish thoughtful strategy from avoidance?', purpose: 'Tests whether research and planning accelerate a decision—or protect you from the discomfort of selling.' },
+          { title: 'What evidence would cause you to change direction? What evidence would cause you to stop?', purpose: 'Makes your operating thresholds explicit before emotion and sunk cost make them harder to see.' }
+        ]},
+        { id: 'execution', name: 'Execution under pressure', description: 'Early companies have incomplete information by default. Show how you create momentum without waiting for certainty.', questions: [
+          { title: 'What have you sustained after the excitement wore off?', purpose: 'Looks for consistency, not a perfect resume. Describe the commitment, the difficult middle, and the outcome.' },
+          { title: 'Describe a high-stakes decision you made with incomplete information.', purpose: 'Shows how you make a call at 60% certainty, communicate it, and learn from its consequences.' },
+          { title: 'Can you sell something new and incomplete? What is the strongest evidence?', purpose: 'Tests survival-level selling: creating a market, asking for money, hearing no, and staying in the conversation.' }
+        ]},
+        { id: 'self', name: 'Self-awareness & resilience', description: 'The useful answer is not “I work too hard.” It is the pattern that could hurt the company and the mechanism that contains it.', questions: [
+          { title: 'What is one of your real founder limitations—and how has it hurt you before?', purpose: 'Reveals whether you can name a risk without disguising it as a strength.' },
+          { title: 'What happens to your behavior when you feel you are losing control?', purpose: 'Helps a future partner know what you are predictably like under stress, rather than asking whether you are resilient.' },
+          { title: 'How do you stay sustainable during a long, uncertain stretch?', purpose: 'Tests practical resilience: boundaries, support systems, delegation, recovery, and communication.' }
+        ]},
+        { id: 'trust', name: 'Trust & leadership', description: 'Investment puts pressure on judgment and integrity. Make your operating principles concrete enough to be useful.', questions: [
+          { title: 'Tell me about a time telling the truth cost you something.', purpose: 'Looks for integrity when incentives become uncomfortable—not an abstract statement of values.' },
+          { title: 'Who can challenge you—and what makes you listen?', purpose: 'Shows coachability without becoming easily led. Include an example of advice you adopted or correctly rejected.' },
+          { title: 'What would a former collaborator say is difficult about working with you?', purpose: 'Surfaces blind spots in collaboration, control, conflict, and communication before they become team risk.' }
+        ]}
+      ];
+      const ACCOUNT_STORAGE_KEY = 'founderive-mvp-account-v1';
+      const SESSION_STORAGE_KEY = 'founderive-mvp-session-v1';
+      const LEGACY_DRAFT_STORAGE_PREFIX = 'founderive-mvp-draft-v1:';
+      const BRIEF_INDEX_STORAGE_PREFIX = 'founderive-mvp-brief-index-v1:';
+      const BRIEF_STORAGE_PREFIX = 'founderive-mvp-brief-v1:';
+      const SHARE_STORAGE_PREFIX = 'founderive-mvp-share-v1:';
+      const state = { profile: { founderName: '', companyName: '', stage: 'Exploring a problem' }, answers: {}, current: 0, user: null, briefId: null };
+      const els = {
+        app: document.querySelector('.app-shell'), nav: document.getElementById('section-nav'), fill: document.getElementById('progress-fill'), status: document.getElementById('saving-status'), toast: document.getElementById('toast'),
+        founderName: document.getElementById('founder-name'), companyName: document.getElementById('company-name'), stage: document.getElementById('company-stage'), setupError: document.getElementById('setup-error'),
+        chatDimension: document.getElementById('chat-dimension'), questionPosition: document.getElementById('question-position'), thread: document.getElementById('chat-thread'), latest: document.getElementById('latest-button'), typing: document.getElementById('typing-indicator'), guideTitle: document.getElementById('guide-title'), guideCopy: document.getElementById('guide-copy'), foundation: document.getElementById('foundation-preview'), answerForm: document.getElementById('answer-form'), answer: document.getElementById('answer'), evidence: document.getElementById('has-evidence'), wordCount: document.getElementById('word-count'), next: document.getElementById('next-button'), previous: document.getElementById('previous-button'), completion: document.getElementById('completion-note'), report: document.getElementById('report-content')
+      };
+      const allQuestions = sections.flatMap((section, sectionIndex) => section.questions.map((question, questionIndex) => ({ ...question, section, sectionIndex, questionIndex })));
+      let advancing = false;
+      let threadNearBottom = true;
+
+      function escapeHTML(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]); }
+      function answerFor(index) { return state.answers[index] || { text: '', evidence: false, confirmed: false }; }
+      function wordCount(text) { return text.trim() ? text.trim().split(/\s+/).length : 0; }
+      function answeredCount() { return Object.values(state.answers).filter(answer => answer.text && answer.text.trim()).length; }
+      function sectionComplete(index) { const offset = index * 3; return [offset, offset + 1, offset + 2].every(questionIndex => answerFor(questionIndex).text.trim().length >= 20); }
+      function firstName(value) { return (value || 'Founder').trim().split(/\s+/)[0] || 'Founder'; }
+      function accountStorageKey(prefix, email = state.user?.email) { return `${prefix}${encodeURIComponent(email || 'guest')}`; }
+      function legacyDraftStorageKey(email = state.user?.email) { return accountStorageKey(LEGACY_DRAFT_STORAGE_PREFIX, email); }
+      function briefIndexStorageKey(email = state.user?.email) { return accountStorageKey(BRIEF_INDEX_STORAGE_PREFIX, email); }
+      function briefStorageKey(id) { return `${BRIEF_STORAGE_PREFIX}${id}`; }
+      function now() { return new Date().toISOString(); }
+      function makeToken(bytesLength = 18) {
+        const bytes = new Uint8Array(bytesLength);
+        if (window.crypto?.getRandomValues) window.crypto.getRandomValues(bytes);
+        else for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256);
+        return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+      }
+      function makeBriefId() { return `brief_${Date.now().toString(36)}_${makeToken(7)}`; }
+      function makeShareToken() { return makeToken(24); }
+      function getBriefs(email = state.user?.email) {
+        try {
+          const stored = JSON.parse(localStorage.getItem(briefIndexStorageKey(email)));
+          return Array.isArray(stored) ? stored : [];
+        } catch (error) { return []; }
+      }
+      function setBriefs(briefs, email = state.user?.email) {
+        localStorage.setItem(briefIndexStorageKey(email), JSON.stringify(briefs));
+      }
+      function readBrief(id) {
+        try { return JSON.parse(localStorage.getItem(briefStorageKey(id))); } catch (error) { return null; }
+      }
+      function writeShareSnapshot(record, payload) {
+        if (!record.token) return;
+        localStorage.setItem(`${SHARE_STORAGE_PREFIX}${record.token}`, JSON.stringify({
+          id: record.id, title: record.title, publishedAt: record.publishedAt, profile: payload.profile, answers: payload.answers
+        }));
+      }
+      function briefTitle(record) { return record?.title || 'Untitled founder brief'; }
+      function briefStatus(record) { return record?.status === 'published' ? 'Published' : 'Draft'; }
+      function relativeDate(value) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return 'just now';
+        const minutes = Math.round((Date.now() - date.getTime()) / 60000);
+        if (minutes < 2) return 'just now';
+        if (minutes < 60) return `${minutes} min ago`;
+        const hours = Math.round(minutes / 60);
+        if (hours < 24) return `${hours} hr ago`;
+        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      }
+      function resetDraftState(name = '') {
+        state.profile = { founderName: name, companyName: '', stage: 'Exploring a problem' };
+        state.answers = {};
+        state.current = 0;
+      }
+      function createBrief() {
+        if (!state.user) return null;
+        const createdAt = now();
+        const record = { id: makeBriefId(), title: 'Untitled founder brief', status: 'draft', createdAt, updatedAt: createdAt, answerCount: 0, stage: 'Not started', token: null, publishedAt: null };
+        setBriefs([record, ...getBriefs()]);
+        state.briefId = record.id;
+        resetDraftState(state.user.name || '');
+        save();
+        return record;
+      }
+      function loadBrief(id) {
+        const record = getBriefs().find(brief => brief.id === id);
+        const saved = record && readBrief(id);
+        if (!record || !saved?.profile || !saved.answers) return false;
+        state.briefId = id;
+        state.profile = saved.profile;
+        state.answers = saved.answers;
+        state.current = Number.isInteger(saved.current) ? Math.min(Math.max(saved.current, 0), allQuestions.length - 1) : 0;
+        return true;
+      }
+      function migrateLegacyBrief(account) {
+        const existing = getBriefs(account.email);
+        if (existing.length) return existing;
+        try {
+          const legacy = JSON.parse(localStorage.getItem(legacyDraftStorageKey(account.email)));
+          if (!legacy?.profile || !legacy.answers) return existing;
+          const createdAt = now();
+          const count = Object.values(legacy.answers).filter(answer => answer?.text?.trim()).length;
+          const record = { id: makeBriefId(), title: legacy.profile.companyName || 'Untitled founder brief', status: 'draft', createdAt, updatedAt: createdAt, answerCount: count, stage: legacy.profile.companyName ? legacy.profile.stage : 'Not started', token: null, publishedAt: null };
+          setBriefs([record], account.email);
+          localStorage.setItem(briefStorageKey(record.id), JSON.stringify({ profile: legacy.profile, answers: legacy.answers, current: legacy.current || 0, createdAt, updatedAt: createdAt }));
+          return [record];
+        } catch (error) { return existing; }
+      }
+      function syncProfileInputs() {
+        els.founderName.value = state.profile.founderName;
+        els.companyName.value = state.profile.companyName;
+        els.stage.value = state.profile.stage;
+      }
+      function updateAuthChrome() {
+        const authenticated = Boolean(state.user);
+        document.getElementById('dashboard-button').hidden = !authenticated;
+        document.getElementById('sign-out-button').hidden = !authenticated;
+        document.getElementById('reset-button').hidden = !authenticated;
+        els.app.classList.toggle('is-authenticated', authenticated);
+      }
+      function save() {
+        if (!state.user || !state.briefId) return;
+        try {
+          const briefs = getBriefs();
+          const record = briefs.find(brief => brief.id === state.briefId);
+          if (!record) return;
+          const updatedAt = now();
+          record.title = state.profile.companyName.trim() || 'Untitled founder brief';
+          record.answerCount = answeredCount();
+          record.stage = state.profile.companyName.trim() ? state.profile.stage : 'Not started';
+          record.updatedAt = updatedAt;
+          const payload = { profile: state.profile, answers: state.answers, current: state.current, createdAt: record.createdAt, updatedAt };
+          localStorage.setItem(briefStorageKey(record.id), JSON.stringify(payload));
+          setBriefs(briefs);
+          if (record.status === 'published') writeShareSnapshot(record, payload);
+          const savedStatus = 'Brief saved in this browser';
+          els.status.textContent = savedStatus;
+          window.setTimeout(() => { if (els.status.textContent === savedStatus) els.status.textContent = ''; }, 1800);
+        } catch (error) { els.status.textContent = 'Draft could not be saved. Keep this tab open and export a copy.'; els.status.classList.add('error-text'); }
+      }
+      function restore() {
+        try {
+          const account = JSON.parse(localStorage.getItem(ACCOUNT_STORAGE_KEY));
+          const session = JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY));
+          if (account && session?.email === account.email) {
+            state.user = account;
+            const briefs = migrateLegacyBrief(account).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+            if (briefs[0]) loadBrief(briefs[0].id);
+            else resetDraftState(account.name || '');
+          }
+        } catch (error) { /* Start clean when storage is malformed or unavailable. */ }
+        syncProfileInputs();
+        updateAuthChrome();
+      }
+      function updateProgress() {
+        const percentage = Math.round((answeredCount() / allQuestions.length) * 100);
+        els.fill.style.width = percentage + '%';
+        els.fill.parentElement.setAttribute('aria-valuenow', percentage);
+        document.getElementById('progress-label').textContent = `${answeredCount()} of ${allQuestions.length} answers saved`;
+        renderNav();
+      }
+      function renderNav() {
+        els.nav.innerHTML = sections.map((section, sectionIndex) => {
+          const active = allQuestions[state.current] && allQuestions[state.current].sectionIndex === sectionIndex;
+          const completed = sectionComplete(sectionIndex);
+          return `<section class="nav-section ${completed ? 'complete' : ''}"><button type="button" class="nav-section-title" data-section="${sectionIndex}" ${active ? 'aria-current="step"' : ''}><span class="nav-dot">${completed ? '✓' : sectionIndex + 1}</span><span>${escapeHTML(section.name)}</span></button><div class="nav-question-list">${section.questions.map((question, questionIndex) => {
+            const index = sectionIndex * 3 + questionIndex;
+            const answered = answerFor(index).text.trim();
+            const current = state.current === index;
+            return `<button type="button" class="nav-question ${answered ? 'answered' : ''}" data-question="${index}" ${current ? 'aria-current="step"' : ''}><span class="nav-question-index">${answered ? '✓' : String(index + 1).padStart(2, '0')}</span><span class="nav-question-text">${escapeHTML(question.title)}</span></button>`;
+          }).join('')}</div></section>`;
+        }).join('');
+        els.nav.querySelectorAll('[data-section]').forEach(button => button.addEventListener('click', () => { state.current = Number(button.dataset.section) * 3; threadNearBottom = true; showScreen('interview-screen'); renderQuestion(); }));
+        els.nav.querySelectorAll('[data-question]').forEach(button => button.addEventListener('click', () => { state.current = Number(button.dataset.question); threadNearBottom = true; showScreen('interview-screen'); renderQuestion(); }));
+      }
+      function showScreen(id) {
+        const accountRequired = ['dashboard-screen', 'setup-screen', 'interview-screen', 'report-screen'];
+        if (accountRequired.includes(id) && !state.user) {
+          setAuthMode('signup');
+          id = 'auth-screen';
+        }
+        document.querySelectorAll('.screen').forEach(screen => screen.classList.toggle('active', screen.id === id));
+        if (id === 'report-screen') renderReport();
+        if (id === 'dashboard-screen') renderDashboard();
+        if (id === 'setup-screen') { syncProfileInputs(); els.founderName.focus(); }
+        if (id === 'interview-screen') window.setTimeout(() => els.answer.focus(), 30);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      function renderDashboard() {
+        if (!state.user) return;
+        const briefs = getBriefs().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        document.getElementById('dashboard-greeting').textContent = `${firstName(state.user.name)}, your founder briefs.`;
+        document.getElementById('dashboard-brief-list').innerHTML = briefs.length ? briefs.map(record => `<article class="brief-row"><div class="brief-row-main"><div class="brief-row-title"><h4>${escapeHTML(briefTitle(record))}</h4><span class="status-pill ${record.status === 'published' ? 'published' : 'draft'}">${briefStatus(record)}</span></div><div class="brief-meta"><span>${record.answerCount || 0} of ${allQuestions.length} answers</span><span>${escapeHTML(record.stage || 'Not started')}</span><span>Saved ${escapeHTML(relativeDate(record.updatedAt))}</span></div></div><div class="brief-row-actions"><button class="button button-dark" type="button" data-continue-brief="${record.id}">${record.answerCount ? 'Continue' : 'Start'} <span aria-hidden="true">→</span></button><button class="button button-quiet" type="button" data-view-brief="${record.id}" ${record.answerCount ? '' : 'disabled'}>View</button><button class="button button-quiet" type="button" data-share-brief="${record.id}">${record.status === 'published' ? 'Share' : 'Publish'}</button><button class="button-text" type="button" data-delete-brief="${record.id}">Delete</button></div></article>`).join('') : `<div class="brief-empty"><h3>Your first brief starts here.</h3><p>One clear conversation at a time. You can save a draft before every question is answered.</p><button class="button button-dark" type="button" data-create-brief>Start a brief <span aria-hidden="true">→</span></button></div>`;
+        document.getElementById('dashboard-brief-list').querySelectorAll('[data-continue-brief]').forEach(button => button.addEventListener('click', () => continueBrief(button.dataset.continueBrief)));
+        document.getElementById('dashboard-brief-list').querySelectorAll('[data-view-brief]').forEach(button => button.addEventListener('click', () => { if (loadBrief(button.dataset.viewBrief)) showScreen('report-screen'); }));
+        document.getElementById('dashboard-brief-list').querySelectorAll('[data-share-brief]').forEach(button => button.addEventListener('click', () => openShareDialog(button.dataset.shareBrief)));
+        document.getElementById('dashboard-brief-list').querySelectorAll('[data-delete-brief]').forEach(button => button.addEventListener('click', () => openDeleteDialog(button.dataset.deleteBrief)));
+        document.getElementById('dashboard-brief-list').querySelectorAll('[data-create-brief]').forEach(button => button.addEventListener('click', startNewBrief));
+        document.getElementById('account-avatar').textContent = firstName(state.user.name).charAt(0).toUpperCase();
+        document.getElementById('account-name').textContent = state.user.name;
+        document.getElementById('account-email').textContent = state.user.email;
+        document.getElementById('account-brief-count').textContent = briefs.length;
+      }
+      function continueBrief(id = state.briefId) {
+        if (!state.user) { setAuthMode('signup'); showScreen('auth-screen'); return; }
+        if (id) loadBrief(id);
+        if (!state.profile.companyName.trim()) { showScreen('setup-screen'); return; }
+        showScreen('interview-screen');
+        renderQuestion();
+      }
+      function startNewBrief() {
+        createBrief();
+        syncProfileInputs();
+        updateProgress();
+        showScreen('setup-screen');
+        showToast('New brief created');
+      }
+      function shareUrl(token) {
+        const url = new URL(window.location.href);
+        url.hash = `share=${token}`;
+        return url.href;
+      }
+      function publishBrief(id) {
+        if (id === state.briefId) save();
+        const briefs = getBriefs();
+        const record = briefs.find(brief => brief.id === id);
+        if (!record) return null;
+        if (!record.token) record.token = makeShareToken();
+        record.status = 'published';
+        record.publishedAt = record.publishedAt || now();
+        record.updatedAt = now();
+        setBriefs(briefs);
+        const payload = readBrief(id);
+        if (payload) writeShareSnapshot(record, payload);
+        return record;
+      }
+      function openShareDialog(id) {
+        const record = publishBrief(id);
+        if (!record) return;
+        const dialog = document.getElementById('share-dialog');
+        dialog.dataset.briefId = id;
+        document.getElementById('share-link-input').value = shareUrl(record.token);
+        dialog.showModal();
+        renderDashboard();
+      }
+      async function copyShareLink() {
+        const input = document.getElementById('share-link-input');
+        input.select();
+        try {
+          if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(input.value);
+          else document.execCommand('copy');
+          showToast('Share link copied');
+        } catch (error) { showToast('Select and copy the link above'); }
+      }
+      function unpublishBrief() {
+        const id = document.getElementById('share-dialog').dataset.briefId;
+        const briefs = getBriefs();
+        const record = briefs.find(brief => brief.id === id);
+        if (!record) return;
+        if (record.token) localStorage.removeItem(`${SHARE_STORAGE_PREFIX}${record.token}`);
+        record.status = 'draft';
+        record.token = null;
+        record.publishedAt = null;
+        record.updatedAt = now();
+        setBriefs(briefs);
+        document.getElementById('share-dialog').close();
+        renderDashboard();
+        showToast('Brief is private again');
+      }
+      function openDeleteDialog(id) {
+        const record = getBriefs().find(brief => brief.id === id);
+        if (!record) return;
+        const dialog = document.getElementById('delete-dialog');
+        dialog.dataset.briefId = id;
+        document.getElementById('delete-dialog-copy').textContent = `Delete “${briefTitle(record)}”? Its saved answers${record.status === 'published' ? ' and published preview link' : ''} will be removed from this browser.`;
+        dialog.showModal();
+      }
+      function deleteBrief() {
+        const dialog = document.getElementById('delete-dialog');
+        const id = dialog.dataset.briefId;
+        const briefs = getBriefs();
+        const record = briefs.find(brief => brief.id === id);
+        if (!record) return;
+        localStorage.removeItem(briefStorageKey(id));
+        if (record.token) localStorage.removeItem(`${SHARE_STORAGE_PREFIX}${record.token}`);
+        const remaining = briefs.filter(brief => brief.id !== id);
+        setBriefs(remaining);
+        if (state.briefId === id) {
+          state.briefId = null;
+          if (remaining[0]) loadBrief(remaining[0].id);
+          else resetDraftState(state.user?.name || '');
+        }
+        dialog.close();
+        updateProgress();
+        renderDashboard();
+        showToast('Brief deleted');
+      }
+      function renderSharedBrief(snapshot) {
+        document.getElementById('share-brief-title').textContent = snapshot.title || snapshot.profile?.companyName || 'Founder brief';
+        document.getElementById('share-brief-meta').textContent = `${snapshot.profile?.founderName || 'Founder'} · ${snapshot.profile?.stage || 'Founderive brief'}`;
+        const answered = allQuestions.map((question, index) => ({ question, answer: snapshot.answers?.[index] })).filter(item => item.answer?.text?.trim());
+        document.getElementById('share-brief-content').innerHTML = answered.length ? `<div class="profile-line"><div class="initials">${escapeHTML((snapshot.profile?.founderName || 'F').charAt(0).toUpperCase())}</div><div><h3>${escapeHTML(snapshot.profile?.founderName || 'Founder')}</h3><p>${escapeHTML(snapshot.profile?.companyName || 'Founderive brief')}</p></div></div><p class="report-disclaimer">A founder-owned, evidence-first discussion brief.</p><ul class="evidence-list">${answered.map(item => `<li><strong>${escapeHTML(item.question.title)}</strong><span>${escapeHTML(shortText(item.answer.text))}${item.answer.evidence ? '\n\nSpecific evidence available.' : ''}</span></li>`).join('')}</ul>` : `<div class="empty-report"><h3>This brief is still being shaped.</h3><p>The founder has not shared any responses yet.</p></div>`;
+      }
+      function openSharedBriefFromHash() {
+        const match = window.location.hash.match(/^#share=([a-f0-9]{24,})$/i);
+        if (!match) return false;
+        try {
+          const snapshot = JSON.parse(localStorage.getItem(`${SHARE_STORAGE_PREFIX}${match[1]}`));
+          if (!snapshot) return false;
+          renderSharedBrief(snapshot);
+          showScreen('share-screen');
+          return true;
+        } catch (error) { return false; }
+      }
+      function setAuthMode(mode) {
+        const signingIn = mode === 'signin';
+        document.getElementById('signup-form').classList.toggle('active', !signingIn);
+        document.getElementById('signin-form').classList.toggle('active', signingIn);
+        document.getElementById('auth-title').textContent = signingIn ? 'Welcome back.' : 'Start your free brief.';
+        document.getElementById('auth-copy').textContent = signingIn ? 'Sign in to continue the founder brief saved in this browser.' : 'Save your progress and return when you have the space to think clearly.';
+        document.getElementById('signup-error').textContent = '';
+        document.getElementById('signin-error').textContent = '';
+        window.setTimeout(() => document.getElementById(signingIn ? 'signin-email' : 'signup-name').focus(), 30);
+      }
+      function makeSalt() {
+        const bytes = new Uint8Array(16);
+        if (window.crypto?.getRandomValues) window.crypto.getRandomValues(bytes);
+        else for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256);
+        return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+      }
+      async function hashPassword(password, salt) {
+        if (window.crypto?.subtle) {
+          const data = new TextEncoder().encode(`${salt}:${password}`);
+          const hash = await window.crypto.subtle.digest('SHA-256', data);
+          return Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
+        }
+        // File-based previews do not always expose Web Crypto. This avoids saving
+        // the raw password, but it is intentionally not presented as real security.
+        let hash = 2166136261;
+        for (const character of `${salt}:${password}`) {
+          hash ^= character.charCodeAt(0);
+          hash = Math.imul(hash, 16777619);
+        }
+        return `local-${(hash >>> 0).toString(16)}`;
+      }
+      function saveAndExit() {
+        const active = document.querySelector('.screen.active')?.id;
+        if (active === 'setup-screen') {
+          state.profile = { founderName: els.founderName.value.trim() || state.user?.name || '', companyName: els.companyName.value.trim(), stage: els.stage.value };
+        }
+        if (active === 'interview-screen') saveCurrent();
+        save();
+        updateProgress();
+        showScreen('dashboard-screen');
+        showToast('Draft saved');
+      }
+      function signOut() {
+        save();
+        try { localStorage.removeItem(SESSION_STORAGE_KEY); } catch (error) { /* The UI can still return to guest mode. */ }
+        state.user = null;
+        state.briefId = null;
+        resetDraftState();
+        syncProfileInputs();
+        updateAuthChrome();
+        updateProgress();
+        showScreen('welcome-screen');
+        showToast('Signed out');
+      }
+      function saveCurrent() {
+        const previous = answerFor(state.current);
+        const unchanged = previous.text === els.answer.value && previous.evidence === els.evidence.checked;
+        state.answers[state.current] = { text: els.answer.value, evidence: els.evidence.checked, confirmed: unchanged && Boolean(previous.confirmed) };
+        save(); updateProgress();
+      }
+      function coachMessage(question, current = false) {
+        return `<div class="message coach ${current ? 'current' : ''}"><div class="message-avatar" aria-hidden="true">✦</div><div class="message-body"><span class="message-name">founderive coach</span><div class="bubble"><p class="prompt-text">${escapeHTML(question.title)}</p>${current ? `<p class="prompt-purpose">${escapeHTML(question.purpose)}</p>` : ''}</div></div></div>`;
+      }
+      function founderMessage(answer) {
+        const name = escapeHTML((state.profile.founderName || 'You').split(/\s+/)[0]);
+        return `<div class="message user"><div class="message-body"><span class="message-name">${name}</span><div class="bubble"><p>${escapeHTML(answer.text)}</p>${answer.evidence ? '<span class="evidence-pill">Specific evidence available</span>' : ''}</div></div><div class="message-avatar" aria-hidden="true">${name.charAt(0).toUpperCase()}</div></div>`;
+      }
+      function captureCard(index, answer) {
+        const confirmed = Boolean(answer.confirmed);
+        return `<div class="captured-card ${confirmed ? 'confirmed' : ''}"><div><strong>${confirmed ? 'Confirmed by you' : 'Saved in your draft'}</strong></div><p>${confirmed ? 'This response is ready to use in your founder brief.' : 'Confirm it once it says what you mean. You can always revise it.'}</p><div class="capture-actions">${confirmed ? '' : `<button type="button" class="confirm-capture" data-confirm-answer="${index}">Confirm</button>`}<button type="button" data-edit-answer="${index}">Edit</button></div></div>`;
+      }
+      function isThreadNearBottom() {
+        return els.thread.scrollHeight - els.thread.scrollTop - els.thread.clientHeight < 95;
+      }
+      function updateLatestButton() {
+        els.latest.classList.toggle('show', !threadNearBottom);
+      }
+      function scrollThreadToBottom(behavior = 'smooth') {
+        els.thread.scrollTo({ top: els.thread.scrollHeight, behavior });
+        threadNearBottom = true;
+        updateLatestButton();
+      }
+      function founderFoundationPreview() {
+        const foundationItems = [
+          ['Why this company', answerFor(0)],
+          ['Why you', answerFor(1)],
+          ['Company path', answerFor(2)]
+        ].filter(([, answer]) => answer.text.trim());
+        if (!foundationItems.length) {
+          els.foundation.classList.remove('show');
+          els.foundation.innerHTML = '';
+          return;
+        }
+        els.foundation.classList.add('show');
+        els.foundation.innerHTML = `<h4>Your founder foundation</h4><ul>${foundationItems.map(([label, answer]) => {
+          const excerpt = answer.text.replace(/\s+/g, ' ').trim();
+          const display = excerpt.length > 64 ? `${excerpt.slice(0, 61).trimEnd()}…` : excerpt;
+          return `<li><strong>${escapeHTML(label)} · ${answer.confirmed ? 'confirmed' : 'draft'}</strong><span>“${escapeHTML(display)}”</span></li>`;
+        }).join('')}</ul>`;
+      }
+      function bindTranscriptActions() {
+        els.thread.querySelectorAll('[data-confirm-answer]').forEach(button => button.addEventListener('click', () => {
+          const index = Number(button.dataset.confirmAnswer);
+          const answer = answerFor(index);
+          state.answers[index] = { ...answer, confirmed: true };
+          save();
+          founderFoundationPreview();
+          renderTranscript();
+        }));
+        els.thread.querySelectorAll('[data-edit-answer]').forEach(button => button.addEventListener('click', () => {
+          state.current = Number(button.dataset.editAnswer);
+          threadNearBottom = true;
+          renderQuestion();
+        }));
+      }
+      function renderTranscript() {
+        const transcript = [];
+        if (state.current === 0) transcript.push('<p class="chat-intro">I’ll guide the same founder diligence framework one question at a time. There is no perfect answer here—specific and honest is more useful.</p>');
+        for (let index = 0; index < state.current; index += 1) {
+          const priorAnswer = answerFor(index);
+          if (!priorAnswer.text.trim()) continue;
+          transcript.push(coachMessage(allQuestions[index]));
+          transcript.push(founderMessage(priorAnswer));
+          transcript.push(captureCard(index, priorAnswer));
+        }
+        if (state.current > 0 && allQuestions[state.current].questionIndex === 0) {
+          const priorSection = sections[allQuestions[state.current].sectionIndex - 1];
+          const nextSection = allQuestions[state.current].section.name;
+          const status = sectionComplete(allQuestions[state.current].sectionIndex - 1) ? `${priorSection.name} complete` : `Moving on from ${priorSection.name}`;
+          transcript.push(`<div class="section-transition"><strong>${escapeHTML(status)}</strong>Next, we’ll explore ${escapeHTML(nextSection.toLowerCase())}.</div>`);
+        }
+        transcript.push(coachMessage(allQuestions[state.current], true));
+        els.thread.innerHTML = transcript.join('');
+        bindTranscriptActions();
+        window.requestAnimationFrame(() => {
+          if (threadNearBottom) scrollThreadToBottom('auto');
+          else updateLatestButton();
+        });
+      }
+      function renderQuestion() {
+        const question = allQuestions[state.current];
+        const currentAnswer = answerFor(state.current);
+        els.chatDimension.textContent = `Dimension ${question.sectionIndex + 1}: ${question.section.name}`;
+        els.questionPosition.textContent = `Question ${state.current + 1} of ${allQuestions.length}`;
+        els.guideTitle.textContent = question.section.name;
+        els.guideCopy.textContent = question.section.description;
+        founderFoundationPreview();
+        renderTranscript();
+        els.answer.value = currentAnswer.text || '';
+        els.evidence.checked = Boolean(currentAnswer.evidence);
+        els.answer.disabled = false;
+        els.evidence.disabled = false;
+        els.next.disabled = false;
+        els.previous.disabled = false;
+        els.typing.classList.remove('show');
+        updateWordCount();
+        autosizeAnswer();
+        els.previous.hidden = state.current === 0;
+        const finished = state.current === allQuestions.length - 1;
+        els.next.innerHTML = finished ? 'Finish brief <span aria-hidden="true">→</span>' : 'Send <span aria-hidden="true">↑</span>';
+        els.completion.classList.remove('show');
+        renderNav();
+        window.setTimeout(() => {
+          if (document.getElementById('interview-screen').classList.contains('active')) els.answer.focus();
+        }, 35);
+      }
+      function updateWordCount() { els.wordCount.textContent = `${wordCount(els.answer.value)} words`; }
+      function autosizeAnswer() {
+        els.answer.style.height = 'auto';
+        els.answer.style.height = `${Math.min(Math.max(els.answer.scrollHeight, 86), 182)}px`;
+      }
+      function dimensionScore(index) {
+        const answers = [0, 1, 2].map(number => answerFor(index * 3 + number));
+        const depth = answers.reduce((sum, answer) => sum + Math.min(answer.text.trim().length / 240, 1), 0) / 3;
+        const proof = answers.filter(answer => answer.evidence && answer.text.trim()).length / 3;
+        return Math.round((depth * .65 + proof * .35) * 100);
+      }
+      function scoreLabel(score) { return score >= 78 ? 'Well evidenced' : score >= 42 ? 'Developing' : 'Needs evidence'; }
+      function initials() { return (state.profile.founderName || 'FM').split(/\s+/).map(word => word[0]).join('').slice(0, 2).toUpperCase(); }
+      function shortText(value) { const clean = value.trim(); return clean.length > 360 ? `${clean.slice(0, 357).trimEnd()}…` : clean; }
+      function renderReport() {
+        const count = answeredCount();
+        if (!count) {
+          els.report.innerHTML = `<div class="empty-report"><h3>Your brief has not started yet.</h3><p>Answer a few prompts and this page will turn them into a clear diligence conversation starter.</p><button class="button button-dark" type="button" id="empty-start">Begin the interview</button></div>`;
+          document.getElementById('empty-start').addEventListener('click', () => showScreen('setup-screen'));
+          return;
+        }
+        const completed = sections.map((section, index) => ({ section, index, score: dimensionScore(index) }));
+        const evidence = allQuestions.map((question, index) => ({ question, answer: answerFor(index), index })).filter(item => item.answer.text.trim() && item.answer.evidence);
+        const missing = allQuestions.map((question, index) => ({ question, answer: answerFor(index) })).filter(item => !item.answer.text.trim() || !item.answer.evidence).slice(0, 4);
+        els.report.innerHTML = `
+          <div class="profile-line"><div class="initials">${initials()}</div><div><h3>${escapeHTML(state.profile.founderName || 'Founder')}</h3><p>${escapeHTML(state.profile.companyName || 'Untitled company')} · ${escapeHTML(state.profile.stage)}</p></div></div>
+          <p class="report-disclaimer">This is a completeness view, not a personality score. It reflects the depth of your answers and whether you marked a concrete source of proof.</p>
+          <div class="dimension-grid">${completed.map(item => `<div class="dimension"><div class="dimension-heading"><span>${escapeHTML(item.section.name)}</span><span>${scoreLabel(item.score)}</span></div><div class="progress-track"><div class="progress-fill" style="width:${item.score}%"></div></div></div>`).join('')}</div>
+          <div class="summary-label">Evidence to bring forward</div>
+          ${evidence.length ? `<ul class="evidence-list">${evidence.map(item => `<li><strong>${escapeHTML(item.question.title)}</strong><span>${escapeHTML(shortText(item.answer.text))}</span></li>`).join('')}</ul>` : `<p class="empty-report">Mark an answer as supported by an example, outcome, or verifier to surface it here.</p>`}
+          <div class="summary-label">Still worth pressure-testing</div>
+          ${missing.length ? `<ul class="missing-list">${missing.map(item => `<li>${escapeHTML(item.question.title)}</li>`).join('')}</ul>` : `<p class="empty-report">Every answer includes a source of proof. That is a strong start—now test the stories with someone who will challenge them.</p>`}
+        `;
+      }
+      function buildMarkdown() {
+        const lines = [`# founderive — Founder Brief`, '', `**Founder:** ${state.profile.founderName || 'Founder'}`, `**Company / idea:** ${state.profile.companyName || 'Untitled company'}`, `**Stage:** ${state.profile.stage}`, '', `> This is a founder-owned, evidence-first discussion brief. Completeness scores are not ratings of founder quality.`, ''];
+        sections.forEach((section, sectionIndex) => {
+          lines.push(`## ${section.name}`, `Evidence completeness: ${dimensionScore(sectionIndex)}%`, '');
+          section.questions.forEach((question, questionIndex) => {
+            const answer = answerFor(sectionIndex * 3 + questionIndex);
+            lines.push(`### ${question.title}`, answer.text.trim() || '_Not yet answered._', '', `**Specific evidence available:** ${answer.evidence ? 'Yes' : 'Not yet identified'}`, '');
+          });
+        });
+        return lines.join('\n');
+      }
+      function downloadMarkdown() {
+        const blob = new Blob([buildMarkdown()], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a'); link.href = url; link.download = 'founderive-brief.md'; link.click();
+        URL.revokeObjectURL(url); showToast('Founder brief downloaded');
+      }
+      function showToast(message) { els.toast.textContent = message; els.toast.classList.add('show'); window.setTimeout(() => els.toast.classList.remove('show'), 2200); }
+      function reset() {
+        startNewBrief();
+      }
+      document.getElementById('welcome-primary').addEventListener('click', () => { if (state.user) showScreen('dashboard-screen'); else { setAuthMode('signup'); showScreen('auth-screen'); } });
+      document.getElementById('welcome-secondary').addEventListener('click', () => { if (state.user) showScreen('dashboard-screen'); else { setAuthMode('signin'); showScreen('auth-screen'); } });
+      document.querySelectorAll('[data-auth-mode]').forEach(button => button.addEventListener('click', () => setAuthMode(button.dataset.authMode)));
+      document.getElementById('setup-form').addEventListener('submit', event => {
+        event.preventDefault();
+        if (!els.founderName.value.trim()) { els.setupError.textContent = 'Add your name so the brief has an owner.'; els.setupError.classList.add('error-text'); els.founderName.focus(); return; }
+        els.setupError.textContent = ''; state.profile = { founderName: els.founderName.value.trim(), companyName: els.companyName.value.trim(), stage: els.stage.value }; save(); showScreen('interview-screen'); renderQuestion();
+      });
+      function advanceConversation() {
+        if (advancing) return;
+        saveCurrent();
+        threadNearBottom = true;
+        if (state.current === allQuestions.length - 1) {
+          els.completion.classList.add('show');
+          els.next.disabled = true;
+          window.setTimeout(() => showScreen('report-screen'), 600);
+          return;
+        }
+        advancing = true;
+        els.typing.classList.add('show');
+        els.answer.disabled = true;
+        els.evidence.disabled = true;
+        els.next.disabled = true;
+        els.previous.disabled = true;
+        els.next.textContent = 'Taking notes…';
+        window.setTimeout(() => { state.current += 1; advancing = false; renderQuestion(); }, 560);
+      }
+      els.answer.addEventListener('input', () => { updateWordCount(); autosizeAnswer(); saveCurrent(); });
+      els.answer.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          if (!els.answer.disabled && !els.next.disabled) els.answerForm.requestSubmit();
+        }
+      });
+      els.evidence.addEventListener('change', saveCurrent);
+      els.answerForm.addEventListener('submit', event => { event.preventDefault(); advanceConversation(); });
+      els.previous.addEventListener('click', () => { saveCurrent(); state.current -= 1; threadNearBottom = true; renderQuestion(); });
+      els.thread.addEventListener('scroll', () => { threadNearBottom = isThreadNearBottom(); updateLatestButton(); });
+      els.latest.addEventListener('click', () => scrollThreadToBottom());
+      document.getElementById('setup-save-exit').addEventListener('click', saveAndExit);
+      document.getElementById('save-exit-button').addEventListener('click', saveAndExit);
+      document.getElementById('dashboard-button').addEventListener('click', saveAndExit);
+      document.getElementById('dashboard-new-brief').addEventListener('click', startNewBrief);
+      document.getElementById('sign-out-button').addEventListener('click', signOut);
+      document.getElementById('download-button').addEventListener('click', downloadMarkdown);
+      document.getElementById('print-button').addEventListener('click', () => window.print());
+      document.getElementById('reset-button').addEventListener('click', reset);
+      document.getElementById('copy-share-link').addEventListener('click', copyShareLink);
+      document.getElementById('close-share-dialog').addEventListener('click', () => document.getElementById('share-dialog').close());
+      document.getElementById('unpublish-brief').addEventListener('click', unpublishBrief);
+      document.getElementById('confirm-delete-brief').addEventListener('click', deleteBrief);
+      document.getElementById('cancel-delete-brief').addEventListener('click', () => document.getElementById('delete-dialog').close());
+      document.getElementById('share-back-button').addEventListener('click', () => {
+        const url = new URL(window.location.href); url.hash = '';
+        window.history.replaceState({}, '', url.href);
+        showScreen(state.user ? 'dashboard-screen' : 'welcome-screen');
+      });
+      document.getElementById('signup-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        const error = document.getElementById('signup-error');
+        const name = document.getElementById('signup-name').value.trim();
+        const email = document.getElementById('signup-email').value.trim().toLowerCase();
+        const password = document.getElementById('signup-password').value;
+        const confirmation = document.getElementById('signup-password-confirm').value;
+        if (!name || !email || !password) { error.textContent = 'Add your name, email, and password to create an account.'; error.className = 'error-text'; return; }
+        if (password.length < 8) { error.textContent = 'Choose a password with at least 8 characters.'; error.className = 'error-text'; return; }
+        if (password !== confirmation) { error.textContent = 'Those passwords do not match. Try again.'; error.className = 'error-text'; return; }
+        try {
+          const existing = JSON.parse(localStorage.getItem(ACCOUNT_STORAGE_KEY));
+          if (existing) { error.textContent = 'A local account already exists in this browser. Sign in with that email.'; error.className = 'error-text'; return; }
+          const salt = makeSalt();
+          const passwordHash = await hashPassword(password, salt);
+          const account = { name, email, salt, passwordHash, createdAt: new Date().toISOString() };
+          localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(account));
+          localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ email }));
+          state.user = account;
+          resetDraftState(name);
+          syncProfileInputs();
+          updateAuthChrome();
+          updateProgress();
+          showScreen('dashboard-screen');
+          showToast('Free account created');
+        } catch (authError) { error.textContent = 'Account could not be created in this browser. Try a current browser and try again.'; error.className = 'error-text'; }
+      });
+      document.getElementById('signin-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        const error = document.getElementById('signin-error');
+        const email = document.getElementById('signin-email').value.trim().toLowerCase();
+        const password = document.getElementById('signin-password').value;
+        try {
+          const account = JSON.parse(localStorage.getItem(ACCOUNT_STORAGE_KEY));
+          if (!account || account.email !== email) { error.textContent = 'No local account matches that email. Create a free account to get started.'; error.className = 'error-text'; return; }
+          const passwordHash = await hashPassword(password, account.salt);
+          if (passwordHash !== account.passwordHash) { error.textContent = 'That password does not match this local account. Try again.'; error.className = 'error-text'; return; }
+          state.user = account;
+          localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ email: account.email }));
+          const briefs = migrateLegacyBrief(account).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+          if (briefs[0]) loadBrief(briefs[0].id);
+          else resetDraftState(account.name);
+          syncProfileInputs();
+          updateAuthChrome();
+          updateProgress();
+          showScreen('dashboard-screen');
+          showToast('Signed in');
+        } catch (authError) { error.textContent = 'Sign-in could not be completed in this browser. Try again.'; error.className = 'error-text'; }
+      });
+      restore(); updateProgress(); if (!openSharedBriefFromHash() && state.user) showScreen('dashboard-screen');
+    </script>
+  </body>
+</html>
