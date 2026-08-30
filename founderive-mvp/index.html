@@ -48,6 +48,7 @@
       .brand { display: flex; gap: 9px; align-items: center; color: white; font-weight: 780; letter-spacing: -.055em; font-size: 1.12rem; }
       .brand-mark { width: 27px; height: 27px; display: grid; place-items: center; flex: none; }
       .brand-mark svg { width: 27px; height: 27px; display: block; }
+      .brand-wordmark { height: 19px; width: auto; display: block; }
       .eyebrow { font-size: .72rem; letter-spacing: .12em; font-weight: 800; text-transform: uppercase; }
       .side-progress { padding: 31px 3px 24px; border-bottom: 1px solid rgba(255,255,255,.16); }
       .side-progress p { color: rgba(255,255,255,.72); font-size: .83rem; margin: 0 0 9px; }
@@ -402,7 +403,7 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="15.5" cy="4.75" r="2.2" fill="#f6ffbf"/><path d="M15 26 V13 C15 10 16.8 8.75 19.5 8.75" stroke="#d7ee63" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.5 15 H19" stroke="#d7ee63" stroke-width="3.2" stroke-linecap="round"/></svg></span><span>founderive</span></div>
+        <div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="15.5" cy="4.75" r="2.2" fill="#f6ffbf"/><path d="M15 26 V13 C15 10 16.8 8.75 19.5 8.75" stroke="#d7ee63" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.5 15 H19" stroke="#d7ee63" stroke-width="3.2" stroke-linecap="round"/></svg></span><svg class="brand-wordmark" role="img" aria-label="founderive" viewBox="0 0 148 32" fill="none" style="color:#f2f4ee"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(4,0)"><path d="M6 26 V11 C6 7.8 7.6 6.5 10.5 6.5"/><path d="M1.8 14 H10.2"/></g><g transform="translate(17,0)"><circle cx="7.5" cy="19" r="6.5"/></g><g transform="translate(33,0)"><path d="M2 12 V20.5 C2 24 4.2 26 7 26 C9.8 26 12 24 12 20.5 V12"/></g><g transform="translate(48,0)"><path d="M2 26 V16 C2 13.5 4 12 6.7 12 C9.4 12 11.4 13.5 11.4 16 V26"/></g><g transform="translate(63,0)"><circle cx="7.5" cy="19" r="6.5"/><path d="M14 5 V26"/></g><g transform="translate(80,0)"><path d="M2 19 H13 V16.3 C13 13.6 10.7 12 7.5 12 C4.2 12 2 14.4 2 19 C2 23.6 4.4 26 7.7 26 C10 26 11.7 25.1 12.7 23.2"/></g><g transform="translate(96,0)"><path d="M2 26 V12"/><path d="M2 16 C2 13 4.3 12 7.4 12"/></g><g transform="translate(107,0)"><path d="M2 26 V12"/></g><g transform="translate(113,0)"><path d="M2 12 L7 26 L12 12"/></g><g transform="translate(128,0)"><path d="M2 19 H13 V16.3 C13 13.6 10.7 12 7.5 12 C4.2 12 2 14.4 2 19 C2 23.6 4.4 26 7.7 26 C10 26 11.7 25.1 12.7 23.2"/></g></g><circle cx="109" cy="7.6" r="1.9" fill="#d7ee63"/></svg></div>
         <div class="side-progress">
           <p id="progress-label">Your diligence brief</p>
           <div class="progress-track" aria-label="Interview progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="progress-fill"></div></div>
