@@ -359,6 +359,43 @@
         .report-panel { box-shadow: none; border: 0; padding: 0; }
         .dimension { break-inside: avoid; }
       }
+      /* builder chrome is scoped to the builder flow only */
+      .app-shell:not(.interview-mode) .side-progress, .app-shell:not(.interview-mode) .section-nav, .app-shell:not(.interview-mode) .side-review { display: none; }
+      /* completed-step states in the stepper */
+      .nav-question.answered .nav-question-text { color: rgba(255,255,255,.92); }
+      .nav-question.answered .nav-question-index { color: var(--lime); font-weight: 800; }
+      .nav-section.complete .nav-section-title { color: var(--lime); }
+      .nav-section.complete .nav-dot { background: var(--lime); color: var(--navy); border-color: var(--lime); }
+      .side-review { margin: 4px 3px 2px; }
+      .side-review button { width: 100%; text-align: left; background: rgba(255,255,255,.06); color: rgba(255,255,255,.82); border: 1px solid rgba(255,255,255,.14); border-radius: 9px; padding: 10px 12px; font: inherit; font-size: .8rem; cursor: pointer; }
+      .side-review button:hover:not(:disabled) { background: rgba(255,255,255,.12); color: #fff; }
+      .side-review button:disabled { opacity: .4; cursor: default; }
+      /* section intro page */
+      .section-intro { max-width: 620px; margin: 0 auto; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 34px 34px 30px; box-shadow: var(--shadow); }
+      .section-intro .eyebrow { color: #7b5b15; }
+      .section-intro h2 { font-size: 1.72rem; margin: 6px 0 3px; }
+      .section-dim-count { color: var(--muted); font-size: .82rem; margin-bottom: 18px; }
+      .section-why { font-size: 1.04rem; line-height: 1.6; color: #333d47; }
+      .section-desc { margin-top: 11px; color: var(--muted); line-height: 1.55; }
+      .section-transition-inline { margin-top: 18px; padding: 11px 14px; border-radius: 10px; background: #f6faf0; border: 1px solid #dce4d8; color: #45635a; font-size: .82rem; line-height: 1.45; }
+      .section-qlist { margin: 20px 0 26px; padding: 0; list-style: none; display: grid; gap: 10px; }
+      .section-qlist li { display: flex; gap: 11px; align-items: baseline; color: #3d4753; font-size: .93rem; line-height: 1.4; }
+      .section-qlist .qnum { color: var(--muted); font-variant-numeric: tabular-nums; font-size: .8rem; min-width: 16px; }
+      .section-intro-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+      /* per-question guidance under the answer box */
+      .answer-hint { margin: 9px 0 0; font-size: .82rem; line-height: 1.45; color: #536d77; }
+      .answer-hint strong { color: var(--navy); font-weight: 700; }
+      /* review page */
+      .review-wrap { max-width: 720px; margin: 0 auto; }
+      .review-list { display: grid; gap: 13px; margin: 22px 0 24px; }
+      .review-dim-head { font-size: .74rem; letter-spacing: .12em; text-transform: uppercase; color: #7b5b15; margin: 10px 2px 1px; }
+      .review-item { border: 1px solid var(--line); border-radius: 13px; padding: 15px 17px; background: var(--paper); }
+      .review-q { font-weight: 700; color: var(--navy); font-size: .9rem; line-height: 1.35; }
+      .review-a { margin-top: 7px; color: #4d5561; font-size: .89rem; line-height: 1.55; white-space: pre-line; }
+      .review-a.empty { color: #b0433a; font-style: italic; }
+      .review-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 11px; gap: 12px; }
+      .review-flag { font-size: .75rem; color: #536d77; }
+      .review-actions { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
     </style>
   </head>
   <body>
@@ -370,6 +407,7 @@
           <div class="progress-track" aria-label="Interview progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="progress-fill"></div></div>
         </div>
         <nav class="section-nav" aria-label="Founder interview sections" id="section-nav"></nav>
+        <div class="side-review"><button type="button" id="side-review-button" disabled>Review all answers →</button></div>
         <div class="side-bottom"><strong>Private by default</strong>Your answers stay in this browser until you choose to export.</div>
       </aside>
       <main>
@@ -458,9 +496,9 @@
                 <div class="completion-note" id="completion-note" role="status">The core interview is complete. Your brief is ready to review.</div>
                 <form class="composer" id="answer-form">
                   <label for="answer"><span>Your response</span><span class="word-count" id="word-count">0 words</span></label>
-                  <textarea id="answer" placeholder="Write it as you'd say it out loud—one moment, what you did, how it turned out. A specific example beats a polished paragraph, and one honest sentence is fine."></textarea>
+                  <textarea id="answer" placeholder="Write it as you'd say it out loud. One honest, specific answer is all this needs—a single sentence is fine."></textarea>
+                  <p class="answer-hint" id="answer-hint"></p>
                   <div class="composer-footer">
-                    <div class="composer-tools"><label class="evidence-field"><span>Point to one specific example—optional, but it's what makes an answer land with a reader.</span><input id="evidence-example" type="text" placeholder="e.g. the exact moment, a number, or how it turned out" /></label></div>
                     <div class="composer-actions"><button class="back-button" type="button" id="previous-button">← Back</button><button class="button-text" type="button" id="save-exit-button">Save and exit</button><button class="button button-dark" type="submit" id="next-button">Send <span aria-hidden="true">↑</span></button></div>
                   </div>
                 </form>
@@ -473,6 +511,27 @@
                 <div class="foundation-preview" id="foundation-preview"></div>
                 <p class="guide-rule">A specific, honest answer—flaws included—reads as strength to a serious partner. A polished non-answer reads as evasive. Investors fund self-awareness, not a flawless front.</p>
               </aside>
+            </div>
+          </section>
+
+          <section class="screen" id="section-screen">
+            <div class="section-intro">
+              <div class="eyebrow" id="section-intro-eyebrow">Dimension</div>
+              <h2 id="section-intro-title"></h2>
+              <p class="section-dim-count" id="section-intro-count"></p>
+              <p class="section-why" id="section-intro-why"></p>
+              <p class="section-desc" id="section-intro-desc"></p>
+              <div class="section-transition-inline" id="section-intro-transition" hidden></div>
+              <ul class="section-qlist" id="section-intro-qlist"></ul>
+              <div class="section-intro-actions"><button class="button-text" type="button" id="section-back-button">← Back</button><button class="button button-dark" type="button" id="section-begin-button">Begin this dimension <span aria-hidden="true">→</span></button></div>
+            </div>
+          </section>
+
+          <section class="screen" id="review-screen">
+            <div class="review-wrap">
+              <div class="section-heading"><div class="eyebrow" style="color:#7b5b15">Final step</div><h2>Review your answers.</h2><p>Read back what you wrote, edit anything that doesn't sound like you, then save your brief.</p></div>
+              <div class="review-list" id="review-list"></div>
+              <div class="review-actions"><button class="button-text" type="button" id="review-back-button">← Back to questions</button><button class="button button-dark" type="button" id="review-save-button">Save brief <span aria-hidden="true">→</span></button></div>
             </div>
           </section>
 
@@ -498,35 +557,35 @@
 
     <script>
       const sections = [
-        { id: 'motivation', name: 'Origin & commitment', description: 'Find the durable reason behind this company—not the version that just sounds good in a deck.', questions: [
-          { title: 'Why do you need to build this company, rather than simply wanting to?', purpose: 'The reason that survives after praise and optionality fade is what a partner underwrites. Naming the real one honestly is more convincing than the version that sounds good in a deck.' },
-          { title: 'Why are you specifically positioned to solve this problem?', purpose: 'Founder–market fit is one of the few things investors weight heavily. Ground it in lived experience, skill, or access—specific beats impressive, and it is genuinely in your favor here.' },
-          { title: 'What kind of company and life are you actually trying to build?', purpose: 'A partner needs to know if venture scale, profitability, or autonomy is the real goal. Being honest now prevents a mismatch that would cost you later, not just them.' }
+        { id: 'motivation', name: 'Origin & commitment', description: 'Find the durable reason behind this company—not the version that just sounds good in a deck.', why: 'This is the first thing a partner reads: whether your reason for building is durable enough to survive the years when it stops being fun.', questions: [
+          { title: 'Why do you need to build this company, rather than simply wanting to?', purpose: 'The reason that survives after praise and optionality fade is what a partner underwrites. Naming the real one honestly is more convincing than the version that sounds good in a deck.', hint: 'Name the specific experience or cost behind the need—what keeps pulling you back even on the worst days.' },
+          { title: 'Why are you specifically positioned to solve this problem?', purpose: 'Founder–market fit is one of the few things investors weight heavily. Ground it in lived experience, skill, or access—specific beats impressive, and it is genuinely in your favor here.', hint: 'Point to the lived experience, skill, or access that makes you hard to replace on this problem.' },
+          { title: 'What kind of company and life are you actually trying to build?', purpose: 'A partner needs to know if venture scale, profitability, or autonomy is the real goal. Being honest now prevents a mismatch that would cost you later, not just them.', hint: 'Be honest about the scale and the life you actually want—venture-size, profitable, or independent.' }
         ]},
-        { id: 'reality', name: 'Reality & learning', description: 'Strong opinions are useful. The ability to revise them under evidence is what makes them investable.', questions: [
-          { title: 'Tell the story of a belief you changed after reality contradicted it.', purpose: 'Investors fund people who update on evidence, not people who are never wrong. A concrete story of changing your mind reads as strength, not weakness.' },
-          { title: 'How do you distinguish thoughtful strategy from avoidance?', purpose: 'Naming where planning turns into procrastination shows the self-awareness most founders lack—and it is exactly what a partner is listening for.' },
-          { title: 'What evidence would cause you to change direction? What evidence would cause you to stop?', purpose: 'Making your thresholds explicit signals judgment, not doubt. A partner trusts a founder who has already thought about when to change course or stop.' }
+        { id: 'reality', name: 'Reality & learning', description: 'Strong opinions are useful. The ability to revise them under evidence is what makes them investable.', why: 'Investors back people who change their minds on evidence. This dimension is about how you handle being wrong.', questions: [
+          { title: 'Tell the story of a belief you changed after reality contradicted it.', purpose: 'Investors fund people who update on evidence, not people who are never wrong. A concrete story of changing your mind reads as strength, not weakness.', hint: 'Give one real belief, the signal that contradicted it, and what you did next.' },
+          { title: 'How do you distinguish thoughtful strategy from avoidance?', purpose: 'Naming where planning turns into procrastination shows the self-awareness most founders lack—and it is exactly what a partner is listening for.', hint: 'Describe how you tell productive planning from comfortable stalling—ideally with a time you caught yourself.' },
+          { title: 'What evidence would cause you to change direction? What evidence would cause you to stop?', purpose: 'Making your thresholds explicit signals judgment, not doubt. A partner trusts a founder who has already thought about when to change course or stop.', hint: 'State the concrete signals—numbers, dates, or events—that would move you off the current path.' }
         ]},
-        { id: 'execution', name: 'Execution under pressure', description: 'Early companies have incomplete information by default. Show how you create momentum without waiting for certainty.', questions: [
-          { title: 'What have you sustained after the excitement wore off?', purpose: 'Consistency through the boring middle predicts survival better than any highlight reel. One real thing you stuck with beats a perfect resume.' },
-          { title: 'Describe a high-stakes decision you made with incomplete information.', purpose: 'Every early company runs on incomplete information. Showing how you decided at 60% certainty is the exact competence a partner is buying.' },
-          { title: 'At any point in your career, can you sell something new and incomplete? What is the strongest evidence?', purpose: 'Selling from zero is survival-level for a founder. A specific instance—even a hard no you stayed with—demonstrates it far better than a claim.' }
+        { id: 'execution', name: 'Execution under pressure', description: 'Early companies have incomplete information by default. Show how you create momentum without waiting for certainty.', why: 'Early companies run on incomplete information. This is where a partner looks for momentum without certainty.', questions: [
+          { title: 'What have you sustained after the excitement wore off?', purpose: 'Consistency through the boring middle predicts survival better than any highlight reel. One real thing you stuck with beats a perfect resume.', hint: 'Name one thing you kept going through the boring middle, and roughly how long you stayed with it.' },
+          { title: 'Describe a high-stakes decision you made with incomplete information.', purpose: 'Every early company runs on incomplete information. Showing how you decided at 60% certainty is the exact competence a partner is buying.', hint: 'Walk through one call you made at about 60% certainty: the stakes, the choice, the result.' },
+          { title: 'At any point in your career, can you sell something new and incomplete? What is the strongest evidence?', purpose: 'Selling from zero is survival-level for a founder. A specific instance—even a hard no you stayed with—demonstrates it far better than a claim.', hint: 'Give the strongest instance you convinced someone to buy in early—even a hard no you stayed in.' }
         ]},
-        { id: 'self', name: 'Self-awareness & resilience', description: 'The useful answer is not “I work too hard.” It is the pattern that could hurt the company and the mechanism that contains it.', questions: [
-          { title: 'What is one of your real founder limitations—and how has it hurt you before?', purpose: 'A named, contained weakness builds more trust than a flawless front. Investors assume everyone has one—hiding it is the actual red flag.' },
-          { title: 'What happens to your behavior when you feel you are losing control?', purpose: 'A future partner would rather know your pattern under stress than be surprised by it later. Candor here reads as maturity, not fragility.' },
-          { title: 'How do you stay sustainable during a long, uncertain stretch?', purpose: 'Burnout quietly kills companies. Showing real recovery and support tells a partner you can go the distance.' }
+        { id: 'self', name: 'Self-awareness & resilience', description: 'The useful answer is not “I work too hard.” It is the pattern that could hurt the company and the mechanism that contains it.', why: 'A partner would rather know your real edges than be surprised by them later. Candor here reads as maturity.', questions: [
+          { title: 'What is one of your real founder limitations—and how has it hurt you before?', purpose: 'A named, contained weakness builds more trust than a flawless front. Investors assume everyone has one—hiding it is the actual red flag.', hint: 'Name one genuine limitation and a specific time it cost you something.' },
+          { title: 'What happens to your behavior when you feel you are losing control?', purpose: 'A future partner would rather know your pattern under stress than be surprised by it later. Candor here reads as maturity, not fragility.', hint: 'Describe what actually happens to your behavior under pressure—be concrete, not aspirational.' },
+          { title: 'How do you stay sustainable during a long, uncertain stretch?', purpose: 'Burnout quietly kills companies. Showing real recovery and support tells a partner you can go the distance.', hint: 'Point to the real boundaries, support, or recovery habits that keep you in the game.' }
         ]},
-        { id: 'trust', name: 'Trust & leadership', description: 'Investment puts pressure on judgment and integrity. Make your operating principles concrete enough to be useful.', questions: [
-          { title: 'Tell me about a time telling the truth cost you something.', purpose: 'Integrity only shows when it costs you. A concrete example is worth more than any values statement—and it is what a partner is really testing.' },
-          { title: 'Who can challenge you—and what makes you listen?', purpose: 'Coachable but not easily led is the balance investors want. An example of advice you took—or correctly rejected—shows both at once.' },
-          { title: 'What would a former collaborator say is difficult about working with you?', purpose: 'Naming your own hard edges before a reference call does is disarming. It signals the self-awareness that lowers team risk in a partner’s eyes.' }
+        { id: 'trust', name: 'Trust & leadership', description: 'Investment puts pressure on judgment and integrity. Make your operating principles concrete enough to be useful.', why: 'Capital puts pressure on judgment and integrity. This dimension makes your operating principles concrete.', questions: [
+          { title: 'Tell me about a time telling the truth cost you something.', purpose: 'Integrity only shows when it costs you. A concrete example is worth more than any values statement—and it is what a partner is really testing.', hint: 'Tell one story where honesty cost you something real—what you lost, and why you did it anyway.' },
+          { title: 'Who can challenge you—and what makes you listen?', purpose: 'Coachable but not easily led is the balance investors want. An example of advice you took—or correctly rejected—shows both at once.', hint: 'Name a person who can push you, and one piece of advice you took or correctly rejected.' },
+          { title: 'What would a former collaborator say is difficult about working with you?', purpose: 'Naming your own hard edges before a reference call does is disarming. It signals the self-awareness that lowers team risk in a partner’s eyes.', hint: 'Say what a past colleague found hard about working with you—before a reference call does.' }
         ]},
-        { id: 'team', name: 'Team & capital', description: 'A partner bets on the people around you as much as on you. Show who is in the boat, why they stay, and how you will treat money that is not yours.', questions: [
-          { title: 'How honestly have you examined your founding team? If you have co-founders: how you met, how ownership and decisions are—or will be—divided, and what happens at a true deadlock. If you are solo: why, and how you cover your gaps.', purpose: 'Co-founder conflict ends more companies than the market does. Showing you have stress-tested the relationship—or thought hard about going solo—is exactly what a partner wants to see.' },
-          { title: 'At any point in your life, what is the strongest evidence you can attract people better than you?', purpose: 'Investors bet on founders who attract people better than themselves. One real person who said yes because of you—and is still there—proves it.' },
-          { title: 'How do you think about spending money that is not yours?', purpose: 'A partner is about to hand you capital. How you think about spending it—and where you are frugal by instinct—tells them how their money will be treated.' }
+        { id: 'team', name: 'Team & capital', description: 'A partner bets on the people around you as much as on you. Show who is in the boat, why they stay, and how you will treat money that is not yours.', why: 'A partner bets on the people around you—and how you will treat their money—as much as on you.', questions: [
+          { title: 'How honestly have you examined your founding team? If you have co-founders: how you met, how ownership and decisions are—or will be—divided, and what happens at a true deadlock. If you are solo: why, and how you cover your gaps.', purpose: 'Co-founder conflict ends more companies than the market does. Showing you have stress-tested the relationship—or thought hard about going solo—is exactly what a partner wants to see.', hint: 'Describe the relationship, how ownership and decisions are split, and your plan for a real deadlock.' },
+          { title: 'At any point in your life, what is the strongest evidence you can attract people better than you?', purpose: 'Investors bet on founders who attract people better than themselves. One real person who said yes because of you—and is still there—proves it.', hint: 'Point to one person better than you who said yes because of you—and is still there.' },
+          { title: 'How do you think about spending money that is not yours?', purpose: 'A partner is about to hand you capital. How you think about spending it—and where you are frugal by instinct—tells them how their money will be treated.', hint: 'Be concrete about where an investor’s first dollar goes, and where you are frugal by instinct.' }
         ]}
       ];
       const ACCOUNT_STORAGE_KEY = 'founderive-mvp-account-v1';
@@ -539,14 +598,14 @@
       const els = {
         app: document.querySelector('.app-shell'), nav: document.getElementById('section-nav'), fill: document.getElementById('progress-fill'), status: document.getElementById('saving-status'), toast: document.getElementById('toast'),
         founderName: document.getElementById('founder-name'), companyName: document.getElementById('company-name'), stage: document.getElementById('company-stage'), setupError: document.getElementById('setup-error'),
-        chatDimension: document.getElementById('chat-dimension'), questionPosition: document.getElementById('question-position'), thread: document.getElementById('chat-thread'), latest: document.getElementById('latest-button'), typing: document.getElementById('typing-indicator'), guideTitle: document.getElementById('guide-title'), guideCopy: document.getElementById('guide-copy'), foundation: document.getElementById('foundation-preview'), answerForm: document.getElementById('answer-form'), answer: document.getElementById('answer'), example: document.getElementById('evidence-example'), wordCount: document.getElementById('word-count'), next: document.getElementById('next-button'), previous: document.getElementById('previous-button'), completion: document.getElementById('completion-note'), report: document.getElementById('report-content')
+        chatDimension: document.getElementById('chat-dimension'), questionPosition: document.getElementById('question-position'), thread: document.getElementById('chat-thread'), latest: document.getElementById('latest-button'), typing: document.getElementById('typing-indicator'), guideTitle: document.getElementById('guide-title'), guideCopy: document.getElementById('guide-copy'), foundation: document.getElementById('foundation-preview'), answerForm: document.getElementById('answer-form'), answer: document.getElementById('answer'), hint: document.getElementById('answer-hint'), wordCount: document.getElementById('word-count'), next: document.getElementById('next-button'), previous: document.getElementById('previous-button'), completion: document.getElementById('completion-note'), report: document.getElementById('report-content')
       };
       const allQuestions = sections.flatMap((section, sectionIndex) => section.questions.map((question, questionIndex) => ({ ...question, section, sectionIndex, questionIndex })));
       let advancing = false;
       let threadNearBottom = true;
 
       function escapeHTML(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]); }
-      function answerFor(index) { return state.answers[index] || { text: '', example: '', evidence: false, confirmed: false }; }
+      function answerFor(index) { return state.answers[index] || { text: '', evidence: false, confirmed: false }; }
       function wordCount(text) { return text.trim() ? text.trim().split(/\s+/).length : 0; }
       function answeredCount() { return Object.values(state.answers).filter(answer => answer.text && answer.text.trim()).length; }
       function sectionComplete(index) { const offset = index * 3; return [offset, offset + 1, offset + 2].every(questionIndex => answerFor(questionIndex).text.trim().length >= 20); }
@@ -684,6 +743,8 @@
         els.fill.style.width = percentage + '%';
         els.fill.parentElement.setAttribute('aria-valuenow', percentage);
         document.getElementById('progress-label').textContent = `${answeredCount()} of ${allQuestions.length} answers saved`;
+        const reviewButton = document.getElementById('side-review-button');
+        if (reviewButton) reviewButton.disabled = answeredCount() === 0;
         renderNav();
       }
       function renderNav() {
@@ -697,19 +758,22 @@
             return `<button type="button" class="nav-question ${answered ? 'answered' : ''}" data-question="${index}" ${current ? 'aria-current="step"' : ''}><span class="nav-question-index">${answered ? '✓' : String(index + 1).padStart(2, '0')}</span><span class="nav-question-text">${escapeHTML(question.title)}</span></button>`;
           }).join('')}</div></section>`;
         }).join('');
-        els.nav.querySelectorAll('[data-section]').forEach(button => button.addEventListener('click', () => { state.current = Number(button.dataset.section) * 3; threadNearBottom = true; showScreen('interview-screen'); renderQuestion(); }));
+        els.nav.querySelectorAll('[data-section]').forEach(button => button.addEventListener('click', () => { goToSection(Number(button.dataset.section)); }));
         els.nav.querySelectorAll('[data-question]').forEach(button => button.addEventListener('click', () => { state.current = Number(button.dataset.question); threadNearBottom = true; showScreen('interview-screen'); renderQuestion(); }));
       }
       function showScreen(id) {
-        const accountRequired = ['dashboard-screen', 'setup-screen', 'interview-screen', 'report-screen'];
+        const accountRequired = ['dashboard-screen', 'setup-screen', 'section-screen', 'interview-screen', 'review-screen', 'report-screen'];
         if (accountRequired.includes(id) && !state.user) {
           setAuthMode('signup');
           id = 'auth-screen';
         }
         document.querySelectorAll('.screen').forEach(screen => screen.classList.toggle('active', screen.id === id));
+        els.app.classList.toggle('interview-mode', ['section-screen', 'interview-screen', 'review-screen'].includes(id));
         if (id === 'report-screen') renderReport();
         if (id === 'dashboard-screen') renderDashboard();
         if (id === 'setup-screen') { syncProfileInputs(); els.founderName.focus(); }
+        if (id === 'section-screen') renderSectionIntro(sectionIndexOf());
+        if (id === 'review-screen') renderReview();
         if (id === 'interview-screen') window.setTimeout(() => els.answer.focus(), 30);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -732,8 +796,9 @@
         if (!state.user) { setAuthMode('signup'); showScreen('auth-screen'); return; }
         if (id) loadBrief(id);
         if (!state.profile.companyName.trim()) { showScreen('setup-screen'); return; }
-        showScreen('interview-screen');
-        renderQuestion();
+        const firstUnanswered = allQuestions.findIndex((question, index) => !answerFor(index).text.trim());
+        state.current = firstUnanswered === -1 ? allQuestions.length - 1 : firstUnanswered;
+        showScreen(firstUnanswered === -1 ? 'review-screen' : 'section-screen');
       }
       function startNewBrief() {
         createBrief();
@@ -895,9 +960,9 @@
       }
       function saveCurrent() {
         const previous = answerFor(state.current);
-        const exampleText = els.example.value;
-        const unchanged = previous.text === els.answer.value && (previous.example || '') === exampleText;
-        state.answers[state.current] = { text: els.answer.value, example: exampleText, evidence: exampleText.trim().length > 0, confirmed: unchanged && Boolean(previous.confirmed) };
+        const text = els.answer.value;
+        const unchanged = previous.text === text;
+        state.answers[state.current] = { text, evidence: hasSpecificSignal(text), confirmed: unchanged && Boolean(previous.confirmed) };
         save(); updateProgress();
       }
       function coachMessage(question, current = false) {
@@ -968,12 +1033,6 @@
           transcript.push(founderMessage(priorAnswer));
           transcript.push(captureCard(index, priorAnswer));
         }
-        if (state.current > 0 && allQuestions[state.current].questionIndex === 0) {
-          const priorSection = sections[allQuestions[state.current].sectionIndex - 1];
-          const nextSection = allQuestions[state.current].section.name;
-          const status = sectionComplete(allQuestions[state.current].sectionIndex - 1) ? `${priorSection.name} complete` : `Moving on from ${priorSection.name}`;
-          transcript.push(`<div class="section-transition"><strong>${escapeHTML(status)}</strong>Next, we’ll explore ${escapeHTML(nextSection.toLowerCase())}.</div>`);
-        }
         transcript.push(coachMessage(allQuestions[state.current], true));
         els.thread.innerHTML = transcript.join('');
         bindTranscriptActions();
@@ -981,6 +1040,48 @@
           if (threadNearBottom) scrollThreadToBottom('auto');
           else updateLatestButton();
         });
+      }
+      function sectionIndexOf() { return Math.floor(state.current / 3); }
+      function goToSection(sectionIndex) { state.current = sectionIndex * 3; threadNearBottom = true; showScreen('section-screen'); }
+      function renderSectionIntro(sectionIndex) {
+        const section = sections[sectionIndex];
+        if (!section) return;
+        document.getElementById('section-intro-eyebrow').textContent = `Dimension ${sectionIndex + 1} of ${sections.length}`;
+        document.getElementById('section-intro-title').textContent = section.name;
+        document.getElementById('section-intro-count').textContent = `${section.questions.length} questions · ${stageWithFunding(state.profile.stage)}`;
+        document.getElementById('section-intro-why').textContent = section.why || section.description;
+        document.getElementById('section-intro-desc').textContent = section.why ? section.description : '';
+        const transition = document.getElementById('section-intro-transition');
+        if (sectionIndex > 0) {
+          const prior = sections[sectionIndex - 1];
+          transition.hidden = false;
+          transition.textContent = sectionComplete(sectionIndex - 1)
+            ? `${prior.name} complete—nicely done. Next we look at ${section.name.toLowerCase()}.`
+            : `Moving on from ${prior.name}. You can return to it anytime from the left.`;
+        } else {
+          transition.hidden = true;
+        }
+        document.getElementById('section-intro-qlist').innerHTML = section.questions.map((question, questionIndex) => {
+          const index = sectionIndex * 3 + questionIndex;
+          const answered = answerFor(index).text.trim();
+          return `<li><span class="qnum">${answered ? '✓' : String(index + 1).padStart(2, '0')}</span><span>${escapeHTML(question.title)}</span></li>`;
+        }).join('');
+        const anyAnswered = section.questions.some((question, questionIndex) => answerFor(sectionIndex * 3 + questionIndex).text.trim());
+        document.getElementById('section-begin-button').innerHTML = `${anyAnswered ? 'Continue this dimension' : 'Begin this dimension'} <span aria-hidden="true">→</span>`;
+        updateProgress();
+      }
+      function renderReview() {
+        document.getElementById('review-list').innerHTML = sections.map((section, sectionIndex) => {
+          const items = section.questions.map((question, questionIndex) => {
+            const index = sectionIndex * 3 + questionIndex;
+            const answer = answerFor(index);
+            const has = answer.text.trim();
+            const flag = has ? (isSpecific(answer) ? 'Specific & grounded' : 'Could use a concrete example') : 'Not answered yet';
+            return `<div class="review-item"><div class="review-q">${String(index + 1).padStart(2, '0')} · ${escapeHTML(question.title)}</div><div class="review-a ${has ? '' : 'empty'}">${has ? escapeHTML(answer.text.trim()) : 'Not answered yet'}</div><div class="review-meta"><span class="review-flag">${flag}</span><button type="button" class="button-text" data-review-edit="${index}">Edit</button></div></div>`;
+          }).join('');
+          return `<div class="review-dim-head">Dimension ${sectionIndex + 1} · ${escapeHTML(section.name)}</div>${items}`;
+        }).join('');
+        document.getElementById('review-list').querySelectorAll('[data-review-edit]').forEach(button => button.addEventListener('click', () => { state.current = Number(button.dataset.reviewEdit); threadNearBottom = true; showScreen('interview-screen'); renderQuestion(); }));
       }
       function renderQuestion() {
         const question = allQuestions[state.current];
@@ -992,17 +1093,16 @@
         founderFoundationPreview();
         renderTranscript();
         els.answer.value = currentAnswer.text || '';
-        els.example.value = currentAnswer.example || '';
+        els.hint.innerHTML = question.hint ? `<strong>A strong answer:</strong> ${escapeHTML(question.hint)}` : '';
         els.answer.disabled = false;
-        els.example.disabled = false;
         els.next.disabled = false;
         els.previous.disabled = false;
         els.typing.classList.remove('show');
         updateWordCount();
         autosizeAnswer();
-        els.previous.hidden = state.current === 0;
+        els.previous.hidden = false;
         const finished = state.current === allQuestions.length - 1;
-        els.next.innerHTML = finished ? 'Finish brief <span aria-hidden="true">→</span>' : 'Send <span aria-hidden="true">↑</span>';
+        els.next.innerHTML = finished ? 'Review answers <span aria-hidden="true">→</span>' : 'Send <span aria-hidden="true">↑</span>';
         els.completion.classList.remove('show');
         renderNav();
         window.setTimeout(() => {
@@ -1014,19 +1114,23 @@
         els.answer.style.height = 'auto';
         els.answer.style.height = `${Math.min(Math.max(els.answer.scrollHeight, 86), 182)}px`;
       }
+      const SPECIFIC_RE = /\b(when|after|because|so i|then i|the time|once|during|for example|specifically|e\.g\.|for instance)\b/i;
+      function hasSpecificSignal(text) {
+        const t = (text || '').trim();
+        if (!t) return false;
+        return /\d/.test(t) || SPECIFIC_RE.test(t);
+      }
       function isSpecific(answer) {
-        const text = (answer.text || '').trim();
-        if (!text) return false;
-        return Boolean(answer.example && answer.example.trim().length >= 12) || /\d/.test(text) || /\b(when|after|because|so i|then i|the time|once|during)\b/i.test(text);
+        const t = (answer.text || '').trim();
+        return t.split(/\s+/).length >= 18 && hasSpecificSignal(t);
       }
       function answerDepth(answer) {
         const text = (answer.text || '').trim();
         if (!text) return 0;
         const words = text.split(/\s+/).length;
-        let depth = Math.min(words / 60, 1) * 0.3;
-        if (/\d/.test(text)) depth += 0.15;
-        if (/\b(when|after|because|so i|then i|the time|once|during)\b/i.test(text)) depth += 0.15;
-        if (answer.example && answer.example.trim().length >= 12) depth += 0.4;
+        let depth = Math.min(words / 70, 1) * 0.5;
+        if (/\d/.test(text)) depth += 0.25;
+        if (SPECIFIC_RE.test(text)) depth += 0.25;
         return Math.min(depth, 1);
       }
       function dimensionScore(index) {
@@ -1085,26 +1189,25 @@
       document.getElementById('setup-form').addEventListener('submit', event => {
         event.preventDefault();
         if (!els.founderName.value.trim()) { els.setupError.textContent = 'Add your name so the brief has an owner.'; els.setupError.classList.add('error-text'); els.founderName.focus(); return; }
-        els.setupError.textContent = ''; state.profile = { founderName: els.founderName.value.trim(), companyName: els.companyName.value.trim(), stage: els.stage.value }; save(); showScreen('interview-screen'); renderQuestion();
+        els.setupError.textContent = ''; state.profile = { founderName: els.founderName.value.trim(), companyName: els.companyName.value.trim(), stage: els.stage.value }; save(); goToSection(0);
       });
       function advanceConversation() {
         if (advancing) return;
         saveCurrent();
         threadNearBottom = true;
-        if (state.current === allQuestions.length - 1) {
-          els.completion.classList.add('show');
-          els.next.disabled = true;
-          window.setTimeout(() => showScreen('report-screen'), 600);
-          return;
-        }
+        if (state.current === allQuestions.length - 1) { showScreen('review-screen'); return; }
+        const atSectionEnd = state.current % 3 === 2;
         advancing = true;
         els.typing.classList.add('show');
         els.answer.disabled = true;
-        els.example.disabled = true;
         els.next.disabled = true;
         els.previous.disabled = true;
         els.next.textContent = 'Taking notes…';
-        window.setTimeout(() => { state.current += 1; advancing = false; renderQuestion(); }, 560);
+        window.setTimeout(() => {
+          state.current += 1;
+          advancing = false;
+          if (atSectionEnd) { showScreen('section-screen'); } else { renderQuestion(); }
+        }, 420);
       }
       els.answer.addEventListener('input', () => { updateWordCount(); autosizeAnswer(); saveCurrent(); });
       els.answer.addEventListener('keydown', event => {
@@ -1113,13 +1216,25 @@
           if (!els.answer.disabled && !els.next.disabled) els.answerForm.requestSubmit();
         }
       });
-      els.example.addEventListener('input', saveCurrent);
       els.answerForm.addEventListener('submit', event => { event.preventDefault(); advanceConversation(); });
-      els.previous.addEventListener('click', () => { saveCurrent(); state.current -= 1; threadNearBottom = true; renderQuestion(); });
+      els.previous.addEventListener('click', () => {
+        saveCurrent();
+        if (state.current % 3 === 0) { showScreen('section-screen'); return; }
+        state.current -= 1; threadNearBottom = true; renderQuestion();
+      });
       els.thread.addEventListener('scroll', () => { threadNearBottom = isThreadNearBottom(); updateLatestButton(); });
       els.latest.addEventListener('click', () => scrollThreadToBottom());
       document.getElementById('setup-save-exit').addEventListener('click', saveAndExit);
       document.getElementById('save-exit-button').addEventListener('click', saveAndExit);
+      document.getElementById('section-begin-button').addEventListener('click', () => { showScreen('interview-screen'); renderQuestion(); });
+      document.getElementById('section-back-button').addEventListener('click', () => {
+        const sectionIndex = sectionIndexOf();
+        if (sectionIndex === 0) { showScreen('setup-screen'); return; }
+        state.current = sectionIndex * 3 - 1; showScreen('interview-screen'); renderQuestion();
+      });
+      document.getElementById('review-back-button').addEventListener('click', () => { state.current = allQuestions.length - 1; showScreen('interview-screen'); renderQuestion(); });
+      document.getElementById('review-save-button').addEventListener('click', () => showScreen('report-screen'));
+      document.getElementById('side-review-button').addEventListener('click', () => showScreen('review-screen'));
       document.getElementById('dashboard-button').addEventListener('click', saveAndExit);
       document.getElementById('dashboard-new-brief').addEventListener('click', startNewBrief);
       document.getElementById('sign-out-button').addEventListener('click', signOut);
