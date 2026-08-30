@@ -1,0 +1,15 @@
+{
+  "name": "founderive",
+  "short_name": "founderive",
+  "description": "The structured founder profile investors, accelerators, and grant teams ask for at application time.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0e1a2b",
+  "theme_color": "#0e1a2b",
+  "icons": [
+    { "src": "founderive-mark.svg", "type": "image/svg+xml", "sizes": "any" },
+    { "src": "exports/founderive-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "exports/founderive-icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
