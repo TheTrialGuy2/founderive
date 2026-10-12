@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="founderive">
+  <title>founderive — f-dot, the derivative of f</title>
+  <rect width="64" height="64" rx="15" fill="#0e1a2b"/>
+  <!-- the derivative dot (Newton notation): f with a dot = the derivative of f -->
+  <circle cx="31" cy="9.5" r="4.4" fill="#f6ffbf"/>
+  <!-- lowercase f: stem + top hook -->
+  <path d="M30 52 V26 C30 20 33.6 17.5 39 17.5" stroke="#d7ee63" stroke-width="6.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- crossbar -->
+  <path d="M21 30 H38" stroke="#d7ee63" stroke-width="6.4" stroke-linecap="round"/>
+</svg>
