@@ -22,6 +22,7 @@ export function parseEntry<K extends Kind>(kind: K, rel: string, text: string): 
 
 /** Reads one entry. Returns null when the file doesn't exist, and a flagged entry when it's invalid. */
 export async function readEntry<K extends Kind>(kind: K, rel: string): Promise<Entry<K> | null> {
+  if (!KINDS[kind].pattern.test(rel)) return { ok: false, kind, path: rel, error: `${rel} is not a valid path for ${kind}` };
   let text: string;
   try {
     text = await readFile(resolveInData(rel), "utf8");

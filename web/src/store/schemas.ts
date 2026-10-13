@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "use YYYY-MM-DD");
 
-export const founderSchema = z.object({
+export const founderSchema = z.looseObject({
   name: z.string().default(""),
   venture: z.string().default(""),
   programTitle: z.string().default("Founder Program"),
@@ -12,14 +12,14 @@ export const founderSchema = z.object({
   today: isoDate.nullish(),
 });
 
-const exerciseSchema = z.object({
+const exerciseSchema = z.looseObject({
   id: z.string(),
   title: z.string(),
   savesTo: z.string().nullish(),
 });
 
 const homeworkSchema = z
-  .object({
+  .looseObject({
     id: z.string(),
     title: z.string(),
     due: isoDate.nullish(),
@@ -29,7 +29,7 @@ const homeworkSchema = z
   })
   .refine((h) => h.status !== "skipped" || !!h.skipReason, { message: "skipped homework needs a skipReason", path: ["skipReason"] });
 
-export const weekSchema = z.object({
+export const weekSchema = z.looseObject({
   week: z.number().int().min(1),
   title: z.string(),
   date: isoDate.nullish(),

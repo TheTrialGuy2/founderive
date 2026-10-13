@@ -39,6 +39,22 @@ describe("saveEntry", () => {
   it("rejects a path that doesn't match the kind", async () => {
     await expect(saveEntry("week", "notes/week.md", { week: 1, title: "x", status: "done", exercises: [], homework: [] })).rejects.toThrow(ValidationError);
   });
+  it("keeps unknown extra keys on the entry and on nested exercise/homework objects", async () => {
+    const data = {
+      week: 4,
+      title: "Building the relationship",
+      status: "in-progress",
+      exercises: [{ id: "ex-1", title: "Canvas", seeded: true, concepts: ["a"] }],
+      homework: [{ id: "hw-1", title: "Interviews", status: "open", seeded: true, concepts: ["a"] }],
+      seeded: true,
+      concepts: ["a"],
+    } as never;
+    await saveEntry("week", "program/week-04.md", data);
+    const e = await readEntry("week", "program/week-04.md");
+    expect(e?.ok && e.data).toMatchObject({ seeded: true, concepts: ["a"] });
+    expect(e?.ok && (e.data.exercises[0] as unknown as { seeded: boolean; concepts: string[] })).toMatchObject({ seeded: true, concepts: ["a"] });
+    expect(e?.ok && (e.data.homework[0] as unknown as { seeded: boolean; concepts: string[] })).toMatchObject({ seeded: true, concepts: ["a"] });
+  });
 });
 
 describe("archiveEntry", () => {

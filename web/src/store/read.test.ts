@@ -36,6 +36,10 @@ describe("readEntry", () => {
     const e = await readEntry("week", "program/week-01.md");
     expect(e?.ok && e.body.trim()).toBe("Notes from the first session.");
   });
+  it("flags a path that doesn't match the kind, without reading the file", async () => {
+    const e = await readEntry("week", "notes/scratch.md");
+    expect(e).toEqual({ ok: false, kind: "week", path: "notes/scratch.md", error: "notes/scratch.md is not a valid path for week" });
+  });
 });
 
 describe("listEntries", () => {

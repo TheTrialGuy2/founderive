@@ -1,6 +1,6 @@
 import { parse, stringify } from "yaml";
 
-const FENCED = /^---\r?\n(?:([\s\S]*?)\r?\n)?---\r?\n?([\s\S]*)$/;
+const FENCED = /^---\r?\n(?:([\s\S]*?)\r?\n)?---(?:\r?\n|$)([\s\S]*)$/;
 
 /** Splits a Markdown file into YAML frontmatter data and body. Throws if the YAML is malformed. */
 export function parseFrontmatter(text: string): { data: unknown; body: string } {
