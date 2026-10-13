@@ -77,6 +77,7 @@ describe("evidence on guide steps", () => {
     const step = (id: string) => GUIDE_STEPS.find((s) => s.id === id)!;
     expect(guideProgress(step("problem-conversations"), { customerConversations: 2 })).toBe("2 of 5 customer conversations logged");
     expect(guideProgress(step("finish-test"), { tests: 1 })).toBe("1 test designed, none completed yet");
+    expect(guideProgress(step("ask-to-pay"), { offersMade: 2 })).toBe("2 of 3 offers made");
     expect(guideProgress(step("customer"), {})).toBeNull();
   });
 });

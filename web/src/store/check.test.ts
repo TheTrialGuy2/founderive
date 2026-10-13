@@ -11,7 +11,7 @@ afterEach(() => env.cleanup());
 describe("checkData", () => {
   it("reports invalid files and unknown files, skipping _archive", async () => {
     const report = await checkData();
-    expect(report.checked).toBe(6);
+    expect(report.checked).toBe(10);
     expect(report.errors.map((e) => e.path)).toEqual(["program/week-02.md", "program/week-03.md"]);
     expect(report.unknown).toEqual(["notes/scratch.md"]);
     expect(report.warnings).toEqual([]);
@@ -21,11 +21,12 @@ describe("checkData", () => {
   it("warns about a misnamed file in a known folder instead of calling it valid", async () => {
     await writeFile(path.join(env.dir, "checkins/week-42.md"), "---\nweek: 2026-W42\n---\n");
     await mkdir(path.join(env.dir, "canvas"), { recursive: true });
-    await writeFile(path.join(env.dir, "canvas/Customer.md"), "---\nid: customer\n---\n");
+    // Named off the fixture's own canvas/customer.md (lowercase) to avoid aliasing it on a case-insensitive filesystem.
+    await writeFile(path.join(env.dir, "canvas/Pricing.md"), "---\nid: pricing\n---\n");
     const report = await checkData();
-    expect(report.misnamed).toEqual(["canvas/Customer.md", "checkins/week-42.md"]);
+    expect(report.misnamed).toEqual(["canvas/Pricing.md", "checkins/week-42.md"]);
     expect(report.warnings).toEqual([
-      { path: "canvas/Customer.md", warning: "Founderive ignores this file: names in canvas/ look like canvas/<id>.md (lowercase letters, digits and hyphens) or canvas/blocks.md" },
+      { path: "canvas/Pricing.md", warning: "Founderive ignores this file: names in canvas/ look like canvas/<id>.md (lowercase letters, digits and hyphens) or canvas/blocks.md" },
       { path: "checkins/week-42.md", warning: "Founderive ignores this file: names in checkins/ look like checkins/YYYY-Www.md" },
     ]);
     expect(report.unknown).toEqual(["notes/scratch.md"]);

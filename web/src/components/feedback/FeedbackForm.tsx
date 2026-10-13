@@ -11,7 +11,8 @@ const PAGE_HINT = "Filled in from the page you came from. Change it if it's wron
 
 export function FeedbackForm({ page }: { page: string }) {
   const [state, formAction, pending] = useActionState(sendFeedbackAction, IDLE);
-  const links = state.result;
+  // This action's own result shape, narrowed from ActionState's generic Record<string, string>.
+  const links = state.result as { mailto: string; issue: string; text: string; path?: string } | undefined;
 
   if (state.status === "saved" && links) {
     // Nothing opens on its own: the founder reads exactly what will be sent, then chooses where to send it.
@@ -29,6 +30,7 @@ export function FeedbackForm({ page }: { page: string }) {
     <form action={formAction} className="max-w-2xl space-y-5" noValidate>
       <FormAlert message={state.status === "error" ? state.message : undefined} />
       {state.status === "error" && links && <SendChoices links={links} />}
+      {/* once links are shown, emailing is the primary path; resubmitting is secondary */}
       <Field id="whatHappened" label="What happened" error={err.whatHappened}>
         <textarea
           id="whatHappened"
@@ -47,14 +49,14 @@ export function FeedbackForm({ page }: { page: string }) {
         <textarea id="expected" name="expected" rows={2} defaultValue={v.expected} className={inputClass} />
       </Field>
       <p className="text-xs text-muted">Only what you type here, the page and the app version are sent. Nothing from founder-data is included unless you paste it.</p>
-      <button type="submit" disabled={pending} className={buttonPrimary}>
+      <button type="submit" disabled={pending} className={state.status === "error" && links ? buttonQuiet : buttonPrimary}>
         {pending ? "Saving…" : "Send feedback"}
       </button>
     </form>
   );
 }
 
-function SendChoices({ links }: { links: Record<string, string> }) {
+function SendChoices({ links }: { links: { mailto: string; issue: string; text: string; path?: string } }) {
   return (
     <div className="space-y-3">
       <p className="text-sm font-medium text-ink">This is exactly what will be sent:</p>

@@ -128,6 +128,14 @@ describe("loadToday with the loop", () => {
   });
 });
 
+describe("the fixture's loop", () => {
+  it("resumes the running pilot before the overdue commitment and the due follow-up", async () => {
+    const view = await ready();
+    expect(view.next?.id).toBe("test:tests/2026-10-06-paid-pilot.md");
+    expect(view.currentTest).toMatchObject({ slug: "2026-10-06-paid-pilot", linkedCount: 1, evidenceCount: 1, evidenceStrength: "weak" });
+  });
+});
+
 describe("loadFounderToday", () => {
   it("uses the date pinned in founder.md", async () => expect(await loadFounderToday()).toBe("2026-10-13"));
   it("falls back to the local date without founder.md", async () => {
