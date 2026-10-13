@@ -8,11 +8,22 @@ import { isRealDate, oneOf } from "./form";
 const KEY_LINE = /^([A-Za-z][A-Za-z-]*):\s*(.*)$/;
 const TYPES_TEXT = "customer, prospect, mentor, partner, investor or other";
 
-/** An email, a web address or a phone number (seven or more digits). A conversation's person is a first name or a role. */
+/**
+ * An email, a web address or a phone number anywhere in the value. A conversation's person is a first name or a role.
+ * Web: "://", "www.", or a host like name.tld (a 2-24 letter tld right after the dot, so "Dr. Lee" and "St. Louis"
+ * pass). Phone: a run of digits, spaces, dots, dashes and parentheses (with an optional leading +) holding 7 or more
+ * digits; an extension after it doesn't matter.
+ */
 export function looksLikeContactDetails(v: string): boolean {
   if (/\S+@\S+\.\S+/.test(v)) return true;
-  if (/https?:\/\/|www\./i.test(v) || /\b[a-z0-9-]+\.(com|org|net|io|co|ai|app|dev|me|us|uk)\b/i.test(v)) return true;
-  return (v.match(/\d/g)?.length ?? 0) >= 7 && /^[\d\s+().-]+$/.test(v.replace(/^(tel|phone|cell|mobile):?\s*/i, ""));
+  if (/:\/\/|\bwww\./i.test(v)) return true;
+  if (hasHost(v)) return true;
+  return (v.match(/\+?[\d(][\d\s().-]*\d/g) ?? []).some((run) => (run.match(/\d/g)?.length ?? 0) >= 7);
+}
+
+/** A token shaped like name.tld or name.tld/path: no space after the dot, and the tld is 2-24 letters. */
+function hasHost(v: string): boolean {
+  return v.split(/\s+/).some((token) => /^[(<]?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,24}(?:[/:?#][^\s]*)?[)>.,;]?$/i.test(token));
 }
 const APP_FILLS = new Set([NONE_YET, NONE_OPEN]);
 

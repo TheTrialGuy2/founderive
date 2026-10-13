@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fileChatPrompt, FILE_CHAT_ENDINGS, fillPrompt, importPrompt, weekPrompt, weekPromptVars } from "./prompts";
+import { defaultFamily, fileChatPrompt, FILE_CHAT_ENDINGS, fillPrompt, importPrompt, weekPrompt, weekPromptVars } from "./prompts";
 
 const vars = { dataDir: "/Users/sam/Lantern", venture: "Lantern", today: "2026-10-13" };
 const leftover = /\{(dataDir|venture|today|outcome|commitments)\}/;
@@ -49,5 +49,14 @@ describe("browser-chat prompts", () => {
   });
   it("uses the app fills when there's no outcome or nothing open", () => {
     expect(weekPromptVars(null)).toEqual({ outcome: "none yet", commitments: "none open" });
+  });
+});
+
+describe("which AI family a prompt box opens on", () => {
+  it("opens on the preferred family when it's offered", () => expect(defaultFamily(["fileChat", "pasteBridge"], "pasteBridge")).toBe("pasteBridge"));
+  it("falls back to the first family offered", () => {
+    expect(defaultFamily(["fileChat"], "pasteBridge")).toBe("fileChat");
+    expect(defaultFamily(["fileChat", "pasteBridge"])).toBe("fileChat");
+    expect(defaultFamily([])).toBeUndefined();
   });
 });

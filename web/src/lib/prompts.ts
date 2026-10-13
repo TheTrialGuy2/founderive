@@ -142,3 +142,10 @@ export function weekPromptVars(checkin: WeekCheckin): { outcome: string; commitm
     commitments: open.length ? open.map((c) => `${c.id}: ${c.text} (${c.due ?? "no due date"})`).join("\n") : NONE_OPEN,
   };
 }
+
+export type PromptFamily = "fileChat" | "pasteBridge";
+
+/** The family a prompt box opens on: the preferred one when it's offered, else the first offered. */
+export function defaultFamily(offered: PromptFamily[], preferred?: PromptFamily): PromptFamily | undefined {
+  return preferred && offered.includes(preferred) ? preferred : offered[0];
+}

@@ -320,3 +320,12 @@ describe("review fixes: the weekly preview", () => {
   it("says nothing about a blocker or help line that was left out", () => expect(rows("kept: c-1", { blocker: "No intros", help: "Chris" }).some((r) => /Blocker|Help/.test(r))).toBe(false));
   it("lists commitments that weren't reviewed", () => expect(rows("outcome: x", {})).toContain("Not reviewed: Email"));
 });
+
+describe("review fixes: contact details anywhere in the value", () => {
+  const conv = (person: string) => parseImportBlock(`## Conversation\ntype: customer\nperson: ${person}`, BLOCKS);
+  it.each(["Dana 704-555-0182", "call 7045550182", "+44 20 7946 0958", "555.0182 x12", "Dana (704) 555 0182 ext 4", "linkedin.de/in/dana", "example.info/profile", "dana.co", "Dana dana@example.com", "ftp://files.example", "Dana at www.example"])(
+    "refuses %j",
+    (p) => expect(conv(p).errors).toEqual(["Line 3: person looks like contact details. Use a first name or a role instead, like Dana or agency owner."]),
+  );
+  it.each(["Dr. Lee", "J. Smith", "St. Louis owner", "Owner of 3 agencies", "Dana, ops lead", "Mr. T. Jones", "owner, 12 caregivers"])("accepts %j", (p) => expect(conv(p).errors).toEqual([]));
+});

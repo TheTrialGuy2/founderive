@@ -1,9 +1,10 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
+import { defaultFamily, type PromptFamily } from "@/lib/prompts";
 import { buttonQuiet } from "./form";
 
-type Family = "fileChat" | "pasteBridge";
+type Family = PromptFamily;
 const LABELS: Record<Family, string> = {
   fileChat: "My AI can edit files on this computer",
   pasteBridge: "I use ChatGPT or Claude in the browser",
@@ -18,13 +19,16 @@ export function CopyPrompt({
   prompts,
   title = "Or ask your AI",
   after = {},
+  preferred,
 }: {
   prompts: { fileChat?: string; pasteBridge?: string };
   title?: string;
   after?: Partial<Record<Family, ReactNode>>;
+  /** The family it opens on, when offered. Otherwise the first one. */
+  preferred?: Family;
 }) {
   const families = (Object.keys(LABELS) as Family[]).filter((f) => !!prompts[f]);
-  const [family, setFamily] = useState<Family | undefined>(families[0]);
+  const [family, setFamily] = useState<Family | undefined>(defaultFamily(families, preferred));
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const id = useId();

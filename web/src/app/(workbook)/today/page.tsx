@@ -73,6 +73,8 @@ async function TodayContent() {
         <CopyPrompt
           title="Prefer to talk it through? Ask your AI"
           prompts={{ fileChat: fileChatPrompt(ending, promptVars), pasteBridge: weekChatPrompt }}
+          // Most founders use a chat in the browser, so the first-run box opens on that one.
+          preferred="pasteBridge"
           after={{
             pasteBridge: (
               <a href="#week-paste" className="text-sm font-medium text-teal-dark hover:text-navy">
@@ -122,7 +124,7 @@ async function TodayContent() {
       <details id="week-paste" className="mt-6 scroll-mt-6 rounded-xl border border-line bg-paper p-5" open={!!ending}>
         <summary className="cursor-pointer font-semibold text-navy">Update your week from a browser chat</summary>
         {ending ? (
-          <p className="mt-3 text-sm text-muted">1. Copy the prompt under the next action, with &quot;I use ChatGPT or Claude in the browser&quot; chosen.</p>
+          <p className="mt-3 text-sm text-muted">1. Copy the prompt under the next action (&quot;I use ChatGPT or Claude in the browser&quot;).</p>
         ) : (
           <CopyPrompt title="1. Copy this into your chat and answer its questions" prompts={{ pasteBridge: weekChatPrompt }} />
         )}
