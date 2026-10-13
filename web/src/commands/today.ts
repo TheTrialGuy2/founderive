@@ -1,7 +1,7 @@
 import { factsFromFounder, guideStepForWeek, type GuideStep } from "../core/guide";
 import { activeChoices, nextStep, type Candidate } from "../core/next-step";
 import { currentWeek, weekFile } from "../core/program";
-import { resolveToday } from "../core/today";
+import { localISODate, resolveToday } from "../core/today";
 import { addDays, isoWeekId, weekStart } from "../core/week";
 import { checkData, type CheckReport } from "../store/check";
 import { listEntries, readEntry, type Entry } from "../store/read";
@@ -65,4 +65,10 @@ export async function loadToday(): Promise<TodayView> {
   });
 
   return { status: "ready", founder: f, today, tomorrow: addDays(today, 1), weekId, weekStartsOn: weekStart(today), checkinEntry, checkin, programWeek, homework, guide, report, next };
+}
+
+/** The founder's "today" for actions that stamp dates: founder.md may pin one; otherwise the local date. */
+export async function loadFounderToday(): Promise<string> {
+  const f = await readEntry("founder", "founder.md");
+  return f?.ok ? resolveToday(f.data.today) : localISODate();
 }

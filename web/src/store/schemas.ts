@@ -37,6 +37,9 @@ export type EvidenceLevel = (typeof EVIDENCE_LEVELS)[number];
 export type Commitment = (typeof COMMITMENTS)[number];
 export type Cofounders = (typeof COFOUNDERS)[number];
 
+export const CANVAS_STATUSES = ["untested", "some-evidence", "tested"] as const;
+export type CanvasStatus = (typeof CANVAS_STATUSES)[number];
+
 export const founderSchema = z.strictObject({
   ...meta,
   name: z.string().default(""),
@@ -126,11 +129,42 @@ export const checkinSchema = z.strictObject({
   nextStepLog: z.array(nextStepChoiceSchema).default([]),
 });
 
+const blockId = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "use lowercase letters, digits and hyphens");
+
+/** canvas/blocks.md: the founder's own list of canvas blocks. Without it, the shipped generic list is used. */
+export const canvasConfigSchema = z
+  .strictObject({
+    ...meta,
+    blocks: z
+      .array(
+        z.strictObject({
+          id: blockId.refine((id) => id !== "blocks", '"blocks" is reserved for this file'),
+          title: z.string().min(1),
+          prompt: z.string().min(1),
+        }),
+      )
+      .min(1, "list at least one block"),
+  })
+  .refine((c) => new Set(c.blocks.map((b) => b.id)).size === c.blocks.length, { message: "each block id must be unique", path: ["blocks"] });
+
+/** canvas/<id>.md: one current belief. Changed wording is kept in history, never lost. */
+export const canvasBlockSchema = z.strictObject({
+  ...meta,
+  id: blockId,
+  title: z.string().nullish(),
+  text: z.string().default(""),
+  status: z.enum(CANVAS_STATUSES).default("untested"),
+  updated: isoDate.nullish(),
+  history: z.array(z.strictObject({ date: isoDate, text: z.string() })).default([]),
+});
+
 /** Every file kind in founder-data: where it lives and what shape it must have. Later steps add kinds here. */
 export const KINDS = {
   founder: { pattern: /^founder\.md$/, schema: founderSchema },
   week: { pattern: /^program\/week-\d{2}\.md$/, schema: weekSchema },
   checkin: { pattern: /^checkins\/\d{4}-W\d{2}\.md$/, schema: checkinSchema },
+  canvasConfig: { pattern: /^canvas\/blocks\.md$/, schema: canvasConfigSchema },
+  canvasBlock: { pattern: /^canvas\/(?!blocks\.md$)[a-z0-9]+(?:-[a-z0-9]+)*\.md$/, schema: canvasBlockSchema },
 } as const;
 
 export type Kind = keyof typeof KINDS;

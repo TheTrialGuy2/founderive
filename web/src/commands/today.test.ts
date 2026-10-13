@@ -1,9 +1,9 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useTempData } from "../store/test-helpers";
 import { addCommitment, recordChoice, setOutcome } from "./checkin";
-import { loadToday } from "./today";
+import { loadFounderToday, loadToday } from "./today";
 
 let env: Awaited<ReturnType<typeof useTempData>>;
 beforeEach(async () => (env = await useTempData()));
@@ -62,5 +62,13 @@ describe("loadToday", () => {
     const file = path.join(env.dir, "founder.md");
     await writeFile(file, (await readFile(file, "utf8")).replace("setupComplete: true", "setupComplete: false"));
     expect(await loadToday()).toEqual({ status: "setup" });
+  });
+});
+
+describe("loadFounderToday", () => {
+  it("uses the date pinned in founder.md", async () => expect(await loadFounderToday()).toBe("2026-10-13"));
+  it("falls back to the local date without founder.md", async () => {
+    await rm(path.join(env.dir, "founder.md"));
+    expect(await loadFounderToday()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });

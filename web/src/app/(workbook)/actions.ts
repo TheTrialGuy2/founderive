@@ -1,26 +1,11 @@
 "use server";
 
-import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { addCommitment, recordChoice, setBlocker, setCommitmentStatus, setOutcome } from "@/commands/checkin";
 import { setHomeworkStatus } from "@/commands/homework";
 import { LAST_STEP, parseSetupStep, saveSetupStep } from "@/commands/setup";
 import type { ActionState } from "@/lib/action-state";
-
-const field = (fd: FormData, key: string) => {
-  const v = fd.get(key);
-  return typeof v === "string" ? v.trim() : "";
-};
-
-async function run(work: () => Promise<unknown>, values?: Record<string, string>): Promise<ActionState> {
-  try {
-    await work();
-  } catch (error) {
-    return { status: "error", message: error instanceof Error ? error.message : "Couldn't save. Try again.", values };
-  }
-  refresh();
-  return { status: "saved" };
-}
+import { field, run } from "./action-utils";
 
 export async function saveSetupStepAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const step = Number(field(fd, "step"));
