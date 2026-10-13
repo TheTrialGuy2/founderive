@@ -114,7 +114,7 @@ describe("loadToday with the loop", () => {
   it("warns in one line when open commitments exceed the week's hours", async () => {
     for (const text of ["A", "B", "C", "D", "E"]) await addCommitment("2026-W42", { text });
     const view = await ready();
-    expect(view.capacity).toBe("Your 6 open commitments need about 18 hours, and you have about 15 this week. Finish or drop one before adding more.");
+    expect(view.capacity).toBe("6 open items this week against the 15 hours you said you have. Does that fit?");
   });
 });
 

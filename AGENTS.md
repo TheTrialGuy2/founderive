@@ -32,6 +32,8 @@ Read before you speak: `founder.md`, this ISO week's check-in, and the current p
    - Not happening → `status: dropped` with the `reason` they give. Valid reasons include a changed assumption, something outside their control, a capacity limit, or a deliberate change of plan. Never a judgment.
 5. **Then one question**, the one that moves the next action. Wait for the answer, then write it.
 
+When `pnpm -s today` shows a capacity line, treat it as your step-5 question (does this week's load fit?), not a fact to read aloud; the founder decides whether to finish, drop or keep everything.
+
 Ignore the `guide` field unless it is the `next` action.
 
 Ask one question per turn. A wall of questions is just a form.
