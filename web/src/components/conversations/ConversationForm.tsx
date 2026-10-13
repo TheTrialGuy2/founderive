@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { createConversationAction, updateConversationAction } from "@/app/(workbook)/conversations/actions";
 import { describedBy, Field, FormAlert } from "@/components/workbook/Field";
-import { buttonPrimary, errorText, inputClass } from "@/components/workbook/form";
+import { buttonPrimary, buttonQuiet, errorText, inputClass } from "@/components/workbook/form";
 import { IDLE } from "@/lib/action-state";
 import { AREA_LABELS, options, TYPE_LABELS } from "@/lib/loop-labels";
 
@@ -148,7 +148,8 @@ export function ConversationForm({ mode, initial, path }: Props) {
 
       {textArea("notes", "Notes", 8, { placeholder: "Paste your notes or a transcript. Claude can tidy them later." })}
 
-      <button type="submit" disabled={pending} className={buttonPrimary}>
+      {/* Editing sits under the record's own actions, so its save is quiet there. */}
+      <button type="submit" disabled={pending} className={mode === "create" ? buttonPrimary : buttonQuiet}>
         {pending ? "Saving…" : mode === "create" ? "Save the conversation" : "Save changes"}
       </button>
     </form>

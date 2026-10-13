@@ -1,5 +1,5 @@
 import type { ConversationType, EvidenceLevel, Stage, TestStatus } from "../store/schemas";
-import { isCustomerEvidence } from "./conversations";
+import { countsAsEvidence } from "./conversations";
 
 export type GuideFacts = {
   hasTargetCustomer: boolean;
@@ -81,10 +81,13 @@ export function guideStepForWeek(stage: Stage | null | undefined, facts: Partial
   return guideStepFor(stage, facts, done);
 }
 
-/** What the records prove: customer and prospect conversations logged (advice doesn't count), tests designed (not ones stopped early) and tests completed. */
-export function factsFromRecords(records: { conversations: { type: ConversationType }[]; tests: { status: TestStatus }[] }): Partial<GuideFacts> {
+/**
+ * What the records prove: customer and prospect conversations logged (advice and unconfirmed imports don't count),
+ * tests designed (not ones stopped early) and tests completed.
+ */
+export function factsFromRecords(records: { conversations: { type: ConversationType; seeded?: boolean }[]; tests: { status: TestStatus }[] }): Partial<GuideFacts> {
   return {
-    customerConversations: records.conversations.filter((c) => isCustomerEvidence(c.type)).length,
+    customerConversations: records.conversations.filter(countsAsEvidence).length,
     tests: records.tests.filter((t) => t.status !== "abandoned").length,
     completedTests: records.tests.filter((t) => t.status === "complete").length,
   };

@@ -14,7 +14,7 @@ import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { unlinkEvidenceAction } from "@/app/(workbook)/evidence-actions";
 import { startTestAction } from "@/app/(workbook)/tests/actions";
 import { loadTest } from "@/commands/venture-tests";
-import { isCustomerEvidence } from "@/core/conversations";
+import { countsAsEvidence, isCustomerEvidence } from "@/core/conversations";
 import { whyFrom } from "@/core/venture-tests";
 import { AREA_LABELS, DECISION_LABELS, RESULT_LABELS, STATUS_LABELS, STRENGTH_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
 
@@ -58,7 +58,8 @@ async function TestContent({ slug }: { slug: string }) {
   const t = view.data;
   const open = t.status === "planned" || t.status === "running";
   const linkable = view.conversations.filter((c) => !t.relatedConversations.includes(c.path));
-  const customerEvidenceCount = view.linked.filter((c) => isCustomerEvidence(c.type)).length;
+  // An imported conversation the founder hasn't confirmed isn't evidence yet.
+  const customerEvidenceCount = view.linked.filter(countsAsEvidence).length;
 
   return (
     <>
@@ -127,9 +128,11 @@ async function TestContent({ slug }: { slug: string }) {
             <span className="font-medium">Strength (your rating): </span>
             {STRENGTH_LABELS[t.evidenceStrength]}
           </p>
-          <p className="mt-1 text-sm text-muted">
-            {view.linked.length} linked · {customerEvidenceCount} customer evidence
-          </p>
+          {(view.linked.length > 0 || customerEvidenceCount > 0) && (
+            <p className="mt-1 text-sm text-muted">
+              {view.linked.length} linked · {customerEvidenceCount} customer evidence
+            </p>
+          )}
           {view.linked.length === 0 ? (
             <p className="mt-2 text-sm text-muted">No conversations linked yet.</p>
           ) : (
@@ -141,7 +144,9 @@ async function TestContent({ slug }: { slug: string }) {
                       {c.label}
                     </Link>
                     <span className="text-muted">{c.date ? formatDate(c.date) : "date unknown"}</span>
-                    <Badge tone={isCustomerEvidence(c.type) ? "good" : "neutral"}>{isCustomerEvidence(c.type) ? `${TYPE_LABELS[c.type]} · evidence` : `${TYPE_LABELS[c.type]} · advice`}</Badge>
+                    <Badge tone={countsAsEvidence(c) ? "good" : "neutral"}>
+                      {!isCustomerEvidence(c.type) ? `${TYPE_LABELS[c.type]} · advice` : c.seeded ? `${TYPE_LABELS[c.type]} · imported, not yet confirmed` : `${TYPE_LABELS[c.type]} · evidence`}
+                    </Badge>
                   </span>
                   {open && <ActionButton action={unlinkEvidenceAction} fields={{ test: view.path, conversation: c.path }} label="Unlink" ariaLabel={`Unlink ${c.label}`} variant="quiet" />}
                 </li>

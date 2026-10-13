@@ -1,5 +1,5 @@
 import { capacityWarning } from "../core/capacity";
-import { dueFollowUps, isCustomerEvidence } from "../core/conversations";
+import { countsAsEvidence, dueFollowUps } from "../core/conversations";
 import { guideProgress, guideStepForWeek, type GuideStep } from "../core/guide";
 import { activeChoices, nextStep, type Candidate } from "../core/next-step";
 import { currentWeek, weekFile } from "../core/program";
@@ -95,8 +95,8 @@ export async function loadToday(): Promise<TodayView> {
     guide,
     report,
     next,
-    // Advice links never count as evidence on the current test.
-    currentTest: currentTest(records.tests, (p) => records.conversations.some((c) => c.path === p && isCustomerEvidence(c.data.type))),
+    // Advice links, and imports the founder hasn't confirmed, never count as evidence on the current test.
+    currentTest: currentTest(records.tests, (p) => records.conversations.some((c) => c.path === p && countsAsEvidence(c.data))),
     plannedTests: records.tests.filter((t) => t.data.status === "planned").length,
     followUps,
     capacity: capacityWarning(f.hoursPerWeek, f.commitment, openCount),

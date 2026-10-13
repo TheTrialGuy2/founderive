@@ -1,4 +1,4 @@
-import { isCustomerEvidence } from "../core/conversations";
+import { countsAsEvidence } from "../core/conversations";
 import { brokenLinks, linksOf, type BrokenLink } from "../core/links";
 import { getSection, setSection } from "../core/markdown";
 import { pathForSlug, slugOf } from "../core/slug";
@@ -14,7 +14,7 @@ import { isRealDate, oneOf, orNull, required, text, type Parsed } from "./form";
 
 export type VentureTest = KindData<"test">;
 export type TestRow = { path: string; slug: string; data: VentureTest };
-export type ConversationOption = { path: string; slug: string; label: string; type: ConversationType; date: string | null };
+export type ConversationOption = { path: string; slug: string; label: string; type: ConversationType; date: string | null; seeded: boolean };
 export const TESTS_DIR = "tests";
 export const TEST_BODY = "## Evidence\n\n## What we learned\n\n## Decision and why\n";
 
@@ -268,13 +268,13 @@ async function ensureNextCommitment(rel: string, test: VentureTest, today: strin
 /**
  * Whether a test has evidence that can carry a clear result (spec §3.1): a customer or prospect conversation that
  * exists, reads and links back to the test (a one-sided link doesn't count), or the founder's own description of the
- * evidence under "## Evidence". Advice never counts.
+ * evidence under "## Evidence". Advice never counts, and neither does an imported conversation the founder hasn't confirmed.
  */
 async function hasRealEvidence(rel: string, test: VentureTest, body: string): Promise<boolean> {
   if (getSection(body, "Evidence").trim()) return true;
   for (const p of test.relatedConversations) {
     const e = KINDS.conversation.pattern.test(p) ? await readEntry("conversation", p) : null;
-    if (e?.ok && isCustomerEvidence(e.data.type) && e.data.relatedTests.includes(rel)) return true;
+    if (e?.ok && countsAsEvidence(e.data) && e.data.relatedTests.includes(rel)) return true;
   }
   return false;
 }
@@ -361,7 +361,7 @@ export async function loadTest(slug: string): Promise<TestView> {
   const present = await existingPaths();
   const conversations = (await listEntries("conversation"))
     .flatMap((c) =>
-      c.ok ? [{ path: c.path, slug: slugOf(c.path), label: c.data.org ? `${c.data.person} · ${c.data.org}` : c.data.person, type: c.data.type, date: c.data.date ?? null }] : [],
+      c.ok ? [{ path: c.path, slug: slugOf(c.path), label: c.data.org ? `${c.data.person} · ${c.data.org}` : c.data.person, type: c.data.type, date: c.data.date ?? null, seeded: !!c.data.seeded }] : [],
     )
     .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
   return {

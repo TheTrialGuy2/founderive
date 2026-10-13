@@ -63,6 +63,8 @@ describe("evidence on guide steps", () => {
       }),
     ).toEqual({ customerConversations: 2, tests: 2, completedTests: 1 });
   });
+  it("doesn't count an imported conversation until the founder confirms it", () =>
+    expect(factsFromRecords({ conversations: [{ type: "customer", seeded: true }, { type: "prospect", seeded: false }, { type: "customer" }], tests: [] }).customerConversations).toBe(2));
   it("merges setup facts with record facts, keeping the stronger", () => {
     expect(mergeFacts({ hasTargetCustomer: true, offersMade: 1 }, { customerConversations: 3, offersMade: 0 })).toEqual({ hasTargetCustomer: true, offersMade: 1, customerConversations: 3 });
   });

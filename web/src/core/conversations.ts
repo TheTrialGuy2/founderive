@@ -9,6 +9,9 @@ type Row = {
 /** Customer and prospect conversations are evidence. Mentor, investor, partner and other conversations are advice (amendment §5.3). */
 export const isCustomerEvidence = (type: ConversationType): boolean => CUSTOMER_TYPES.includes(type);
 
+/** Counts toward evidence: a customer or prospect conversation the founder has confirmed (an unconfirmed import doesn't count yet). */
+export const countsAsEvidence = (c: { type: ConversationType; seeded?: boolean }): boolean => isCustomerEvidence(c.type) && !c.seeded;
+
 // Unknown dates (imported from a chat that didn't say when) sort last.
 const newestFirst = (a: Row, b: Row) => (b.data.date ?? "").localeCompare(a.data.date ?? "") || a.path.localeCompare(b.path);
 

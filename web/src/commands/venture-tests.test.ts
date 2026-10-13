@@ -7,6 +7,7 @@ import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
 import { updateEntry } from "../store/update";
 import { createConversation } from "./conversations";
+import { confirmImportedRecord } from "./import";
 import { DANA, MENTOR, PILOT } from "./test-inputs";
 import {
   abandonTest,
@@ -260,6 +261,17 @@ describe("a clear result needs real evidence", () => {
     const t = await createTest(PILOT, TODAY);
     await updateEntry("test", t, (data, body) => ({ data: { ...data!, relatedConversations: [GONE] }, body }));
     await expect(completeTest(t, complete(), TODAY)).rejects.toThrow(CLEAR);
+  });
+  it("doesn't count an unconfirmed imported conversation until the founder confirms it", async () => {
+    const t = await createTest(PILOT, TODAY);
+    const c = await createConversation(DANA, { seeded: true, source: "chat import 2026-10-13 #abcd1234" });
+    await linkEvidence(t, c);
+    await expect(completeTest(t, complete(), TODAY)).rejects.toThrow(CLEAR);
+    const view = await loadTest(slugOf(t));
+    expect(view.status === "ready" && view.linked.map((x) => x.seeded)).toEqual([true]);
+    await confirmImportedRecord(c);
+    await completeTest(t, complete(), TODAY);
+    expect((await testData(t)).data).toMatchObject({ status: "complete", result: "supported" });
   });
   it("allows it with one linked customer conversation", async () => {
     const t = await createTest(PILOT, TODAY);

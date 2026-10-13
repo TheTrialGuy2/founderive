@@ -13,7 +13,7 @@ import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { unlinkEvidenceAction } from "@/app/(workbook)/evidence-actions";
 import { loadConversation, type Conversation } from "@/commands/conversations";
 import { loadFounderToday } from "@/commands/today";
-import { isCustomerEvidence } from "@/core/conversations";
+import { countsAsEvidence, isCustomerEvidence } from "@/core/conversations";
 import { AREA_LABELS, STATUS_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
 
 export default function ConversationPage({ params }: PageProps<"/conversations/[slug]">) {
@@ -52,7 +52,8 @@ async function ConversationContent({ slug }: { slug: string }) {
   }
 
   const c = view.data;
-  const evidence = isCustomerEvidence(c.type);
+  const evidence = countsAsEvidence(c);
+  const evidenceOnceConfirmed = isCustomerEvidence(c.type) && !!c.seeded;
   const testsByPath = new Map(view.tests.map((t) => [t.path, t]));
   const linkable = view.tests.filter((t) => !c.relatedTests.includes(t.path) && t.status !== "abandoned");
   const confirmed = c.whatChangesConfirmed && !!c.whatChanges;
@@ -61,11 +62,18 @@ async function ConversationContent({ slug }: { slug: string }) {
     <>
       <PageHeader eyebrow={`${TYPE_LABELS[c.type]} · ${c.date ? formatDate(c.date) : "date unknown"}`} title={c.org ? `${c.person} · ${c.org}` : c.person} />
       <p className="-mt-4 mb-6 flex flex-wrap items-center gap-2">
-        <Badge tone={evidence ? "good" : "neutral"}>{evidence ? "Customer evidence" : "Advice, not customer evidence"}</Badge>
+        <Badge tone={evidence ? "good" : "neutral"}>{evidence ? "Customer evidence" : evidenceOnceConfirmed ? "Customer evidence once you confirm it" : "Advice, not customer evidence"}</Badge>
         {c.segment && <span className="text-sm text-muted">{c.segment}</span>}
       </p>
       {view.broken.length > 0 && <BrokenLinks links={view.broken} />}
-      {c.seeded && <SeededNote path={view.path} source={c.source} />}
+      {c.seeded && (
+        <SeededNote
+          path={view.path}
+          source={c.source}
+          badge="Imported, not yet confirmed"
+          note={isCustomerEvidence(c.type) ? "It doesn't count as evidence until you do." : undefined}
+        />
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="What this changes" className="md:col-span-2">

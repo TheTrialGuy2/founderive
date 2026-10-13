@@ -5,6 +5,7 @@ import { slugOf } from "../core/slug";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
 import { addCommitment, recordChoice, setCommitmentStatus, setOutcome } from "./checkin";
 import { createConversation } from "./conversations";
+import { confirmImportedRecord } from "./import";
 import { DANA, MENTOR, PILOT } from "./test-inputs";
 import { loadFounderToday, loadPromptContext, loadToday } from "./today";
 import { abandonTest, createTest, linkEvidence } from "./venture-tests";
@@ -105,6 +106,15 @@ describe("loadToday with the loop", () => {
     await linkEvidence(testRel, await createConversation({ ...DANA, followUps: [] }));
     await linkEvidence(testRel, await createConversation(MENTOR));
     expect((await ready()).currentTest).toMatchObject({ linkedCount: 2, evidenceCount: 1 });
+  });
+  it("doesn't count an unconfirmed imported conversation as evidence on the current test or the guide step", async () => {
+    await setCommitmentStatus("2026-W42", "c-1", "done");
+    const testRel = await createTest(PILOT, "2026-10-13");
+    const imported = await createConversation({ ...DANA, followUps: [] }, { seeded: true, source: "chat import 2026-10-13 #abcd1234" });
+    await linkEvidence(testRel, imported);
+    expect((await ready()).currentTest).toMatchObject({ linkedCount: 1, evidenceCount: 0 });
+    await confirmImportedRecord(imported);
+    expect((await ready()).currentTest).toMatchObject({ linkedCount: 1, evidenceCount: 1 });
   });
   it("counts planned tests separately from the current one", async () => {
     await createTest({ ...PILOT, startNow: false }, "2026-10-13");
