@@ -24,8 +24,27 @@ export async function GET(request: Request) {
             }
           }, 150);
         });
+        watcher.on("error", () => {
+          clearTimeout(timer);
+          try {
+            watcher?.close();
+          } catch {
+            // already closed
+          }
+          try {
+            controller.close();
+          } catch {
+            // already closed
+          }
+        });
       } catch {
-        controller.enqueue(encoder.encode(": founder-data not found\n\n"));
+        // founder-data is missing at connect time: close the stream so EventSource reconnects
+        // and picks up a later `pnpm init-data` instead of hanging open with no watcher.
+        try {
+          controller.close();
+        } catch {
+          // already closed
+        }
       }
       request.signal.addEventListener("abort", () => {
         clearTimeout(timer);
