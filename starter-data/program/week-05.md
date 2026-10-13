@@ -1,6 +1,6 @@
 ---
 week: 5
-title: "Halfway: getting it to customers"
+title: "Getting it to them and getting paid"
 status: not-started
 exercises: []
 homework: []
