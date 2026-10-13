@@ -43,6 +43,12 @@ cp founderive.local.example.json founderive.local.json
 | `pnpm check-data` | Checks every file in founder-data and lists anything to fix |
 | `pnpm test` | Runs the unit tests |
 
+## Found a bug or want to suggest a fix?
+
+In the app, choose **Send feedback** in the menu. It saves a copy in your data folder under `feedback/`, then shows exactly what will be sent with a link to email it to hello@founderive.com (the page and app version are filled in). Nothing from your records is sent unless you paste it.
+
+Comfortable with GitHub? [Open an issue](https://github.com/TheTrialGuy2/founderive/issues/new) or send a pull request. Issues are public.
+
 ## Demo
 
 `/demo` holds the original clickable wireframe, with fictional data, for program teams.

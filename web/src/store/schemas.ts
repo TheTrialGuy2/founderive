@@ -275,6 +275,16 @@ export const decisionSchema = z.strictObject({
   relatedTest: z.string().nullish(),
 });
 
+/** A beta tester's feedback, kept locally. It holds only what they typed, the page and the app version. */
+export const feedbackSchema = z.strictObject({
+  ...meta,
+  date: isoDate,
+  page: z.string().nullish(),
+  whatHappened: z.string().min(1),
+  expected: z.string().nullish(),
+  appVersion: z.string(),
+});
+
 /** Every file kind in founder-data: where it lives and what shape it must have. Later steps add kinds here. */
 export const KINDS = {
   founder: { pattern: /^founder\.md$/, schema: founderSchema },
@@ -285,6 +295,7 @@ export const KINDS = {
   conversation: { pattern: datedFile("conversations"), schema: conversationSchema },
   test: { pattern: datedFile("tests"), schema: testSchema },
   decision: { pattern: datedFile("decisions"), schema: decisionSchema },
+  feedback: { pattern: datedFile("feedback"), schema: feedbackSchema },
 } as const;
 
 export type Kind = keyof typeof KINDS;
