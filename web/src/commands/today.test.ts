@@ -3,7 +3,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useTempData } from "../store/test-helpers";
 import { addCommitment, recordChoice, setOutcome } from "./checkin";
-import { loadFounderToday, loadToday } from "./today";
+import { loadFounderToday, loadPromptContext, loadToday } from "./today";
 
 let env: Awaited<ReturnType<typeof useTempData>>;
 beforeEach(async () => (env = await useTempData()));
@@ -63,6 +63,11 @@ describe("loadToday", () => {
     await writeFile(file, (await readFile(file, "utf8")).replace("setupComplete: true", "setupComplete: false"));
     expect(await loadToday()).toEqual({ status: "setup" });
   });
+});
+
+describe("loadPromptContext", () => {
+  it("fills the data folder, venture and today on the server", async () =>
+    expect(await loadPromptContext()).toEqual({ dataDir: env.dir, venture: "Lantern", today: "2026-10-13" }));
 });
 
 describe("loadFounderToday", () => {

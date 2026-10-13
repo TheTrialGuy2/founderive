@@ -2,9 +2,12 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { Badge, Card, formatDate, PageHeader } from "@/components/ui";
+import { CopyPrompt } from "@/components/workbook/CopyPrompt";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { loadCanvas, type CanvasCard } from "@/commands/canvas";
+import { loadPromptContext } from "@/commands/today";
 import { CANVAS_STATUS_LABELS } from "@/lib/loop-labels";
+import { fileChatPrompt, importPrompt } from "@/lib/prompts";
 
 export default function CanvasPage() {
   return (
@@ -19,7 +22,7 @@ export default function CanvasPage() {
 
 async function CanvasContent() {
   await connection();
-  const { cards, configError, others } = await loadCanvas();
+  const [{ cards, configError, others }, promptVars] = await Promise.all([loadCanvas(), loadPromptContext()]);
   const firstRun = cards.every((c) => !c.block?.text.trim() && !c.flagged);
   return (
     <>
@@ -33,6 +36,7 @@ async function CanvasContent() {
         <div className="mb-6 rounded-xl border border-dashed border-teal/45 bg-paper p-5">
           <p className="font-semibold text-navy">Start with the block you&apos;re surest about</p>
           <p className="mt-1 text-sm text-muted">Write a sentence or two in your own words. You can change it any time, and earlier wording is kept.</p>
+          <CopyPrompt prompts={{ fileChat: fileChatPrompt("empty-canvas", promptVars), pasteBridge: importPrompt(promptVars) }} />
         </div>
       )}
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -6,8 +6,10 @@ import { BlockerForm } from "@/components/today/BlockerForm";
 import { CommitmentList } from "@/components/today/CommitmentList";
 import { NextActionCard } from "@/components/today/NextActionCard";
 import { OutcomeForm } from "@/components/today/OutcomeForm";
+import { CopyPrompt } from "@/components/workbook/CopyPrompt";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
-import { loadToday } from "@/commands/today";
+import { loadPromptContext, loadToday } from "@/commands/today";
+import { fileChatPrompt, weekPrompt, weekPromptVars } from "@/lib/prompts";
 
 export default function TodayPage() {
   return (
@@ -31,6 +33,9 @@ async function TodayContent() {
   }
 
   const { founder: f, today, tomorrow, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, next } = view;
+  const promptVars = await loadPromptContext();
+  const openCount = (checkin?.commitments ?? []).filter((c) => c.status === "open").length;
+  const ending = !checkin?.outcome ? "no-outcome" : openCount === 0 ? "no-commitments" : null;
 
   return (
     <>
@@ -46,6 +51,12 @@ async function TodayContent() {
         <Card title="Next action">
           <p className="text-sm text-muted">Nothing is waiting. Add a commitment that moves this week&apos;s outcome forward.</p>
         </Card>
+      )}
+      {ending && (
+        <CopyPrompt
+          title="Prefer to talk it through? Ask your AI"
+          prompts={{ fileChat: fileChatPrompt(ending, promptVars), pasteBridge: weekPrompt({ ...promptVars, ...weekPromptVars(checkin) }) }}
+        />
       )}
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         {checkin?.outcome && (

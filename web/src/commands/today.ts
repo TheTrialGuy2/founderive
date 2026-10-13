@@ -4,6 +4,7 @@ import { currentWeek, weekFile } from "../core/program";
 import { localISODate, resolveToday } from "../core/today";
 import { addDays, isoWeekId, weekStart } from "../core/week";
 import { checkData, type CheckReport } from "../store/check";
+import { dataDir } from "../store/paths";
 import { listEntries, readEntry, type Entry } from "../store/read";
 import type { KindData } from "../store/schemas";
 import { checkinPath } from "./checkin";
@@ -71,4 +72,11 @@ export async function loadToday(): Promise<TodayView> {
 export async function loadFounderToday(): Promise<string> {
   const f = await readEntry("founder", "founder.md");
   return f?.ok ? resolveToday(f.data.today) : localISODate();
+}
+
+/** Values filled into prompts on the server: where the founder's files live, the venture's name and the founder's today. */
+export async function loadPromptContext(): Promise<{ dataDir: string; venture: string; today: string }> {
+  const f = await readEntry("founder", "founder.md");
+  const founder = f?.ok ? f.data : null;
+  return { dataDir: dataDir(), venture: founder?.venture || "my venture", today: founder ? resolveToday(founder.today) : localISODate() };
 }
