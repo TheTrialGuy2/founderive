@@ -227,4 +227,10 @@ describe("commitment action ids across weeks", () => {
     const choices = [{ actionId: "commitment:2026-W42:c-9", choice: "dismissed" as const, date: "2026-10-19" }];
     expect(nextStep({ ...base, choices, commitments })?.id).toBe("commitment:2026-W43:c-9");
   });
+  it("resolves an old-format choice to the week it was logged in, not this week", () => {
+    const choices = [{ actionId: "commitment:c-9", choice: "deferred" as const, date: "2026-10-13", until: "2026-10-21", sourceWeek: "2026-W42" }];
+    // In W43: W42's carried c-9 stays hidden; this week's c-9 is not.
+    expect(nextStep({ ...base, choices, commitments })?.id).toBe("commitment:2026-W43:c-9");
+    expect(nextStep({ ...base, today: "2026-10-21", choices, commitments })?.id).toBe("commitment:2026-W42:c-9");
+  });
 });

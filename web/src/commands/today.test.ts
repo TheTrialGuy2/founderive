@@ -236,6 +236,20 @@ describe("open commitments carry across weeks", () => {
     await recordChoice("2026-W43", "2026-10-19", { actionId: second.next!.id, label: "Forty-one", choice: "deferred", reason: "Later", until: "2026-10-21" });
     expect((await ready()).next?.id).not.toMatch(/^commitment:2026-W4[01]:c-9$/);
   });
+  it("an old-format deferral keeps hiding the carried commitment it was made on, until its date, and no other", async () => {
+    // Logged in W42 before ids carried their week.
+    await recordChoice("2026-W42", "2026-10-13", { actionId: "commitment:c-1", label: "Email the two agencies", choice: "deferred", reason: "Waiting on intros", until: "2026-10-21" });
+    // The same local id in a different week's check-in.
+    await writeFile(path.join(env.dir, "checkins/2026-W41.md"), "---\nweek: 2026-W41\ncommitments:\n  - id: c-1\n    text: Older c-1\n    status: open\n---\n");
+    await pinToday("2026-10-19"); // into W43: W42's c-1 is now carried
+    await setOutcome("2026-W43", "Book three demos");
+    const tuesday = await ready();
+    expect(tuesday.carried.map((c) => `${c.week}:${c.id}`)).toEqual(["2026-W41:c-1", "2026-W42:c-1"]);
+    // W42's c-1 (overdue, tier 4) stays hidden; W41's c-1 is a different commitment and isn't.
+    expect(tuesday.next).toMatchObject({ id: "commitment:2026-W41:c-1", label: "Older c-1" });
+    await pinToday("2026-10-21");
+    expect((await ready()).next).toMatchObject({ id: "commitment:2026-W42:c-1", tier: 4 });
+  });
   it("never carries a commitment forward from a later week, or a done or dropped one", async () => {
     await addCommitment("2026-W43", { text: "Next week's thing" });
     await addCommitment("2026-W41", { text: "Dropped one" }).then((id) => setCommitmentStatus("2026-W41", id, "dropped", "No longer relevant"));

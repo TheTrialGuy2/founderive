@@ -27,7 +27,8 @@ export type NextStepInput = {
   guideStep: { id: string; title: string; why: string; progress?: string | null } | null;
   programWork: { id: string; title: string; due?: string | null }[];
   flagged: { path: string; error: string }[];
-  choices: { actionId: string; choice: "dismissed" | "deferred" | "replaced"; date: string; until?: string | null }[];
+  // `sourceWeek` (set by activeChoices) is the check-in week a choice was logged in; it resolves old-format commitment ids.
+  choices: { actionId: string; choice: "dismissed" | "deferred" | "replaced"; date: string; until?: string | null; sourceWeek?: string }[];
 };
 
 const LAST = "9999-12-31";
@@ -97,26 +98,34 @@ type CheckinChoices = { week: string; nextStepLog: (NextStepInput["choices"][num
  */
 export function activeChoices(checkins: CheckinChoices[], weekId: string, today: string): NextStepInput["choices"] {
   return checkins.flatMap((c) =>
-    c.nextStepLog.filter((choice) => (choice.choice === "deferred" && choice.until ? choice.until > today : c.week === weekId)),
+    c.nextStepLog
+      .filter((choice) => (choice.choice === "deferred" && choice.until ? choice.until > today : c.week === weekId))
+      .map((choice) => ({ ...choice, sourceWeek: c.week })),
   );
+}
+
+type Choice = NextStepInput["choices"][number];
+
+/**
+ * Whether a choice names this action. A choice logged before commitment ids carried their week (`commitment:<id>`)
+ * names the commitment with that id in the check-in week the choice was logged in (`sourceWeek`; without one, this
+ * week), so a carried commitment keeps its old deferral and a same-id commitment from another week isn't touched.
+ */
+function names(choice: Choice, c: Pick<Candidate, "id" | "kind" | "ref" | "week">, weekId: string | undefined): boolean {
+  if (choice.actionId === c.id) return true;
+  if (c.kind !== "commitment" || !c.ref || choice.actionId !== `commitment:${c.ref}`) return false;
+  const week = choice.sourceWeek ?? weekId;
+  return !week || c.week === week;
 }
 
 /**
  * Whether an action is hidden by a choice. The caller scopes `choices` (see activeChoices): any dismissed or
- * replaced choice passed in hides the action; a deferred one hides it until its date. `legacyId` is an older id the
- * same action was logged under (see nextStep).
+ * replaced choice passed in hides the action; a deferred one hides it until its date.
  */
-export function isSuppressed(id: string, choices: NextStepInput["choices"], today: string, legacyId?: string): boolean {
-  return choices.some((c) => (c.actionId === id || (!!legacyId && c.actionId === legacyId)) && (c.choice !== "deferred" || !c.until || c.until > today));
+export function isSuppressed(c: Pick<Candidate, "id" | "kind" | "ref" | "week">, choices: Choice[], today: string, weekId?: string): boolean {
+  return choices.some((choice) => names(choice, c, weekId) && (choice.choice !== "deferred" || !choice.until || choice.until > today));
 }
 
-/**
- * Choices logged before commitment ids carried their week (`commitment:<id>`) still apply, to this week's commitment
- * only: a carried commitment from an earlier week never matches an old-format id.
- */
-const legacyIdOf = (c: Candidate, weekId: string | undefined): string | undefined =>
-  c.kind === "commitment" && c.ref && (!weekId || c.week === weekId) ? `commitment:${c.ref}` : undefined;
-
 export function nextStep(input: NextStepInput): Candidate | null {
-  return rankCandidates(input).find((c) => !isSuppressed(c.id, input.choices, input.today, legacyIdOf(c, input.weekId))) ?? null;
+  return rankCandidates(input).find((c) => !isSuppressed(c, input.choices, input.today, input.weekId)) ?? null;
 }
