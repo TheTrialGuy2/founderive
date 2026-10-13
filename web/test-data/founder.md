@@ -1,6 +1,13 @@
 ---
 name: Sam Rivera
 venture: Lantern
+city: Charlotte
+region: NC
+commitment: part-time
+cofounders: solo
+industry: Home healthcare
+startedOn: 2026-03
+problem: Agency owners rebuild caregiver schedules by hand every week
 oneLiner: Shift scheduling for small home-care agencies
 stage: validating
 businessModel: software

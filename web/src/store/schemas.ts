@@ -13,14 +13,26 @@ const meta = {
 export const STAGES = ["idea", "validating", "pre-revenue", "revenue"] as const;
 export const BUSINESS_MODELS = ["service", "local-business", "physical-product", "software", "marketplace", "nonprofit", "other"] as const;
 export const EVIDENCE_LEVELS = ["none", "conversations", "active-users", "paying-customers", "repeat-customers"] as const;
+export const COMMITMENTS = ["full-time", "part-time", "nights-weekends"] as const;
+export const COFOUNDERS = ["solo", "two", "three-plus"] as const;
 export type Stage = (typeof STAGES)[number];
 export type BusinessModel = (typeof BUSINESS_MODELS)[number];
 export type EvidenceLevel = (typeof EVIDENCE_LEVELS)[number];
+export type Commitment = (typeof COMMITMENTS)[number];
+export type Cofounders = (typeof COFOUNDERS)[number];
 
 export const founderSchema = z.strictObject({
   ...meta,
   name: z.string().default(""),
   venture: z.string().default(""),
+  city: z.string().nullish(),
+  region: z.string().nullish(), // state or province
+  commitment: z.enum(COMMITMENTS).nullish(),
+  cofounders: z.enum(COFOUNDERS).nullish(),
+  website: z.string().nullish(),
+  industry: z.string().nullish(),
+  startedOn: z.string().regex(/^\d{4}-\d{2}$/, "use YYYY-MM").nullish(),
+  problem: z.string().nullish(),
   oneLiner: z.string().nullish(), // null means "still working on it"
   stage: z.enum(STAGES).nullish(),
   businessModel: z.enum(BUSINESS_MODELS).nullish(),

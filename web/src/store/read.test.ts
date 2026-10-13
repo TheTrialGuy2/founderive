@@ -59,6 +59,13 @@ describe("readEntry", () => {
     const e = await readEntry("founder", "founder.md");
     expect(!e?.ok && e?.error).toMatch(/stage/);
   });
+  it("accepts the founder profile essentials and checks the start month", async () => {
+    const ok = await readEntry("founder", "founder.md");
+    expect(ok?.ok && ok.data).toMatchObject({ city: "Charlotte", region: "NC", commitment: "part-time", cofounders: "solo", industry: "Home healthcare", startedOn: "2026-03" });
+    await writeFile(path.join(env.dir, "founder.md"), "---\nname: A\nstartedOn: 2026-3\n---\n");
+    const bad = await readEntry("founder", "founder.md");
+    expect(!bad?.ok && bad?.error).toMatch(/startedOn/);
+  });
 });
 
 describe("listEntries", () => {
