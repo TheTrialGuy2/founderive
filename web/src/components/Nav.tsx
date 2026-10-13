@@ -11,9 +11,9 @@ const isFounderArea = (path: string) => path.startsWith("/demo/founder");
 
 export function PersonaSwitch() {
   const isOperator = usePathname().startsWith("/demo/operator");
-  const tab = (active: boolean) => `whitespace-nowrap rounded-full px-3 py-1 ${active ? "bg-lime text-navy" : "text-white/80 hover:text-white"}`;
+  const tab = (active: boolean) => `whitespace-nowrap rounded-full px-3 py-1 font-medium ${active ? "bg-lime text-navy shadow-sm" : "text-white/75 hover:text-white"}`;
   return (
-    <div className="flex rounded-full bg-white/10 p-0.5" aria-label="Switch persona">
+    <div className="flex rounded-full border border-white/10 bg-white/10 p-0.5" aria-label="Switch persona">
       <Link href="/demo/founder/today" className={tab(!isOperator)}>
         Founder
       </Link>
@@ -33,10 +33,10 @@ export function SideNav() {
 
   return (
     // Founders get the bottom tab bar on phones, so their side nav is desktop-only.
-    <nav className={`${isOperator ? "border-b" : "hidden md:block"} border-line bg-paper md:w-56 md:shrink-0 md:border-r md:border-b-0`}>
-      <div className="hidden px-5 pt-5 pb-3 md:block">
-        <Image src="/founderive-wordmark.svg" alt="founderive" width={120} height={26} />
-        <p className="mt-2 text-xs text-muted">{isOperator ? "Program team" : `${basics.name} · ${basics.ventureName}`}</p>
+    <nav className={`${isOperator ? "border-b" : "hidden md:block"} border-line bg-paper md:w-60 md:shrink-0 md:border-r md:border-b-0`}>
+      <div className="hidden px-5 pt-6 pb-4 md:block">
+        <Image src="/founderive-wordmark.svg" alt="Founderive" width={132} height={29} priority />
+        <p className="mt-2 text-xs font-medium text-muted">{isOperator ? "Program team" : `${basics.name} · ${basics.ventureName}`}</p>
       </div>
       <ul className="flex gap-1 overflow-x-auto px-3 py-2 md:flex-col md:overflow-visible">
         {nav.map((item) => {
@@ -45,7 +45,7 @@ export function SideNav() {
             <li key={item.href}>
               <Link
                 href={item.href}
-                className={`block rounded-md px-3 py-2 text-sm whitespace-nowrap ${active ? "bg-navy font-medium text-white" : "text-ink hover:bg-sand/60"}`}
+                className={`block rounded-xl px-3 py-2 text-sm whitespace-nowrap ${active ? "bg-navy font-semibold text-white shadow-sm" : "text-ink hover:bg-aqua/45"}`}
               >
                 {item.label}
               </Link>
@@ -61,7 +61,7 @@ export function FounderTabBar() {
   const pathname = usePathname();
   if (!isFounderArea(pathname)) return null;
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-paper/95 backdrop-blur md:hidden" aria-label="Founder tabs">
+    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-paper/95 shadow-[0_-6px_20px_rgba(18,32,51,0.06)] backdrop-blur md:hidden" aria-label="Founder tabs">
       <ul className="mx-auto flex max-w-md items-end justify-between px-4 pt-1.5 pb-3">
         {FOUNDER_TABS.map((t) => {
           const active = pathname.startsWith(t.match ?? t.href);
@@ -70,12 +70,12 @@ export function FounderTabBar() {
               <Link href={t.href} className="flex flex-col items-center gap-0.5 text-[11px]">
                 <span
                   className={`flex items-center justify-center ${
-                    t.primary ? "-mt-5 h-12 w-12 rounded-full bg-navy text-lime shadow-lg" : `h-6 ${active ? "text-navy" : "text-muted"}`
+                    t.primary ? "-mt-5 h-12 w-12 rounded-full bg-navy text-lime shadow-lg ring-4 ring-paper" : `h-6 ${active ? "text-teal-dark" : "text-muted"}`
                   }`}
                 >
                   <Icon name={t.icon} size={t.primary ? 24 : 20} />
                 </span>
-                <span className={active ? "font-medium text-navy" : "text-muted"}>{t.label}</span>
+                <span className={active ? "font-semibold text-teal-dark" : "text-muted"}>{t.label}</span>
               </Link>
             </li>
           );
@@ -92,7 +92,7 @@ export function QuickLog() {
   return (
     <Link
       href="/demo/founder/conversations/new"
-      className="fixed right-8 bottom-8 z-20 hidden h-14 w-14 items-center justify-center rounded-full bg-navy text-lime shadow-lg hover:bg-navy-light md:flex"
+      className="fixed right-8 bottom-8 z-20 hidden h-14 w-14 items-center justify-center rounded-full bg-navy text-lime shadow-[0_10px_28px_rgba(18,32,51,0.24)] hover:-translate-y-0.5 hover:bg-navy-light md:flex"
       aria-label="Log a conversation"
       title="Log a conversation"
     >

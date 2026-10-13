@@ -6,7 +6,7 @@ import { ICONS, Icon, type IconName } from "@/components/icons";
 import { Badge, Builds, Button, Card, LayerBadge, PageHeader, ProgressBar, Ring, Stat, WeekDots } from "@/components/ui";
 
 // Swatches read the live CSS variables from globals.css, so this page can't drift from the theme.
-const COLORS = ["navy", "navy-light", "ink", "muted", "line", "canvas", "paper", "sand", "lime", "lime-soft", "aqua", "coral", "coral-soft"];
+const COLORS = ["navy", "navy-light", "ink", "muted", "line", "canvas", "paper", "sand", "lime", "lime-soft", "teal", "teal-dark", "aqua", "coral", "coral-soft"];
 
 const RULES = [
   "Tap to complete. Lists are checklists, not reading.",
@@ -51,9 +51,9 @@ export default function DesignSystemPage() {
 
       <Section title="Type">
         <div className="space-y-2">
-          <p className="font-serif text-5xl text-navy">2 week streak</p>
-          <p className="font-serif text-3xl text-navy">Page title · serif 3xl</p>
-          <p className="font-medium text-navy">Card title · sans medium</p>
+          <p className="text-5xl font-semibold tracking-[-0.05em] text-navy">2 week streak</p>
+          <p className="text-4xl font-semibold tracking-[-0.045em] text-navy">Page title · display 4xl</p>
+          <p className="font-semibold text-navy">Card title · sans semibold</p>
           <p className="text-sm">Body · sans sm</p>
           <p className="text-xs text-muted">Meta · sans xs muted</p>
           <p className="text-xs font-medium tracking-wide text-muted uppercase">Eyebrow · xs uppercase</p>

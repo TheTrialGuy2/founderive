@@ -1,18 +1,4 @@
-<svg width="296" height="64" viewBox="0 0 148 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="founderive" style="color:#0e1a2b">
-  <title>founderive wordmark</title>
-  <!-- monoline, round-terminal geometric lowercase — same construction as the f-dot mark -->
-  <g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-    <g transform="translate(4,0)"><!-- f --><path d="M6 26 V11 C6 7.8 7.6 6.5 10.5 6.5"/><path d="M1.8 14 H10.2"/></g>
-    <g transform="translate(17,0)"><!-- o --><circle cx="7.5" cy="19" r="6.5"/></g>
-    <g transform="translate(33,0)"><!-- u --><path d="M2 12 V20.5 C2 24 4.2 26 7 26 C9.8 26 12 24 12 20.5 V12"/></g>
-    <g transform="translate(48,0)"><!-- n --><path d="M2 26 V16 C2 13.5 4 12 6.7 12 C9.4 12 11.4 13.5 11.4 16 V26"/></g>
-    <g transform="translate(63,0)"><!-- d --><circle cx="7.5" cy="19" r="6.5"/><path d="M14 5 V26"/></g>
-    <g transform="translate(80,0)"><!-- e --><path d="M2 19 H13 V16.3 C13 13.6 10.7 12 7.5 12 C4.2 12 2 14.4 2 19 C2 23.6 4.4 26 7.7 26 C10 26 11.7 25.1 12.7 23.2"/></g>
-    <g transform="translate(96,0)"><!-- r --><path d="M2 26 V12"/><path d="M2 16 C2 13 4.3 12 7.4 12"/></g>
-    <g transform="translate(107,0)"><!-- i --><path d="M2 26 V12"/></g>
-    <g transform="translate(113,0)"><!-- v --><path d="M2 12 L7 26 L12 12"/></g>
-    <g transform="translate(128,0)"><!-- e --><path d="M2 19 H13 V16.3 C13 13.6 10.7 12 7.5 12 C4.2 12 2 14.4 2 19 C2 23.6 4.4 26 7.7 26 C10 26 11.7 25.1 12.7 23.2"/></g>
-  </g>
-  <!-- the i's tittle, drawn as the derivative dot to rhyme with the ḟ mark -->
-  <circle cx="109" cy="7.6" r="1.9" fill="#d7ee63"/>
+<svg width="296" height="64" viewBox="0 0 296 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Founderive">
+  <title>Founderive wordmark</title>
+  <text x="2" y="45" font-family="Manrope, Avenir Next, Inter, ui-sans-serif, system-ui, sans-serif" font-size="43" font-weight="700" letter-spacing="-1.8"><tspan fill="#56B8AA">founder</tspan><tspan fill="#122033">ive</tspan></text>
 </svg>

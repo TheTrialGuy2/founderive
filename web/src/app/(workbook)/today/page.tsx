@@ -23,7 +23,7 @@ async function TodayContent() {
     return (
       <>
         <PageHeader title="Today" />
-        <EmptyState title="No founder-data yet" detail="Run pnpm init-data in web/, then reload." />
+        <EmptyState title="Start your founder record" detail="Run pnpm init-data from web, then reload this page." />
       </>
     );
   }
@@ -55,7 +55,7 @@ async function TodayContent() {
                 {f.programTitle} · Week {week} of {f.programWeeks}
                 {f.programStart ? ` · ${formatDate(weekDate(f.programStart, week))}` : ""}
               </p>
-              <p className="mt-1 font-serif text-xl text-navy">{weekEntry?.ok ? weekEntry.data.title : `Week ${week}`}</p>
+              <p className="mt-1 text-xl font-semibold tracking-[-0.02em] text-navy">{weekEntry?.ok ? weekEntry.data.title : `Week ${week}`}</p>
               {weekEntry && !weekEntry.ok && (
                 <div className="mt-3">
                   <FlaggedFile path={weekEntry.path} error={weekEntry.error} />
@@ -65,7 +65,7 @@ async function TodayContent() {
           )}
         </Card>
         <Card title="Venture">
-          <p className="font-serif text-xl text-navy">{f.venture || "—"}</p>
+          <p className="text-xl font-semibold tracking-[-0.02em] text-navy">{f.venture || "—"}</p>
           <p className="text-sm text-muted">{f.name || "Add your name in founder.md"}</p>
         </Card>
       </div>

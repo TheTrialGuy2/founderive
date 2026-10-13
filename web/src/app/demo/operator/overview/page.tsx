@@ -49,8 +49,8 @@ export default function OverviewPage() {
                     <span>{p.label}</span>
                     <span className="font-medium">{n}</span>
                   </div>
-                  <div className="h-6 rounded bg-sand">
-                    <div className="h-full rounded bg-navy" style={{ width: `${(n / maxPhase) * 100}%` }} />
+                  <div className="h-6 rounded-lg bg-sand">
+                    <div className="h-full rounded-lg bg-teal" style={{ width: `${(n / maxPhase) * 100}%` }} />
                   </div>
                 </li>
               );

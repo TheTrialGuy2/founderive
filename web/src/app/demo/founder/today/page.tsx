@@ -45,39 +45,39 @@ export default function TodayPage() {
 
       <Link
         href={next.href}
-        className="mb-5 flex items-center gap-4 rounded-2xl border-2 border-lime bg-paper p-5 transition hover:border-navy"
+        className="group mb-5 flex items-center gap-4 rounded-2xl border border-teal/45 bg-paper p-5 shadow-[0_6px_24px_rgba(18,32,51,0.06)] hover:-translate-y-0.5 hover:border-teal-dark"
       >
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 text-xs font-medium tracking-wide text-muted uppercase">
             Next <Badge>{next.effort}</Badge>
           </p>
-          <p className="mt-1 font-serif text-2xl text-navy">{next.title}</p>
+          <p className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-navy">{next.title}</p>
           <p className="mt-1 text-sm text-muted">{next.why}</p>
         </div>
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy text-lime">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy text-lime group-hover:bg-teal-dark">
           <Icon name="next" size={22} />
         </span>
       </Link>
 
-      <section className="mb-5 grid gap-4 rounded-2xl bg-navy p-5 text-white sm:grid-cols-[1fr_auto]">
+      <section className="mb-5 grid gap-4 overflow-hidden rounded-2xl border border-white/5 bg-navy p-5 text-white shadow-[0_8px_30px_rgba(18,32,51,0.12)] sm:grid-cols-[1fr_auto]">
         <div>
-          <p className="font-serif text-5xl text-lime">
-            {streak}
-            <span className="ml-2 font-sans text-base text-white/80">week streak</span>
+          <p className="flex items-baseline gap-3">
+            <span className="text-5xl font-semibold tracking-[-0.05em] text-lime">{streak}</span>
+            <span className="text-base text-white/80">week streak</span>
           </p>
           <p className="mt-1 text-xs text-white/60">Weeks in a row with a customer conversation</p>
           <div className="mt-3">
             <WeekDots weeks={weeks} />
           </div>
         </div>
-        <div className="flex gap-4 rounded-xl bg-paper p-3 text-ink">
+        <div className="flex gap-4 rounded-xl bg-paper p-3 text-ink shadow-inner">
           <Ring value={interviewCount(conversations)} max={interviewMetric().target} label="Interviews" size={76} />
           <Ring value={supportedCount(conversations)} max={readinessRows(conversations).length} label="Readiness" size={76} />
         </div>
       </section>
 
       <p className="mb-5 text-sm">
-        <span className="mr-2 rounded bg-lime px-1.5 py-0.5 text-xs font-medium text-navy">Focus</span>
+        <span className="mr-2 rounded-md bg-aqua px-1.5 py-0.5 text-xs font-semibold text-teal-dark">Focus</span>
         {dana.focusQuestion}
       </p>
 
