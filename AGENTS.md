@@ -103,6 +103,13 @@ Use plain words and short turns. Say what you read in the record before asking f
 - Fields are strict: an unknown key is flagged. Any record may carry `seeded`, `source`, `concepts`, or an `extensions` object for anything else custom.
 - Programs are optional. Never assume one exists.
 - Never commit founder-data to this repo. It's gitignored, and it is its own git repo.
+- New conversations, tests, decisions and feedback are new dated files: `<folder>/YYYY-MM-DD-<lowercase-hyphen-slug>.md`. If the name exists, add `-2`. Never overwrite.
+- Links are kept on both sides: a conversation's `relatedTests` and a test's `relatedConversations` always match. A broken link is a check-data warning, not an error; fix or remove it.
+- The founder confirms interpretations and decisions. Never set a test's `result`, `decision` or `closedOn`, and never set `whatChangesConfirmed: true`. Draft them in conversation and let the founder confirm in the app.
+- Mentor, investor and partner conversations are advice. They may be linked to a test, but only customer and prospect conversations count as customer evidence.
+- Anything you draft from a chat, a document or a guess gets `seeded: true` and a `source` (for example the document's path). The app shows it as "Imported — confirm" until the founder confirms it. Never clear `seeded` yourself.
+- A test that's `complete` or `abandoned` is closed and frozen: don't add evidence, links, an evidence rating or a `## Plan` section to it. New evidence goes on the conversation, or a follow-up test.
+- `person` on a conversation is a first name or a role only, never contact details — no email address, phone number or link, even one the source material had. The browser-chat paste flow refuses a line whose `person` looks like contact details (`looksLikeContactDetails` in `web/src/commands/paste-bridge.ts`); follow the same rule writing a file directly, since nothing else catches it.
 
 ## File kinds (more arrive with each build step)
 
@@ -111,6 +118,22 @@ Use plain words and short turns. Say what you read in the record before asking f
 | `founder.md` | name, venture, city, region (two-letter US state code), commitment (full-time / part-time / nights-weekends), cofounders (solo / two / three-plus), cofounderNames (list of names, optional), website, industry, startedOn (YYYY-MM), problem, oneLiner (null = still working on it), stage (idea / validating / pre-revenue / revenue), businessModel (service / local-business / physical-product / software / marketplace / nonprofit / other), targetCustomer, evidence (none / conversations / active-users / paying-customers / repeat-customers), outcome30, hoursPerWeek, setupComplete, optional program: programTitle + programStart + programWeeks, currentWeek?, today? (date pin) |
 | `checkins/YYYY-Www.md` | week (ISO, Monday start), outcome, commitments [{id, text, due?, status open / done / dropped, reason (required if dropped), link?}], blocker, helpNeeded, nextStepLog [{date, actionId, label, choice dismissed / deferred / replaced, reason, until?, replacement?, via? app / agent}] |
 | `program/week-NN.md` | week, title, date?, status (not-started / in-progress / done), exercises [{id, title, savesTo?}], homework [{id, title, due?, status (open / done / skipped), skipReason (required if skipped), savesTo?}] |
+| `canvas/blocks.md` | Optional. blocks [{id (lowercase-hyphen), title, prompt}]. Replaces the shipped generic blocks (customer, problem, solution, alternatives, advantage, channel, revenue, cost, feasibility) |
+| `canvas/<id>.md` | id (matches the file name), title?, text (current belief), status (untested / some-evidence / tested), updated?, history [{date, text}] (earlier wording, never deleted). Body: notes. Imported drafts carry `seeded: true` until the founder confirms them |
+| `conversations/YYYY-MM-DD-slug.md` | type (customer / prospect / mentor / partner / investor / other), person (a first name or a role only — never contact details, even ones the founder's notes had), org?, date? (leave it out when unknown; the file name then uses the day it was logged), segment?, context?, questionsAsked?, observedBehavior?, quotes [], numbers [], alternatives?, urgency?, buyingProcess?, followUps [{id, text, due?, status open / done}], relatedTests [test paths], areas [customer / problem / solution / channel / revenue / cost / feasibility], whatChanges?, whatChangesConfirmed (only the founder sets true). Body: notes |
+| `tests/YYYY-MM-DD-slug.md` | title, area, status (planned / running / complete / abandoned), belief, risk?, test, successCriteria, failureCriteria, due?, startedOn?, closedOn?, relatedConversations [conversation paths], relatedFiles [], evidenceStrength (none / weak / moderate / strong, founder-rated: paid > behavior > opinion), result (supported / contradicted / inconclusive; only when complete — supported or contradicted needs a customer or prospect conversation linked back to this test, or the founder's own notes under `## Evidence`; inconclusive never needs that), decision (continue / revise / pause / stop; only when complete), nextCommitment?, nextCommitmentDue?, abandonReason (required if abandoned). Body: `## Plan` (optional), `## Evidence`, `## What we learned`, `## Decision and why`. A test that's `complete` or `abandoned` is closed and frozen: no new evidence, links, rating or Plan section after that — new evidence goes on the conversation, or a follow-up test |
+| `decisions/YYYY-MM-DD-slug.md` | title, date, area?, beliefBefore?, evidence [record paths], alternatives [], decision, why, reversible (true / false), relatedTest?. For decisions made outside a test |
+| `feedback/YYYY-MM-DD-slug.md` | date, page?, whatHappened, expected?, appVersion. Written by the app's "Send feedback" form |
+
+## Prompts (Claude commands; Codex, read and follow the file)
+
+| Ask | Read and follow |
+|---|---|
+| Log a conversation from notes or a transcript | `.claude/skills/log-conversation/SKILL.md` (Claude: `/log-conversation <notes>`) |
+| Set up a test the founder already has in mind | `.claude/skills/new-test/SKILL.md` (Claude: `/new-test <idea>`) |
+| Work out what's riskiest and what to test | `.claude/skills/hypothesis-engine/SKILL.md` |
+| Plan how to run a test, with numbers | `.claude/skills/validation-planner/SKILL.md` |
+| Bring in a folder of the founder's documents | `.claude/skills/import-folder/SKILL.md` |
 
 ## Code
 
