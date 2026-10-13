@@ -1,3 +1,4 @@
+import { isCustomerEvidence } from "../core/conversations";
 import { brokenLinks, linksOf, type BrokenLink } from "../core/links";
 import { getSection, setSection } from "../core/markdown";
 import { pathForSlug, slugOf } from "../core/slug";
@@ -7,7 +8,7 @@ import { DECISION_LABELS } from "../lib/loop-labels";
 import { existingPaths, listEntries, readEntry } from "../store/read";
 import { AREAS, EVIDENCE_STRENGTHS, KINDS, type Area, type ConversationType, type KindData } from "../store/schemas";
 import { updateEntry } from "../store/update";
-import { checkinPath, loadCheckin, newId, type Checkin } from "./checkin";
+import { appendCommitmentOnce, loadCheckin, newId, type Checkin } from "./checkin";
 import { createDated } from "./create";
 import { isRealDate, oneOf, orNull, required, text, type Parsed } from "./form";
 
@@ -60,6 +61,10 @@ export function parseTestForm(fd: FormData): Parsed<TestInput> {
 
 const missing = (rel: string) => new Error(`founder-data/${rel} isn't there anymore. Reload the page.`);
 const isClosed = (t: VentureTest) => t.status === "complete" || t.status === "abandoned";
+const CLOSED = "This test is closed. Add new evidence to the conversation, or start a follow-up test.";
+const refuseClosed = (t: VentureTest) => {
+  if (isClosed(t)) throw new Error(CLOSED);
+};
 const toggle = (list: string[], item: string, on: boolean) => (on ? (list.includes(item) ? list : [...list, item]) : list.filter((p) => p !== item));
 
 /** Creates a venture test. Success and failure criteria are required up front, before any result exists. */
@@ -94,10 +99,31 @@ export async function startTest(rel: string, today: string): Promise<void> {
   });
 }
 
-async function requireReadable(kind: "test" | "conversation", rel: string): Promise<void> {
+async function requireReadable<K extends "test" | "conversation">(kind: K, rel: string): Promise<KindData<K>> {
   const e = await readEntry(kind, rel);
   if (!e) throw missing(rel);
   if (!e.ok) throw new Error(`Fix founder-data/${e.path} first: ${e.error}`);
+  return e.data;
+}
+
+const pairQueues = new Map<string, Promise<unknown>>();
+
+/**
+ * Runs `work` after every earlier link or unlink of the same test and conversation has finished (an in-process mutex
+ * per pair, the same pattern as the store's per-file one), so a link and an unlink can't interleave their two writes
+ * and leave the records disagreeing.
+ */
+async function serializedPair<T>(testRel: string, conversationRel: string, work: () => Promise<T>): Promise<T> {
+  const key = `${testRel}\n${conversationRel}`;
+  const previous = pairQueues.get(key) ?? Promise.resolve();
+  const run = previous.then(work, work);
+  const tail = run.catch(() => undefined);
+  pairQueues.set(key, tail);
+  try {
+    return await run;
+  } finally {
+    if (pairQueues.get(key) === tail) pairQueues.delete(key);
+  }
 }
 
 /** Adds or removes one link on a conversation. Returns whether the file's list actually changed. */
@@ -117,6 +143,7 @@ async function setTestLink(testRel: string, conversationRel: string, on: boolean
   const result = { changed: false };
   await updateEntry("test", testRel, (data, body) => {
     if (!data) throw missing(testRel);
+    refuseClosed(data);
     const next = toggle(data.relatedConversations, conversationRel, on);
     result.changed = next.length !== data.relatedConversations.length;
     return { data: { ...data, relatedConversations: next }, body };
@@ -125,25 +152,30 @@ async function setTestLink(testRel: string, conversationRel: string, on: boolean
 }
 
 /** Test seams for the failure paths; the app never passes them. */
-export type LinkHooks = { beforeSecondWrite?: () => void; beforeRollback?: () => void };
+export type LinkHooks = { beforeSecondWrite?: () => void | Promise<void>; beforeRollback?: () => void | Promise<void> };
 
 /**
  * Links a conversation to a test as evidence, on both records. Safe to repeat: a repeat call adds only the missing
  * side, so it repairs a one-sided link. If the second write fails, only a link this call newly added is undone; a link
  * that was already there stays. If the undo itself fails, the original error is reported and a repeat call repairs it.
+ * A closed test is frozen: new evidence goes on the conversation or a follow-up test.
  */
 export async function linkEvidence(testRel: string, conversationRel: string, hooks: LinkHooks = {}): Promise<void> {
   if (!KINDS.test.pattern.test(testRel) || !KINDS.conversation.pattern.test(conversationRel)) throw new Error("Pick a test and a conversation to link.");
-  await requireReadable("test", testRel);
+  return serializedPair(testRel, conversationRel, () => linkBoth(testRel, conversationRel, hooks));
+}
+
+async function linkBoth(testRel: string, conversationRel: string, hooks: LinkHooks): Promise<void> {
+  refuseClosed(await requireReadable("test", testRel));
   await requireReadable("conversation", conversationRel);
   const addedToConversation = await setConversationLink(conversationRel, testRel, true);
   try {
-    hooks.beforeSecondWrite?.();
+    await hooks.beforeSecondWrite?.();
     await setTestLink(testRel, conversationRel, true);
   } catch (error) {
     if (addedToConversation) {
       try {
-        hooks.beforeRollback?.();
+        await hooks.beforeRollback?.();
         await setConversationLink(conversationRel, testRel, false);
       } catch {
         // Keep the original error. The link is one-sided now; linking again or unlinking repairs it.
@@ -153,11 +185,18 @@ export async function linkEvidence(testRel: string, conversationRel: string, hoo
   }
 }
 
-/** Removes the link from both records. A side whose file is gone or misnamed (a broken link) is skipped. */
+/**
+ * Removes the link from both records. A side whose file is gone or misnamed (a broken link) is skipped. A closed test
+ * is frozen, so its links stay.
+ */
 export async function unlinkEvidence(testRel: string, conversationRel: string): Promise<void> {
-  const present = async (kind: "test" | "conversation", rel: string) => KINDS[kind].pattern.test(rel) && (await readEntry(kind, rel)) !== null;
-  if (await present("conversation", conversationRel)) await setConversationLink(conversationRel, testRel, false);
-  if (await present("test", testRel)) await setTestLink(testRel, conversationRel, false);
+  return serializedPair(testRel, conversationRel, async () => {
+    const test = KINDS.test.pattern.test(testRel) ? await readEntry("test", testRel) : null;
+    if (test?.ok) refuseClosed(test.data);
+    const present = async (kind: "test" | "conversation", rel: string) => KINDS[kind].pattern.test(rel) && (await readEntry(kind, rel)) !== null;
+    if (await present("conversation", conversationRel)) await setConversationLink(conversationRel, testRel, false);
+    if (test) await setTestLink(testRel, conversationRel, false);
+  });
 }
 
 /** The founder's own rating of the evidence so far (paid > behavior > opinion). Closed tests keep the rating they closed with. */
@@ -171,10 +210,11 @@ export async function setEvidenceStrength(rel: string, strength: string): Promis
   });
 }
 
-/** Writes the founder's summary of the evidence under "## Evidence". */
+/** Writes the founder's summary of the evidence, and where it came from, under "## Evidence". Not on a closed test. */
 export async function saveEvidenceNotes(rel: string, notes: string): Promise<void> {
   await updateEntry("test", rel, (data, body) => {
     if (!data) throw missing(rel);
+    refuseClosed(data);
     return { data, body: setSection(body, "Evidence", notes) };
   });
 }
@@ -190,20 +230,13 @@ async function ensureNextCommitment(rel: string, test: VentureTest, today: strin
   if (!text) return { commitmentId: null };
   const isIt = (c: Checkin["commitments"][number]) => c.link === rel && c.text === text;
   const weekId = isoWeekId(today);
-  const weeks = [...new Set([test.closedOn ? isoWeekId(test.closedOn) : weekId, weekId])];
+  const closingWeek = test.closedOn ? isoWeekId(test.closedOn) : weekId;
   try {
-    for (const w of weeks) {
-      const found = (await loadCheckin(w)).data.commitments.find(isIt);
+    if (closingWeek !== weekId) {
+      const found = (await loadCheckin(closingWeek)).data.commitments.find(isIt);
       if (found) return { commitmentId: found.id };
     }
-    const id = newId("c");
-    const { data } = await updateEntry("checkin", checkinPath(weekId), (current, body) => {
-      const c: Checkin = current ?? { week: weekId, commitments: [], nextStepLog: [] };
-      if (c.commitments.some(isIt)) return { data: c, body };
-      return { data: { ...c, commitments: [...c.commitments, { id, text, due: test.nextCommitmentDue ?? null, status: "open", reason: null, link: rel }] }, body };
-    });
-    const saved = data.commitments.find(isIt);
-    if (!saved) throw new Error("the check-in didn't keep it");
+    const saved = await appendCommitmentOnce(weekId, { id: newId("c"), text, due: test.nextCommitmentDue ?? null, link: rel }, isIt);
     return { commitmentId: saved.id };
   } catch (error) {
     const why = error instanceof Error ? error.message : "unknown error";
@@ -212,19 +245,35 @@ async function ensureNextCommitment(rel: string, test: VentureTest, today: strin
 }
 
 /**
- * Closes a test with the founder's result and decision (kept separate), writes the learning and the reason into the
- * body, and adds the next commitment (if any) to this week's check-in, linked to the test. Safe to repeat: on a test
- * that's already complete it only adds a next commitment that a failed earlier attempt left out.
+ * Whether a test has evidence that can carry a clear result (spec §3.1): a linked customer or prospect conversation
+ * that exists and reads, or the founder's own description of the evidence under "## Evidence". Advice never counts.
  */
-export async function completeTest(rel: string, form: CompletionForm, today: string): Promise<{ commitmentId: string | null }> {
+async function hasRealEvidence(test: VentureTest, body: string): Promise<boolean> {
+  if (getSection(body, "Evidence").trim()) return true;
+  for (const p of test.relatedConversations) {
+    const e = KINDS.conversation.pattern.test(p) ? await readEntry("conversation", p) : null;
+    if (e?.ok && isCustomerEvidence(e.data.type)) return true;
+  }
+  return false;
+}
+
+/**
+ * Closes a test with the founder's result and decision (kept separate), writes the learning and the reason into the
+ * body, and adds the next commitment (if any) to this week's check-in, linked to the test. A supported or contradicted
+ * result needs real evidence; inconclusive is always allowed. Safe to repeat: on a test that's already complete it
+ * changes nothing but a next commitment that a failed earlier attempt left out, and says `alreadyComplete`.
+ */
+export async function completeTest(rel: string, form: CompletionForm, today: string): Promise<{ commitmentId: string | null; alreadyComplete?: true }> {
   const current = await readEntry("test", rel);
-  if (current?.ok && current.data.status === "complete") return ensureNextCommitment(rel, current.data, today);
+  if (current?.ok && current.data.status === "complete") return { ...(await ensureNextCommitment(rel, current.data, today)), alreadyComplete: true };
   const checked = checkCompletion(form);
   if (!checked.ok) throw new Error(Object.values(checked.errors)[0]);
   const c = checked.value;
-  const { data: closed } = await updateEntry("test", rel, (data, body) => {
+  const { data: closed } = await updateEntry("test", rel, async (data, body) => {
     if (!data) throw missing(rel);
     if (isClosed(data)) throw new Error("This test is already closed.");
+    if (c.result !== "inconclusive" && !(await hasRealEvidence(data, body)))
+      throw new Error(`Link a customer or prospect conversation, or describe the evidence and where it came from, before marking it ${c.result}.`);
     const withLearning = setSection(body, "What we learned", c.learning);
     return {
       data: {

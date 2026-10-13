@@ -7,7 +7,7 @@ import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
 import { updateEntry } from "../store/update";
 import { createConversation } from "./conversations";
-import { DANA, PILOT } from "./test-inputs";
+import { DANA, MENTOR, PILOT } from "./test-inputs";
 import {
   abandonTest,
   completeTest,
@@ -43,6 +43,8 @@ const complete = (extra: Partial<CompletionForm> = {}): CompletionForm => ({
   nextCommitmentDue: "2026-10-20",
   ...extra,
 });
+const NOTES = "Two owners signed the pilot form by email on 2026-10-12";
+const withNotes = (rel: string) => saveEvidenceNotes(rel, NOTES);
 const testData = async (rel: string) => {
   const e = await readEntry("test", rel);
   if (!e?.ok) throw new Error(`can't read ${rel}`);
@@ -150,6 +152,7 @@ describe("venture test commands", () => {
   });
   it("completes with a separate result and decision, writes the learning, and adds the next commitment to this week", async () => {
     const t = await createTest(PILOT, TODAY);
+    await linkEvidence(t, await createConversation(DANA));
     await expect(completeTest(t, complete({ evidenceStrength: "none" }), TODAY)).rejects.toThrow(/inconclusive/);
     const { commitmentId } = await completeTest(t, complete({ decision: "revise", why: "The price held, onboarding didn't" }), TODAY);
     const e = await testData(t);
@@ -159,12 +162,13 @@ describe("venture test commands", () => {
     const week = await readEntry("checkin", "checkins/2026-W42.md");
     expect(week?.ok && week.data.commitments.find((c) => c.id === commitmentId)).toMatchObject({ text: "Onboard the two pilots", due: "2026-10-20", status: "open", link: t });
     // Repeating is safe: no second commitment.
-    expect(await completeTest(t, complete(), TODAY)).toEqual({ commitmentId });
+    expect(await completeTest(t, complete(), TODAY)).toEqual({ commitmentId, alreadyComplete: true });
     const again = await readEntry("checkin", "checkins/2026-W42.md");
     expect(again?.ok && again.data.commitments.filter((c) => c.link === t)).toHaveLength(1);
   });
   it("never strands the next commitment: completing again adds it once the check-in can be saved", async () => {
     const t = await createTest(PILOT, TODAY);
+    await withNotes(t);
     const file = path.join(env.dir, "checkins/2026-W42.md");
     const good = await readFile(file, "utf8");
     await writeFile(file, "---\nweek: nope\n---\n");
@@ -182,6 +186,7 @@ describe("venture test commands", () => {
   });
   it("a stop decision may end without a next commitment", async () => {
     const t = await createTest(PILOT, TODAY);
+    await withNotes(t);
     expect(await completeTest(t, complete({ result: "contradicted", decision: "stop", why: "Nobody would pay", nextCommitment: "", nextCommitmentDue: "" }), TODAY)).toEqual({ commitmentId: null });
     expect((await testData(t)).data).toMatchObject({ decision: "stop", nextCommitment: null });
   });
@@ -217,6 +222,7 @@ describe("test views", () => {
 describe("the next commitment is added exactly once", () => {
   it("two repeat completions at the same moment add it once", async () => {
     const t = await createTest(PILOT, TODAY);
+    await withNotes(t);
     const file = path.join(env.dir, "checkins/2026-W42.md");
     const good = await readFile(file, "utf8");
     await writeFile(file, "---\nweek: nope\n---\n");
@@ -229,8 +235,112 @@ describe("the next commitment is added exactly once", () => {
   });
   it("repeating in a later week doesn't add it again when the closing week already has it", async () => {
     const t = await createTest(PILOT, TODAY);
+    await withNotes(t);
     const { commitmentId } = await completeTest(t, complete(), TODAY);
-    expect(await completeTest(t, complete(), "2026-10-21")).toEqual({ commitmentId });
+    expect(await completeTest(t, complete(), "2026-10-21")).toEqual({ commitmentId, alreadyComplete: true });
     expect(await readEntry("checkin", "checkins/2026-W43.md")).toBeNull();
+  });
+});
+
+describe("a clear result needs real evidence", () => {
+  const CLEAR = /Link a customer or prospect conversation, or describe the evidence and where it came from, before marking it supported/;
+  it("refuses supported or contradicted with no links and no evidence notes, changing nothing", async () => {
+    const t = await createTest(PILOT, TODAY);
+    await expect(completeTest(t, complete(), TODAY)).rejects.toThrow(CLEAR);
+    await expect(completeTest(t, complete({ result: "contradicted" }), TODAY)).rejects.toThrow(/before marking it contradicted/);
+    expect((await testData(t)).data).toMatchObject({ status: "running", result: null, decision: null });
+  });
+  it("never counts advice as evidence", async () => {
+    const t = await createTest(PILOT, TODAY);
+    await linkEvidence(t, await createConversation(MENTOR));
+    await expect(completeTest(t, complete(), TODAY)).rejects.toThrow(CLEAR);
+  });
+  it("never counts a broken link as evidence", async () => {
+    const t = await createTest(PILOT, TODAY);
+    await updateEntry("test", t, (data, body) => ({ data: { ...data!, relatedConversations: [GONE] }, body }));
+    await expect(completeTest(t, complete(), TODAY)).rejects.toThrow(CLEAR);
+  });
+  it("allows it with one linked customer conversation", async () => {
+    const t = await createTest(PILOT, TODAY);
+    await linkEvidence(t, await createConversation(DANA));
+    await completeTest(t, complete(), TODAY);
+    expect((await testData(t)).data).toMatchObject({ status: "complete", result: "supported" });
+  });
+  it("allows it with the founder's own description of the evidence", async () => {
+    const t = await createTest(PILOT, TODAY);
+    await withNotes(t);
+    await completeTest(t, complete({ result: "contradicted", decision: "revise" }), TODAY);
+    expect((await testData(t)).data).toMatchObject({ status: "complete", result: "contradicted" });
+  });
+});
+
+describe("a repeat completion", () => {
+  it("says the test was already complete and keeps the result and decision it closed with", async () => {
+    const t = await createTest(PILOT, TODAY);
+    await withNotes(t);
+    const first = await completeTest(t, complete(), TODAY);
+    expect(first).toEqual({ commitmentId: first.commitmentId });
+    const again = await completeTest(t, complete({ result: "contradicted", decision: "stop", why: "Changed my mind", nextCommitment: "" }), TODAY);
+    expect(again).toEqual({ commitmentId: first.commitmentId, alreadyComplete: true });
+    expect((await testData(t)).data).toMatchObject({ result: "supported", decision: "continue" });
+  });
+});
+
+describe("a closed test is frozen", () => {
+  const CLOSED = /This test is closed\. Add new evidence to the conversation, or start a follow-up test\./;
+  const closedTests = async () => {
+    const done = await createTest(PILOT, TODAY);
+    const c = await createConversation(DANA);
+    await linkEvidence(done, c);
+    await completeTest(done, complete(), TODAY);
+    const stopped = await createTest({ ...PILOT, title: "Find agencies in a directory" }, TODAY);
+    await abandonTest(stopped, "Pricing changed", TODAY);
+    return { done, stopped, c };
+  };
+  it("refuses new links on a complete or abandoned test, changing neither side", async () => {
+    const { done, stopped } = await closedTests();
+    const other = await createConversation({ ...DANA, person: "Sam Reyes" });
+    await expect(linkEvidence(done, other)).rejects.toThrow(CLOSED);
+    await expect(linkEvidence(stopped, other)).rejects.toThrow(CLOSED);
+    const conv = await readEntry("conversation", other);
+    expect(conv?.ok && conv.data.relatedTests).toEqual([]);
+    expect((await testData(stopped)).data.relatedConversations).toEqual([]);
+  });
+  it("refuses to unlink from a closed test, keeping both sides", async () => {
+    const { done, c } = await closedTests();
+    await expect(unlinkEvidence(done, c)).rejects.toThrow(CLOSED);
+    expect((await testData(done)).data.relatedConversations).toEqual([c]);
+    const conv = await readEntry("conversation", c);
+    expect(conv?.ok && conv.data.relatedTests).toEqual([done]);
+  });
+  it("refuses to change the evidence notes of a closed test", async () => {
+    const { done, stopped } = await closedTests();
+    await expect(saveEvidenceNotes(done, "Rewritten later")).rejects.toThrow(CLOSED);
+    await expect(saveEvidenceNotes(stopped, "Rewritten later")).rejects.toThrow(CLOSED);
+    expect((await testData(done)).body).not.toContain("Rewritten later");
+  });
+});
+
+describe("link and unlink never leave the two sides disagreeing", () => {
+  it("a link and an unlink of the same pair at the same moment end with both sides agreeing", async () => {
+    const t = await createTest(PILOT, TODAY);
+    const c = await createConversation(DANA);
+    const agree = async () => {
+      const onTest = (await testData(t)).data.relatedConversations.includes(c);
+      const conv = await readEntry("conversation", c);
+      expect(conv?.ok && conv.data.relatedTests.includes(t)).toBe(onTest);
+    };
+    // An unlink that starts between the link's two writes, while the link pauses there, must wait for the link.
+    let unlinking: Promise<void> = Promise.resolve();
+    const unlinkMidway = () => {
+      unlinking = unlinkEvidence(t, c);
+      return new Promise<void>((r) => setTimeout(r, 50));
+    };
+    await Promise.all([linkEvidence(t, c, { beforeSecondWrite: unlinkMidway }), new Promise((r) => setTimeout(r, 60)).then(() => unlinking)]);
+    await agree();
+    for (let i = 0; i < 5; i++) {
+      await Promise.all([linkEvidence(t, c), unlinkEvidence(t, c)]);
+      await agree();
+    }
   });
 });
