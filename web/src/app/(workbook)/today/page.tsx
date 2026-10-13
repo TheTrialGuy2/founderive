@@ -7,14 +7,7 @@ import { CommitmentList } from "@/components/today/CommitmentList";
 import { NextActionCard } from "@/components/today/NextActionCard";
 import { OutcomeForm } from "@/components/today/OutcomeForm";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
-import { checkinPath } from "@/commands/checkin";
-import { guideStepFor } from "@/core/guide";
-import { nextStep } from "@/core/next-step";
-import { currentWeek, weekFile } from "@/core/program";
-import { resolveToday } from "@/core/today";
-import { isoWeekId, weekStart } from "@/core/week";
-import { checkData } from "@/store/check";
-import { readEntry } from "@/store/read";
+import { loadToday } from "@/commands/today";
 
 export default function TodayPage() {
   return (
@@ -26,56 +19,29 @@ export default function TodayPage() {
 
 async function TodayContent() {
   await connection();
-  const founder = await readEntry("founder", "founder.md");
-  if (!founder || (founder.ok && !founder.data.setupComplete)) redirect("/setup");
-  if (!founder.ok) {
+  const view = await loadToday();
+  if (view.status === "setup") redirect("/setup");
+  if (view.status === "flagged") {
     return (
       <>
         <PageHeader title="Today" />
-        <FlaggedFile path={founder.path} error={founder.error} />
+        <FlaggedFile path={view.path} error={view.error} />
       </>
     );
   }
 
-  const f = founder.data;
-  const today = resolveToday(f.today);
-  const weekId = isoWeekId(today);
-  const checkinEntry = await readEntry("checkin", checkinPath(weekId));
-  const checkin = checkinEntry?.ok ? checkinEntry.data : null;
-
-  const inProgram = !!(f.programTitle && f.programStart && f.programWeeks);
-  const programWeek = inProgram ? currentWeek({ programStart: f.programStart, today, totalWeeks: f.programWeeks ?? 1, override: f.currentWeek }) : null;
-  const weekEntry = programWeek ? await readEntry("week", weekFile(programWeek)) : null;
-  const homework = weekEntry?.ok ? weekEntry.data.homework : [];
-
-  const committedGuideIds = new Set((checkin?.commitments ?? []).filter((c) => c.link?.startsWith("guide:")).map((c) => c.link!.slice(6)));
-  const guide = guideStepFor(f.stage, { hasTargetCustomer: !!f.targetCustomer }, committedGuideIds);
-  const report = await checkData();
-
-  const next = nextStep({
-    today,
-    outcome: checkin?.outcome,
-    blocker: checkin?.blocker,
-    risks: [],
-    currentTests: [],
-    commitments: checkin?.commitments ?? [],
-    followUps: [],
-    guideStep: guide,
-    programWork: homework.filter((h) => h.status === "open").map((h) => ({ id: h.id, title: h.title, due: h.due })),
-    flagged: report.errors,
-    choices: checkin?.nextStepLog ?? [],
-  });
+  const { founder: f, today, tomorrow, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, next } = view;
 
   return (
     <>
-      <PageHeader eyebrow={`${formatDate(today)} · Week of ${formatDate(weekStart(today))}`} title="Today" />
+      <PageHeader eyebrow={`${formatDate(today)} · Week of ${formatDate(weekStartsOn)}`} title="Today" />
       {checkinEntry && !checkinEntry.ok && (
         <div className="mb-4">
           <FlaggedFile path={checkinEntry.path} error={checkinEntry.error} />
         </div>
       )}
       {next ? (
-        <NextActionCard action={next} weekId={weekId} today={today} programWeek={programWeek} />
+        <NextActionCard action={next} weekId={weekId} today={today} tomorrow={tomorrow} programWeek={programWeek} />
       ) : (
         <Card title="Next action">
           <p className="text-sm text-muted">Nothing is waiting. Add a commitment that moves this week&apos;s outcome forward.</p>

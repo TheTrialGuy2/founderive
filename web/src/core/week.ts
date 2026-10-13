@@ -19,3 +19,10 @@ export function weekStart(iso: string): string {
   d.setUTCDate(d.getUTCDate() - mondayOffset(d));
   return d.toISOString().slice(0, 10);
 }
+
+/** The date `days` after this one (negative goes back). */
+export function addDays(iso: string, days: number): string {
+  const d = utc(iso);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}

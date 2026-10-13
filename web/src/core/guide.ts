@@ -1,4 +1,4 @@
-import type { Stage } from "../store/schemas";
+import type { EvidenceLevel, Stage } from "../store/schemas";
 
 export type GuideFacts = {
   hasTargetCustomer: boolean;
@@ -50,4 +50,32 @@ export function guideStepFor(stage: Stage | null | undefined, facts: Partial<Gui
   const f = { ...NO_FACTS, ...facts };
   const s = stage ?? "idea";
   return GUIDE_STEPS.find((step) => step.stages.includes(s) && !step.done(f) && !excludeIds.has(step.id)) ?? null;
+}
+
+/**
+ * Guide facts implied by what the founder told setup. Stronger evidence implies the earlier steps happened:
+ * active users mean customer conversations, paying customers mean an offer was made, repeat customers mean
+ * someone came back. Real counts from records replace these later.
+ */
+export function factsFromFounder(f: { targetCustomer?: string | null; evidence?: EvidenceLevel | null }): Partial<GuideFacts> {
+  const facts: Partial<GuideFacts> = { hasTargetCustomer: !!f.targetCustomer };
+  const e = f.evidence;
+  if (e === "active-users" || e === "paying-customers" || e === "repeat-customers") facts.customerConversations = 5;
+  if (e === "paying-customers" || e === "repeat-customers") Object.assign(facts, { hasOffer: true, offersMade: 3 });
+  if (e === "repeat-customers") facts.repeatCustomers = 1;
+  return facts;
+}
+
+type WeekCommitment = { status: "open" | "done" | "dropped"; link?: string | null };
+const guideId = (c: WeekCommitment) => (c.link?.startsWith("guide:") ? c.link.slice("guide:".length) : null);
+
+/**
+ * The guide step to propose this week. None while the founder has an open guide commitment (that commitment
+ * is the guide work); a step committed to and done this week is skipped; a dropped one may come back.
+ */
+export function guideStepForWeek(stage: Stage | null | undefined, facts: Partial<GuideFacts>, commitments: WeekCommitment[]): GuideStep | null {
+  const linked = commitments.filter((c) => guideId(c) !== null);
+  if (linked.some((c) => c.status === "open")) return null;
+  const done = new Set(linked.filter((c) => c.status === "done").map((c) => guideId(c)!));
+  return guideStepFor(stage, facts, done);
 }

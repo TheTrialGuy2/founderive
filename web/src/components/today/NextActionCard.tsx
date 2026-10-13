@@ -9,9 +9,9 @@ import { IDLE } from "@/lib/action-state";
 import { ActionButton } from "./ActionButton";
 import { OutcomeForm } from "./OutcomeForm";
 
-type Props = { action: Candidate; weekId: string; today: string; programWeek: number | null };
+type Props = { action: Candidate; weekId: string; today: string; tomorrow: string; programWeek: number | null };
 
-export function NextActionCard({ action, weekId, today, programWeek }: Props) {
+export function NextActionCard({ action, weekId, today, tomorrow, programWeek }: Props) {
   return (
     <section aria-labelledby="next-action-label" className="rounded-xl border border-teal/30 bg-paper p-6 shadow-sm">
       <p id="next-action-label" className="text-xs font-semibold tracking-[0.12em] text-teal-dark uppercase">
@@ -25,12 +25,12 @@ export function NextActionCard({ action, weekId, today, programWeek }: Props) {
       <div className="mt-4">
         <Primary action={action} weekId={weekId} programWeek={programWeek} />
       </div>
-      {action.kind !== "outcome" && action.kind !== "fix" && <NotNow action={action} weekId={weekId} today={today} />}
+      {action.kind !== "outcome" && action.kind !== "fix" && <NotNow action={action} weekId={weekId} today={today} tomorrow={tomorrow} />}
     </section>
   );
 }
 
-function Primary({ action, weekId, programWeek }: Omit<Props, "today">) {
+function Primary({ action, weekId, programWeek }: Omit<Props, "today" | "tomorrow">) {
   switch (action.kind) {
     case "outcome":
       return <OutcomeForm weekId={weekId} initial={action.suggestion ?? ""} />;
@@ -57,7 +57,7 @@ function Primary({ action, weekId, programWeek }: Omit<Props, "today">) {
   }
 }
 
-function NotNow({ action, weekId, today }: { action: Candidate; weekId: string; today: string }) {
+function NotNow({ action, weekId, today, tomorrow }: { action: Candidate; weekId: string; today: string; tomorrow: string }) {
   const [state, formAction, pending] = useActionState(chooseNotNow, IDLE);
   const [choice, setChoice] = useState(state.values?.choice ?? "dismissed");
   return (
@@ -83,7 +83,7 @@ function NotNow({ action, weekId, today }: { action: Candidate; weekId: string; 
         {choice === "deferred" && (
           <label className="block text-ink">
             Remind me on
-            <input type="date" name="until" min={today} defaultValue={state.values?.until} className={`${inputClass} mt-1 max-w-48`} />
+            <input type="date" name="until" min={tomorrow} defaultValue={state.values?.until} className={`${inputClass} mt-1 max-w-48`} />
           </label>
         )}
         {choice === "replaced" && (

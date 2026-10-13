@@ -18,7 +18,7 @@ export type NextStepInput = {
   blocker: string | null | undefined;
   risks: { id: string; label: string; reason: string; href: string }[];
   currentTests: { path: string; title: string; href: string; due?: string | null }[];
-  commitments: { id: string; text: string; due?: string | null; status: "open" | "done" | "dropped" }[];
+  commitments: { id: string; text: string; due?: string | null; status: "open" | "done" | "dropped"; link?: string | null }[];
   followUps: { id: string; text: string; href: string; due?: string | null }[];
   guideStep: { id: string; title: string; why: string } | null;
   programWork: { id: string; title: string; due?: string | null }[];
@@ -27,6 +27,7 @@ export type NextStepInput = {
 };
 
 const LAST = "9999-12-31";
+const isGuideLink = (link: string | null | undefined) => !!link?.startsWith("guide:");
 const byDue = (a: { due?: string | null }, b: { due?: string | null }) => (a.due ?? LAST).localeCompare(b.due ?? LAST);
 
 /** Every eligible action in amendment §7 order: risk, blocker, test, overdue commitment, follow-up, guide, program, upkeep. */
@@ -46,7 +47,12 @@ export function rankCandidates(input: NextStepInput): Candidate[] {
   for (const f of input.followUps.filter((f) => !f.due || f.due <= input.today).sort(byDue)) {
     out.push({ id: `followup:${f.id}`, tier: 5, kind: "followup", label: f.text, reason: "Someone is waiting on you.", href: f.href, due: f.due });
   }
-  if (input.guideStep) out.push({ id: `guide:${input.guideStep.id}`, tier: 6, kind: "guide", label: input.guideStep.title, reason: input.guideStep.why, ref: input.guideStep.id });
+  // An open guide commitment is this week's guide work, so no new guide step is proposed alongside it.
+  const guideCommitments = input.commitments.filter((c) => c.status === "open" && isGuideLink(c.link));
+  for (const c of guideCommitments.filter((c) => !(c.due && c.due < input.today)).sort(byDue)) {
+    out.push({ id: `commitment:${c.id}`, tier: 6, kind: "commitment", label: c.text, reason: "You committed to this step this week.", ref: c.id, due: c.due });
+  }
+  if (input.guideStep && guideCommitments.length === 0) out.push({ id: `guide:${input.guideStep.id}`, tier: 6, kind: "guide", label: input.guideStep.title, reason: input.guideStep.why, ref: input.guideStep.id });
   for (const p of [...input.programWork].sort(byDue)) {
     out.push({ id: `program:${p.id}`, tier: 7, kind: "program", label: p.title, reason: p.due ? `Program work due ${p.due}.` : "Program work for this week.", ref: p.id, due: p.due });
   }
@@ -56,7 +62,22 @@ export function rankCandidates(input: NextStepInput): Candidate[] {
   return out.sort((a, b) => a.tier - b.tier);
 }
 
-/** Dismissed and replaced actions stay hidden for the week; deferred ones until their date. */
+type CheckinChoices = { week: string; nextStepLog: (NextStepInput["choices"][number] & { until?: string | null })[] };
+
+/**
+ * The "not now" choices that still apply today: dismissed and replaced ones from this week's check-in only,
+ * and deferred ones from any week's check-in until their date.
+ */
+export function activeChoices(checkins: CheckinChoices[], weekId: string, today: string): NextStepInput["choices"] {
+  return checkins.flatMap((c) =>
+    c.nextStepLog.filter((choice) => (choice.choice === "deferred" && choice.until ? choice.until > today : c.week === weekId)),
+  );
+}
+
+/**
+ * Whether an action is hidden by a choice. The caller scopes `choices` (see activeChoices): any dismissed or
+ * replaced choice passed in hides the action; a deferred one hides it until its date.
+ */
 export function isSuppressed(id: string, choices: NextStepInput["choices"], today: string): boolean {
   return choices.some((c) => c.actionId === id && (c.choice !== "deferred" || !c.until || c.until > today));
 }

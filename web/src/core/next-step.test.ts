@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextStep, rankCandidates, type NextStepInput } from "./next-step";
+import { activeChoices, nextStep, rankCandidates, type NextStepInput } from "./next-step";
 
 const base: NextStepInput = {
   today: "2026-10-13",
@@ -66,4 +66,47 @@ describe("nextStep", () => {
     for (const c of ranked) expect(c.reason.length).toBeGreaterThan(0);
   });
   it("returns null when nothing is left", () => expect(nextStep({ ...base, guideStep: null })).toBeNull());
+});
+
+describe("open guide commitments", () => {
+  const guideCommitment = { id: "c-9", text: "Talk to five people who have the problem", status: "open" as const, link: "guide:problem-conversations" };
+  it("rank at tier 6 as a commitment, with the committed reason", () => {
+    const ranked = rankCandidates({ ...base, guideStep: null, commitments: [{ ...guideCommitment, due: "2026-10-16" }] });
+    expect(ranked).toEqual([
+      expect.objectContaining({ id: "commitment:c-9", tier: 6, kind: "commitment", label: "Talk to five people who have the problem", reason: "You committed to this step this week.", ref: "c-9" }),
+    ]);
+  });
+  it("still rank at tier 4 once overdue", () => {
+    const ranked = rankCandidates({ ...base, guideStep: null, commitments: [{ ...guideCommitment, due: "2026-10-12" }] });
+    expect(ranked.map((c) => [c.id, c.tier])).toEqual([["commitment:c-9", 4]]);
+  });
+  it("replace any new guide step while open", () => {
+    const ranked = rankCandidates({ ...base, commitments: [guideCommitment] });
+    expect(ranked.filter((c) => c.kind === "guide")).toEqual([]);
+    expect(nextStep({ ...base, commitments: [guideCommitment] })?.id).toBe("commitment:c-9");
+  });
+  it("done or dropped ones don't rank", () => {
+    const ranked = rankCandidates({ ...base, commitments: [{ ...guideCommitment, status: "done" }, { ...guideCommitment, id: "c-10", status: "dropped" }] });
+    expect(ranked.map((c) => c.id)).toEqual(["guide:riskiest-assumption"]);
+  });
+  it("open commitments not linked to the guide and not overdue don't rank", () => {
+    const ranked = rankCandidates({ ...base, commitments: [{ id: "c-1", text: "Call Dana", due: "2026-10-20", status: "open", link: null }] });
+    expect(ranked.map((c) => c.id)).toEqual(["guide:riskiest-assumption"]);
+  });
+});
+
+describe("activeChoices", () => {
+  const choice = (actionId: string, choice: "dismissed" | "deferred" | "replaced", until: string | null = null) => ({ date: "2026-10-14", actionId, label: "x", choice, reason: "r", until });
+  const lastWeek = { week: "2026-W42", nextStepLog: [choice("guide:offer", "deferred", "2026-10-21"), choice("guide:customer", "dismissed"), choice("program:hw-1", "replaced"), choice("guide:old", "deferred", "2026-10-19")] };
+  const thisWeek = { week: "2026-W43", nextStepLog: [choice("fix:a.md", "dismissed")] };
+
+  it("keeps last week's deferral until its date (next Wednesday, seen this Monday)", () => {
+    const active = activeChoices([lastWeek, thisWeek], "2026-W43", "2026-10-19");
+    expect(active.map((c) => c.actionId).sort()).toEqual(["fix:a.md", "guide:offer"]);
+    expect(nextStep({ ...base, today: "2026-10-19", guideStep: { id: "offer", title: "Write a small offer", why: "w" }, choices: active })).toBeNull();
+  });
+  it("drops last week's dismissals and replacements, and deferrals that have come due", () => {
+    const active = activeChoices([lastWeek], "2026-W43", "2026-10-21");
+    expect(active).toEqual([]);
+  });
 });
