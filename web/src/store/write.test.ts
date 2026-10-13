@@ -39,21 +39,25 @@ describe("saveEntry", () => {
   it("rejects a path that doesn't match the kind", async () => {
     await expect(saveEntry("week", "notes/week.md", { week: 1, title: "x", status: "done", exercises: [], homework: [] })).rejects.toThrow(ValidationError);
   });
-  it("keeps unknown extra keys on the entry and on nested exercise/homework objects", async () => {
-    const data = {
+  it("keeps declared metadata (seeded, source, concepts, extensions) through a save", async () => {
+    await saveEntry("week", "program/week-04.md", {
       week: 4,
-      title: "Building the relationship",
-      status: "in-progress",
+      title: "Week 4",
+      status: "not-started",
       exercises: [{ id: "ex-1", title: "Canvas", seeded: true, concepts: ["a"] }],
       homework: [{ id: "hw-1", title: "Interviews", status: "open", seeded: true, concepts: ["a"] }],
       seeded: true,
+      source: "import",
       concepts: ["a"],
-    } as never;
-    await saveEntry("week", "program/week-04.md", data);
+      extensions: { color: "teal" },
+    });
     const e = await readEntry("week", "program/week-04.md");
-    expect(e?.ok && e.data).toMatchObject({ seeded: true, concepts: ["a"] });
-    expect(e?.ok && (e.data.exercises[0] as unknown as { seeded: boolean; concepts: string[] })).toMatchObject({ seeded: true, concepts: ["a"] });
-    expect(e?.ok && (e.data.homework[0] as unknown as { seeded: boolean; concepts: string[] })).toMatchObject({ seeded: true, concepts: ["a"] });
+    expect(e?.ok && e.data).toMatchObject({ seeded: true, source: "import", concepts: ["a"], extensions: { color: "teal" } });
+    expect(e?.ok && e.data.homework[0]).toMatchObject({ seeded: true, concepts: ["a"] });
+  });
+  it("rejects an undeclared core key on save", async () => {
+    const bad = { week: 4, title: "x", status: "not-started", exercises: [], homework: [], titel: "typo" } as never;
+    await expect(saveEntry("week", "program/week-04.md", bad)).rejects.toThrow(ValidationError);
   });
 });
 

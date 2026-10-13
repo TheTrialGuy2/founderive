@@ -1,3 +1,5 @@
+import { writeFile } from "node:fs/promises";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { listEntries, readEntry } from "./read";
 import { kindOf } from "./schemas";
@@ -11,6 +13,7 @@ describe("kindOf", () => {
   it("maps paths to kinds", () => {
     expect(kindOf("founder.md")).toBe("founder");
     expect(kindOf("program/week-01.md")).toBe("week");
+    expect(kindOf("checkins/2026-W42.md")).toBe("checkin");
     expect(kindOf("notes/scratch.md")).toBeNull();
   });
 });
@@ -39,6 +42,22 @@ describe("readEntry", () => {
   it("flags a path that doesn't match the kind, without reading the file", async () => {
     const e = await readEntry("week", "notes/scratch.md");
     expect(e).toEqual({ ok: false, kind: "week", path: "notes/scratch.md", error: "notes/scratch.md is not a valid path for week" });
+  });
+  it("flags an undeclared key instead of keeping it", async () => {
+    await writeFile(path.join(env.dir, "program/week-04.md"), "---\nweek: 4\ntitle: x\ntitel: typo\n---\n");
+    const e = await readEntry("week", "program/week-04.md");
+    expect(e?.ok).toBe(false);
+    expect(!e?.ok && e?.error).toMatch(/titel/);
+  });
+  it("reads a check-in with defaults", async () => {
+    const e = await readEntry("checkin", "checkins/2026-W42.md");
+    expect(e?.ok && e.data.commitments).toHaveLength(2);
+    expect(e?.ok && e.data.nextStepLog).toEqual([]);
+  });
+  it("rejects a founder stage typo", async () => {
+    await writeFile(path.join(env.dir, "founder.md"), "---\nname: A\nstage: validatng\n---\n");
+    const e = await readEntry("founder", "founder.md");
+    expect(!e?.ok && e?.error).toMatch(/stage/);
   });
 });
 

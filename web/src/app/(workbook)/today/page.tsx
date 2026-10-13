@@ -38,7 +38,7 @@ async function TodayContent() {
 
   const f = founder.data;
   const today = resolveToday(f.today);
-  const week = currentWeek({ programStart: f.programStart, today, totalWeeks: f.programWeeks, override: f.currentWeek });
+  const week = currentWeek({ programStart: f.programStart, today, totalWeeks: f.programWeeks ?? 10, override: f.currentWeek });
   const weekEntry = week ? await readEntry("week", weekFile(week)) : null;
   const report = await checkData();
 
@@ -52,7 +52,7 @@ async function TodayContent() {
           ) : (
             <>
               <p className="text-xs text-muted">
-                {f.programTitle} · Week {week} of {f.programWeeks}
+                {f.programTitle ?? "Program"} · Week {week} of {f.programWeeks ?? 10}
                 {f.programStart ? ` · ${formatDate(weekDate(f.programStart, week))}` : ""}
               </p>
               <p className="mt-1 text-xl font-semibold tracking-[-0.02em] text-navy">{weekEntry?.ok ? weekEntry.data.title : `Week ${week}`}</p>
