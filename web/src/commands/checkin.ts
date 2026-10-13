@@ -48,6 +48,31 @@ export async function addCommitment(weekId: string, input: { text: string; due?:
   return id;
 }
 
+type Commitment = Checkin["commitments"][number];
+
+/**
+ * Adds an open commitment unless one that `matches` is already in the week, and returns the one that's there. The
+ * final check runs inside the check-in's own read-change-write, so two calls at the same moment still add it once.
+ * When it's already there, the file isn't written at all.
+ */
+export async function appendCommitmentOnce(
+  weekId: string,
+  item: { id: string; text: string; due: string | null; link: string | null },
+  matches: (c: Commitment) => boolean,
+): Promise<Commitment> {
+  const text = required(item.text, "Say what you're committing to.");
+  const existing = (await loadCheckin(weekId)).data.commitments.find(matches);
+  if (existing) return existing;
+  const { data } = await updateEntry("checkin", checkinPath(weekId), (current, body) => {
+    const c: Checkin = current ?? { week: weekId, commitments: [], nextStepLog: [] };
+    if (c.commitments.some(matches)) return { data: c, body };
+    return { data: { ...c, commitments: [...c.commitments, { id: item.id, text, due: item.due || null, status: "open", reason: null, link: item.link || null }] }, body };
+  });
+  const saved = data.commitments.find(matches);
+  if (!saved) throw new Error("the check-in didn't keep it");
+  return saved;
+}
+
 export async function setCommitmentStatus(weekId: string, id: string, status: string, reason?: string): Promise<void> {
   if (status !== "open" && status !== "done" && status !== "dropped") throw new Error(`Unknown status: ${status}`);
   const why = status === "dropped" ? required(reason, "Say why you're dropping it.") : null;

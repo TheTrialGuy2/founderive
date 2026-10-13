@@ -70,9 +70,10 @@ export type CurrentTest = { path: string; slug: string; title: string; due: stri
 
 /**
  * The test Today shows (amendment §5.2 item 3): the running test due soonest. `evidenceCount` counts only linked
- * conversations that are customer evidence; advice links never raise it.
+ * conversations that are customer evidence; advice links never raise it. The caller says which links are customer
+ * evidence; there's no default, so advice can't be counted by omission.
  */
-export function currentTest(rows: TestRow[], isCustomerEvidence: (path: string) => boolean = () => true): CurrentTest | null {
+export function currentTest(rows: TestRow[], isCustomerEvidence: (path: string) => boolean): CurrentTest | null {
   const t = groupTests(rows).running[0];
   if (!t) return null;
   const evidenceCount = t.data.relatedConversations.filter(isCustomerEvidence).length;

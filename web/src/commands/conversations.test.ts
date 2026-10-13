@@ -43,6 +43,13 @@ describe("parseConversationForm", () => {
       org: null,
     });
   });
+  it("marks 'what this changes' typed on the founder's form as theirs", () => {
+    const base = { type: "customer", person: "Dana Ortiz", date: "2026-10-08" };
+    const typed = parseConversationForm(form({ ...base, whatChanges: "Price ceiling near $300" }));
+    expect(typed.ok && typed.input).toMatchObject({ whatChanges: "Price ceiling near $300", whatChangesConfirmed: true });
+    const blank = parseConversationForm(form({ ...base, whatChanges: "" }));
+    expect(blank.ok && blank.input.whatChangesConfirmed).toBe(false);
+  });
   it("returns field errors and keeps what was typed", () => {
     const r = parseConversationForm(form({ type: "friend", person: "", date: "2026-02-30", notes: "keep me", followUpText: [""], followUpDue: ["2026-10-12"] }));
     expect(r.ok).toBe(false);
@@ -74,13 +81,21 @@ describe("conversation commands", () => {
     expect(e?.ok && e.data).toMatchObject({ date: null, seeded: true, source: "chat import 2026-10-13" });
     await expect(createConversation({ ...DANA, date: null })).rejects.toThrow(/date/);
   });
-  it("treats 'what this changes' written by the founder while logging as confirmed", async () => {
-    const rel = await createConversation({ ...DANA, whatChanges: "The price ceiling may be near $300" });
-    const e = await readEntry("conversation", rel);
+  it("treats 'what this changes' as confirmed only when the founder's form says they wrote it", async () => {
+    const mine = await createConversation({ ...DANA, whatChanges: "The price ceiling may be near $300", whatChangesConfirmed: true });
+    const e = await readEntry("conversation", mine);
     expect(e?.ok && e.data.whatChangesConfirmed).toBe(true);
   });
+  it("leaves a drafted 'what this changes' unconfirmed when the caller doesn't say who wrote it", async () => {
+    const drafted = await createConversation({ ...DANA, whatChanges: "The price ceiling may be near $300" }, { seeded: true, source: "chat import" });
+    const e = await readEntry("conversation", drafted);
+    expect(e?.ok && e.data).toMatchObject({ whatChanges: "The price ceiling may be near $300", whatChangesConfirmed: false });
+    const empty = await createConversation({ ...DANA, whatChanges: null, whatChangesConfirmed: true });
+    const f = await readEntry("conversation", empty);
+    expect(f?.ok && f.data.whatChangesConfirmed).toBe(false);
+  });
   it("edits details and notes but keeps follow-ups, links and what this changes", async () => {
-    const rel = await createConversation({ ...DANA, whatChanges: "Weekly pain" });
+    const rel = await createConversation({ ...DANA, whatChanges: "Weekly pain", whatChangesConfirmed: true });
     await updateConversation(rel, { ...DANA, person: "Dana O.", followUps: [], whatChanges: null, notes: "Better notes" });
     const e = await readEntry("conversation", rel);
     expect(e?.ok && e.data).toMatchObject({ person: "Dana O.", whatChanges: "Weekly pain", whatChangesConfirmed: true });

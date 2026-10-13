@@ -1,8 +1,8 @@
-import { writeFile, mkdir } from "node:fs/promises";
+import { mkdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useTempData } from "../store/test-helpers";
-import { addCommitment, loadCheckin, recordChoice, setBlocker, setCommitmentStatus, setOutcome } from "./checkin";
+import { addCommitment, appendCommitmentOnce, loadCheckin, recordChoice, setBlocker, setCommitmentStatus, setOutcome } from "./checkin";
 
 let env: Awaited<ReturnType<typeof useTempData>>;
 beforeEach(async () => (env = await useTempData()));
@@ -47,5 +47,17 @@ describe("check-in commands", () => {
     await mkdir(path.join(env.dir, "checkins"), { recursive: true });
     await writeFile(path.join(env.dir, "checkins/2026-W44.md"), "---\nweek: nope\n---\n");
     await expect(setOutcome("2026-W44", "x")).rejects.toThrow(/Fix founder-data\/checkins\/2026-W44.md/);
+  });
+  it("appends a commitment once, in the one commitment shape, and doesn't rewrite the file when it's already there", async () => {
+    const item = { id: "c-next", text: "Onboard the two pilots", due: "2026-10-20", link: "tests/2026-10-13-pilot.md" };
+    const isIt = (c: { text: string; link?: string | null }) => c.link === item.link && c.text === item.text;
+    const saved = await appendCommitmentOnce("2026-W45", item, isIt);
+    expect(saved).toEqual({ ...item, status: "open", reason: null });
+    const file = path.join(env.dir, "checkins/2026-W45.md");
+    const before = (await stat(file)).mtimeMs;
+    await new Promise((r) => setTimeout(r, 20));
+    expect(await appendCommitmentOnce("2026-W45", { ...item, id: "c-other" }, isIt)).toEqual(saved);
+    expect((await stat(file)).mtimeMs).toBe(before);
+    expect((await loadCheckin("2026-W45")).data.commitments).toEqual([saved]);
   });
 });

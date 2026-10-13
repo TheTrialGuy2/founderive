@@ -30,6 +30,8 @@ export type ConversationInput = {
   areas: Area[];
   followUps: { text: string; due: string | null }[];
   whatChanges: string | null;
+  /** True only when the founder wrote "what this changes" themselves (their form). Anything else, such as a draft, stays unconfirmed. */
+  whatChangesConfirmed?: boolean;
   notes: string;
 };
 
@@ -79,6 +81,7 @@ export function parseConversationForm(fd: FormData): Parsed<ConversationInput> {
       areas: areas as Area[],
       followUps,
       whatChanges: orNull(values.whatChanges),
+      whatChangesConfirmed: !!values.whatChanges, // typed by the founder on their own form
       notes: values.notes,
     },
   };
@@ -88,8 +91,9 @@ const notesBody = (notes: string) => (notes.trim() ? `${notes.trim()}\n` : "");
 const missing = (rel: string) => new Error(`founder-data/${rel} isn't there anymore. Reload the page.`);
 
 /**
- * Logs a conversation as a new dated file, never overwriting. "What this changes" typed by the founder here is
- * their own reading, so it counts as confirmed; one drafted by Claude arrives unconfirmed. An import passes `meta`
+ * Logs a conversation as a new dated file, never overwriting. "What this changes" is confirmed only when the caller
+ * says the founder wrote it (`whatChangesConfirmed: true`, which the founder's form sets); a draft from Claude or an
+ * import arrives unconfirmed. An import passes `meta`
  * (seeded, source) and `today`, which names the file when the conversation's own date is unknown.
  */
 export async function createConversation(input: ConversationInput, meta: RecordMeta = {}, today?: string): Promise<string> {
@@ -114,7 +118,7 @@ export async function createConversation(input: ConversationInput, meta: RecordM
     relatedTests: [],
     areas: input.areas,
     whatChanges: input.whatChanges,
-    whatChangesConfirmed: !!input.whatChanges,
+    whatChangesConfirmed: !!input.whatChanges && input.whatChangesConfirmed === true,
   };
   return createDated("conversation", CONVERSATIONS_DIR, fileDate, input.org ? `${input.person} ${input.org}` : input.person, data, notesBody(input.notes));
 }

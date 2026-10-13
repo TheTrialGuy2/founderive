@@ -57,12 +57,15 @@ describe("groupTests and currentTest", () => {
     expect(g.running.map((r) => r.path)).toEqual(["tests/b.md", "tests/a.md"]);
     expect(g.planned.map((r) => r.path)).toEqual(["tests/c.md"]);
     expect(g.closed.map((r) => r.path)).toEqual(["tests/e.md", "tests/d.md"]);
-    expect(currentTest(rows)).toMatchObject({ path: "tests/b.md", slug: "b", due: "2026-10-20", evidenceCount: 0 });
+    expect(currentTest(rows, () => true)).toMatchObject({ path: "tests/b.md", slug: "b", due: "2026-10-20", evidenceCount: 0 });
   });
-  it("has no current test when none is running", () => expect(currentTest([row("tests/c.md", "planned")])).toBeNull());
+  it("has no current test when none is running", () => expect(currentTest([row("tests/c.md", "planned")], () => true)).toBeNull());
   it("counts only customer evidence on the current test, never advice", () => {
     const rows = [{ path: "tests/a.md", data: { title: "A", status: "running" as const, relatedConversations: ["conversations/c.md", "conversations/m.md"], evidenceStrength: "weak" as const } }];
     expect(currentTest(rows, (p) => p === "conversations/c.md")).toMatchObject({ linkedCount: 2, evidenceCount: 1 });
+    // The caller must say which links are customer evidence; there's no default that would count advice.
+    // @ts-expect-error the evidence predicate is required
+    expect(() => currentTest(rows)).toThrow();
   });
   it("reads the why back without the decision label", () => expect(whyFrom("**Revise.** The price didn't hold")).toBe("The price didn't hold"));
 });
