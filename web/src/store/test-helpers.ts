@@ -20,3 +20,8 @@ export async function useTempData(withFixture = true): Promise<{ dir: string; cl
     },
   };
 }
+
+/** Removes the loop records so a test starts from a known state, whatever the fixture holds. */
+export async function clearLoopRecords(dir: string): Promise<void> {
+  for (const sub of ["conversations", "tests", "decisions", "feedback"]) await rm(path.join(dir, sub), { recursive: true, force: true });
+}

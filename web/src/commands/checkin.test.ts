@@ -34,7 +34,7 @@ describe("check-in commands", () => {
     await expect(recordChoice("2026-W42", "2026-10-13", { actionId: "guide:x", label: "X", choice: "deferred", reason: "Busy", until: "2026-10-13" })).rejects.toThrow(/later date/);
     await recordChoice("2026-W42", "2026-10-13", { actionId: "guide:x", label: "X", choice: "replaced", reason: "Better idea", replacement: "Visit two agencies" });
     const { data } = await loadCheckin("2026-W42");
-    expect(data.nextStepLog[0]).toMatchObject({ actionId: "guide:x", choice: "replaced", date: "2026-10-13" });
+    expect(data.nextStepLog[0]).toMatchObject({ actionId: "guide:x", choice: "replaced", date: "2026-10-13", via: "app" });
     expect(data.commitments.some((c) => c.text === "Visit two agencies")).toBe(true);
   });
   it("keeps both of two commitments added at the same moment", async () => {

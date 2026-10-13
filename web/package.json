@@ -10,6 +10,8 @@
     "test": "vitest run",
     "init-data": "tsx scripts/init-data.mts",
     "check-data": "tsx scripts/check-data.mts",
+    "today": "tsx scripts/today.mts",
+    "data-dir": "tsx scripts/data-dir.mts",
     "smoke": "tsx scripts/smoke.mts"
   },
   "dependencies": {

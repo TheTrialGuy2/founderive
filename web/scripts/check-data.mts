@@ -9,9 +9,10 @@ if (!existsSync(dir)) {
 }
 
 const report = await checkData();
-const checkedValid = report.checked - report.unknown.length;
+const checkedValid = report.checked - report.unknown.length - report.misnamed.length;
 console.log(`Checked ${checkedValid} files in ${dir} (${report.unknown.length} unknown kinds ignored)`);
 for (const e of report.errors) console.log(`✗ ${e.path}\n  ${e.error}`);
+for (const w of report.warnings) console.log(`! ${w.path}\n  ${w.warning}`);
 for (const rel of report.unknown) console.log(`? ${rel} (not a known file kind; ignored)`);
 if (report.errors.length > 0) process.exit(1);
-console.log("✓ All known files are valid");
+console.log(report.warnings.length ? `✓ All known files are valid (${report.warnings.length} warnings to fix when you can)` : "✓ All known files are valid");

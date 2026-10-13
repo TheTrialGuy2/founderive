@@ -32,6 +32,15 @@ describe("founder.startedOn", () => {
   it("flags an impossible pinned today", () => expect(ok(founderSchema, founder({ today: "2026-13-45" }))).toBe(false));
 });
 
+describe("nextStepLog.via", () => {
+  it("records who logged a choice: the app or an agent", () => {
+    const entry = { date: "2026-10-13", actionId: "guide:x", label: "X", choice: "dismissed", reason: "Busy" };
+    expect(ok(checkinSchema, { ...checkin("2026-W42"), nextStepLog: [{ ...entry, via: "agent" }] })).toBe(true);
+    expect(ok(checkinSchema, { ...checkin("2026-W42"), nextStepLog: [entry] })).toBe(true);
+    expect(ok(checkinSchema, { ...checkin("2026-W42"), nextStepLog: [{ ...entry, via: "bot" }] })).toBe(false);
+  });
+});
+
 describe("checkin.week", () => {
   it("accepts W01 to W52", () => {
     expect(ok(checkinSchema, checkin("2026-W01"))).toBe(true);

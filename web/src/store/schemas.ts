@@ -117,6 +117,7 @@ const nextStepChoiceSchema = z.strictObject({
   reason: z.string().min(1),
   until: isoDate.nullish(),
   replacement: z.string().nullish(),
+  via: z.enum(["app", "agent"]).optional(), // who wrote the entry; the founder gave the reason either way
 });
 
 export const checkinSchema = z.strictObject({

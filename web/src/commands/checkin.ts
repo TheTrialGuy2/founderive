@@ -78,7 +78,7 @@ export async function recordChoice(weekId: string, today: string, input: ChoiceI
   if (input.choice === "replaced") replacement = required(input.replacement, "Say what you'll do instead.");
   const replacementId = newId("c");
   return update(weekId, (c) => {
-    c.nextStepLog.push({ date: today, actionId: input.actionId, label: input.label, choice: input.choice, reason, until, replacement });
+    c.nextStepLog.push({ date: today, actionId: input.actionId, label: input.label, choice: input.choice, reason, until, replacement, via: "app" });
     if (replacement) c.commitments.push({ id: replacementId, text: replacement, due: null, status: "open", reason: null, link: null });
   });
 }
