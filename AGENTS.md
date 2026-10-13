@@ -10,13 +10,16 @@ Founderive is a local app (`web/`) that shows a founder's record kept as Markdow
 - Never delete. Move the file to `founder-data/_archive/<original path>`.
 - `founder-data/_reference/` is the founder's private reference material. Read it, but don't write to it unless asked.
 - After writing, run `pnpm check-data` from `web/` and fix anything it flags.
+- Fields are strict: an unknown key is flagged. Any record may carry `seeded`, `source`, `concepts`, or an `extensions` object for anything else custom.
+- Programs are optional. Never assume one exists.
 - Never commit founder-data to this repo. It's gitignored, and it is its own git repo.
 
 ## File kinds (more arrive with each build step)
 
 | Path | Fields |
 |---|---|
-| `founder.md` | name, venture, programTitle, programStart (date), programWeeks (number), currentWeek (optional), today (optional date pin) |
+| `founder.md` | name, venture, oneLiner (null = still working on it), stage (idea / validating / pre-revenue / revenue), businessModel (service / local-business / physical-product / software / marketplace / nonprofit / other), targetCustomer, evidence (none / conversations / active-users / paying-customers / repeat-customers), outcome30, hoursPerWeek, setupComplete, optional program: programTitle + programStart + programWeeks, currentWeek?, today? (date pin) |
+| `checkins/YYYY-Www.md` | week (ISO, Monday start), outcome, commitments [{id, text, due?, status open / done / dropped, reason (required if dropped), link?}], blocker, helpNeeded, nextStepLog [{date, actionId, label, choice dismissed / deferred / replaced, reason, until?, replacement?}] |
 | `program/week-NN.md` | week, title, date?, status (not-started / in-progress / done), exercises [{id, title, savesTo?}], homework [{id, title, due?, status (open / done / skipped), skipReason (required if skipped), savesTo?}] |
 
 ## Code

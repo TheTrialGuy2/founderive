@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandWordmark } from "@/components/BrandWordmark";
-import { WORKBOOK_NAV } from "@/lib/workbook-nav";
+import { isActive, NAV_GROUPS } from "@/lib/workbook-nav";
 
 export function WorkbookNav() {
   const pathname = usePathname();
@@ -14,33 +14,34 @@ export function WorkbookNav() {
         <p className="hidden text-[11px] font-medium tracking-[0.06em] text-muted uppercase md:mt-2 md:block">Founder operating record</p>
         <span className="rounded-full bg-aqua px-2 py-1 text-[10px] font-semibold text-teal-dark md:hidden">Your record</span>
       </div>
-      <ul className="flex gap-1 overflow-x-auto border-t border-line/60 px-3 py-2 md:flex-col md:overflow-visible md:border-t-0">
-        {WORKBOOK_NAV.map((item) => {
-          if (!item.ready) {
-            return (
-              <li key={item.href}>
-                <span aria-disabled="true" title="Coming soon" className="block cursor-default rounded-md px-3 py-2 text-sm whitespace-nowrap text-muted/50">
-                  {item.label}
-                </span>
-              </li>
-            );
-          }
-          const active = pathname.startsWith(item.href);
-          return (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={`block rounded-md px-3 py-2 text-sm whitespace-nowrap ${active ? "bg-navy font-semibold text-white" : "text-ink hover:bg-aqua/45"}`}
-              >
-                {item.label}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="flex gap-4 overflow-x-auto border-t border-line/60 px-3 py-2 md:block md:space-y-4 md:overflow-visible md:border-t-0">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="hidden px-3 pb-1 text-[11px] font-semibold tracking-[0.08em] text-muted uppercase md:block">{group.label}</p>
+            <ul className="flex gap-1 md:flex-col">
+              {group.items.map((item) => {
+                const active = isActive(pathname, item.href);
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className={`block rounded-md px-3 py-2 text-sm whitespace-nowrap ${active ? "bg-navy font-semibold text-white" : "text-ink hover:bg-aqua/45"}`}
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
       <div className="hidden px-5 py-5 md:block">
-        <Link href="/demo/founder/today" className="text-xs font-medium text-teal-dark hover:text-navy">
+        <Link href="/setup" className="text-xs font-medium text-teal-dark hover:text-navy">
+          Venture setup
+        </Link>
+        <Link href="/demo/founder/today" className="block text-xs font-medium text-teal-dark hover:text-navy">
           View product demo →
         </Link>
       </div>
