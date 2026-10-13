@@ -1,3 +1,6 @@
 allowBuilds:
+  '@ibm/plex-sans': false
+  '@ibm/plex-serif': false
+  esbuild: true
   sharp: false
   unrs-resolver: false
