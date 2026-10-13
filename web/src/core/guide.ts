@@ -53,15 +53,15 @@ export function guideStepFor(stage: Stage | null | undefined, facts: Partial<Gui
 }
 
 /**
- * Guide facts implied by what the founder told setup. Stronger evidence implies the earlier steps happened:
- * active users mean customer conversations, paying customers mean an offer was made, repeat customers mean
- * someone came back. Real counts from records replace these later.
+ * Guide facts implied by what the founder told setup, limited to what that evidence level logically
+ * guarantees: a paying customer means an offer was made at least once; a repeat customer also means
+ * someone came back. "Active users" and "conversations" don't guarantee any particular number of logged
+ * customer conversations, so they seed nothing here — real counts from records fill those in later.
  */
 export function factsFromFounder(f: { targetCustomer?: string | null; evidence?: EvidenceLevel | null }): Partial<GuideFacts> {
   const facts: Partial<GuideFacts> = { hasTargetCustomer: !!f.targetCustomer };
   const e = f.evidence;
-  if (e === "active-users" || e === "paying-customers" || e === "repeat-customers") facts.customerConversations = 5;
-  if (e === "paying-customers" || e === "repeat-customers") Object.assign(facts, { hasOffer: true, offersMade: 3 });
+  if (e === "paying-customers" || e === "repeat-customers") Object.assign(facts, { hasOffer: true, offersMade: 1 });
   if (e === "repeat-customers") facts.repeatCustomers = 1;
   return facts;
 }

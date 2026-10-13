@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OutsideDataDirError } from "./paths";
 import { readEntry } from "./read";
 import { useTempData } from "./test-helpers";
-import { archiveEntry, saveEntry, ValidationError, writeFileAtomic } from "./write";
+import { archiveEntry, createEntryIfAbsent, saveEntry, ValidationError, writeFileAtomic } from "./write";
 
 let env: Awaited<ReturnType<typeof useTempData>>;
 beforeEach(async () => (env = await useTempData()));
@@ -58,6 +58,42 @@ describe("saveEntry", () => {
   it("rejects an undeclared core key on save", async () => {
     const bad = { week: 4, title: "x", status: "not-started", exercises: [], homework: [], titel: "typo" } as never;
     await expect(saveEntry("week", "program/week-04.md", bad)).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("createEntryIfAbsent", () => {
+  it("creates the file and returns true when absent", async () => {
+    const created = await createEntryIfAbsent("week", "program/week-05.md", { week: 5, title: "Week 5", status: "not-started", exercises: [], homework: [] });
+    expect(created).toBe(true);
+    const e = await readEntry("week", "program/week-05.md");
+    expect(e?.ok && e.data).toMatchObject({ week: 5, status: "not-started" });
+  });
+  it("returns false and leaves an existing file byte-identical", async () => {
+    const abs = path.join(env.dir, "program/week-01.md");
+    const before = await readFile(abs, "utf8");
+    const created = await createEntryIfAbsent("week", "program/week-01.md", { week: 1, title: "Replaced", status: "done", exercises: [], homework: [] });
+    expect(created).toBe(false);
+    expect(await readFile(abs, "utf8")).toBe(before);
+  });
+  it("doesn't overwrite a file that appears after the caller's own existence check", async () => {
+    const rel = "program/week-09.md";
+    const abs = path.join(env.dir, rel);
+    // Simulate another writer winning a race right after a hypothetical "does it exist" check.
+    await writeFile(abs, "---\nweek: 9\ntitle: Raced\nstatus: done\nexercises: []\nhomework: []\n---\n", "utf8");
+    const created = await createEntryIfAbsent("week", rel, { week: 9, title: "Mine", status: "not-started", exercises: [], homework: [] });
+    expect(created).toBe(false);
+    expect(await readFile(abs, "utf8")).toContain("Raced");
+  });
+  it("leaves no temp files behind either way", async () => {
+    await createEntryIfAbsent("week", "program/week-06.md", { week: 6, title: "Week 6", status: "not-started", exercises: [], homework: [] });
+    await createEntryIfAbsent("week", "program/week-01.md", { week: 1, title: "x", status: "done", exercises: [], homework: [] });
+    const names = await readdir(path.join(env.dir, "program"));
+    expect(names.every((n) => !n.startsWith("."))).toBe(true);
+  });
+  it("rejects invalid data and writes nothing", async () => {
+    const bad = { week: 7, title: "x", status: "maybe" } as never;
+    await expect(createEntryIfAbsent("week", "program/week-07.md", bad)).rejects.toThrow(ValidationError);
+    expect(await exists(path.join(env.dir, "program/week-07.md"))).toBe(false);
   });
 });
 

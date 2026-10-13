@@ -50,11 +50,13 @@ describe("loadToday", () => {
     expect(view.next).toMatchObject({ tier: 6, kind: "commitment", reason: "You committed to this step this week." });
 
     const file = path.join(env.dir, "founder.md");
-    await writeFile(file, (await readFile(file, "utf8")).replace("evidence: conversations", "evidence: active-users"));
+    await writeFile(file, (await readFile(file, "utf8")).replace("evidence: conversations", "evidence: paying-customers"));
     await mkdir(path.join(env.dir, "checkins"), { recursive: true });
     await writeFile(path.join(env.dir, "checkins/2026-W43.md"), "---\nweek: 2026-W43\noutcome: Book three demos\n---\n");
     const seeded = await loadToday();
-    expect(seeded.status === "ready" && seeded.guide?.id).toBe("riskiest-assumption");
+    // Paying customers prove an offer was made, but not that five conversations were logged, so the guide
+    // still asks for those rather than skipping ahead on a fabricated conversation count.
+    expect(seeded.status === "ready" && seeded.guide?.id).toBe("problem-conversations");
   });
   it("sends a founder without setup to setup", async () => {
     const file = path.join(env.dir, "founder.md");

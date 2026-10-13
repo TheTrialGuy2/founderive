@@ -31,17 +31,25 @@ describe("guideStepForWeek", () => {
 });
 
 describe("factsFromFounder", () => {
-  it("seeds nothing from no evidence or conversations", () => {
+  it("seeds nothing from no evidence, conversations, or active users", () => {
     expect(factsFromFounder({ evidence: "none" })).toEqual({ hasTargetCustomer: false });
     expect(factsFromFounder({ evidence: "conversations", targetCustomer: "Agency owners" })).toEqual({ hasTargetCustomer: true });
+    expect(factsFromFounder({ evidence: "active-users" })).toEqual({ hasTargetCustomer: false });
     expect(factsFromFounder({})).toEqual({ hasTargetCustomer: false });
   });
-  it("active users count as five customer conversations", () =>
-    expect(factsFromFounder({ evidence: "active-users" })).toEqual({ hasTargetCustomer: false, customerConversations: 5 }));
-  it("paying customers also mean an offer, made three times", () =>
-    expect(factsFromFounder({ evidence: "paying-customers" })).toEqual({ hasTargetCustomer: false, customerConversations: 5, hasOffer: true, offersMade: 3 }));
-  it("repeat customers add one repeat customer", () =>
-    expect(factsFromFounder({ evidence: "repeat-customers" })).toEqual({ hasTargetCustomer: false, customerConversations: 5, hasOffer: true, offersMade: 3, repeatCustomers: 1 }));
-  it("a validating founder with active users isn't asked for five problem conversations", () =>
-    expect(guideStepFor("validating", factsFromFounder({ evidence: "active-users", targetCustomer: "Agency owners" }))?.id).toBe("riskiest-assumption"));
+  it("doesn't fabricate a conversation count for any evidence level", () => {
+    for (const evidence of ["none", "conversations", "active-users", "paying-customers", "repeat-customers"] as const) {
+      expect(factsFromFounder({ evidence }).customerConversations).toBeUndefined();
+    }
+  });
+  it("a paying customer means an offer was made, at least once", () =>
+    expect(factsFromFounder({ evidence: "paying-customers" })).toEqual({ hasTargetCustomer: false, hasOffer: true, offersMade: 1 }));
+  it("a single paying customer, not three, is all that's guaranteed", () =>
+    expect(factsFromFounder({ evidence: "paying-customers" }).offersMade).toBe(1));
+  it("a repeat customer also means someone came back", () =>
+    expect(factsFromFounder({ evidence: "repeat-customers" })).toEqual({ hasTargetCustomer: false, hasOffer: true, offersMade: 1, repeatCustomers: 1 }));
+  it("a validating founder with paying customers still needs to talk to five people (no conversations proven)", () =>
+    expect(guideStepFor("validating", factsFromFounder({ evidence: "paying-customers", targetCustomer: "Agency owners" }))?.id).toBe("problem-conversations"));
+  it("a validating founder with active users still needs to talk to five people (no conversations proven)", () =>
+    expect(guideStepFor("validating", factsFromFounder({ evidence: "active-users", targetCustomer: "Agency owners" }))?.id).toBe("problem-conversations"));
 });

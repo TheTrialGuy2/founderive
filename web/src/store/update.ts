@@ -35,10 +35,14 @@ async function readRaw(abs: string): Promise<string | null> {
 }
 
 /**
- * Read-change-write without lost updates. Calls for the same file run one at a time, and if the file
- * changes on disk between the read and the write (an agent or editor saved it), the change is reapplied
- * to the new contents, up to three attempts. `change` gets null when the file doesn't exist yet and may
- * run more than once, so it must only depend on what it's given.
+ * Read-change-write without lost updates, precisely within these limits: calls for the same file made
+ * within this app process are serialized (an in-process mutex, `serialized` above), and a change another
+ * program made on disk (an agent, editor or another process) before this call's final re-read is detected
+ * and the change reapplied to the new contents, up to three attempts. `change` gets null when the file
+ * doesn't exist yet and may run more than once, so it must only depend on what it's given. What this does
+ * NOT cover: a write from another program landing in the brief gap between that final re-read and the
+ * atomic rename in `saveEntry` can still land after and be silently replaced — there's no cross-process
+ * lock, so that narrow window stays a real (if small) race.
  */
 export async function updateEntry<K extends Kind>(kind: K, rel: string, change: Change<K>): Promise<{ data: KindData<K>; body: string }> {
   if (!KINDS[kind].pattern.test(rel)) throw new ValidationError(`${rel} is not a valid path for ${kind}`);

@@ -1,9 +1,8 @@
 import { weekFile } from "../core/program";
 import { initData } from "../store/init";
-import { readEntry } from "../store/read";
 import { BUSINESS_MODELS, COFOUNDERS, COMMITMENTS, EVIDENCE_LEVELS, STAGES, type KindData } from "../store/schemas";
 import { updateEntry } from "../store/update";
-import { saveEntry } from "../store/write";
+import { createEntryIfAbsent } from "../store/write";
 
 export type FounderData = KindData<"founder">;
 export type StepPatch = Partial<FounderData>;
@@ -125,8 +124,7 @@ export async function saveSetupStep(step: number, patch: StepPatch): Promise<voi
 
   if (step === LAST_STEP && data.programTitle && data.programWeeks) {
     for (let n = 1; n <= data.programWeeks; n++) {
-      if (await readEntry("week", weekFile(n))) continue;
-      await saveEntry("week", weekFile(n), { week: n, title: `Week ${n}`, status: "not-started", exercises: [], homework: [] });
+      await createEntryIfAbsent("week", weekFile(n), { week: n, title: `Week ${n}`, status: "not-started", exercises: [], homework: [] });
     }
   }
 }

@@ -23,6 +23,30 @@ export async function saveEntry<K extends Kind>(kind: K, rel: string, data: Kind
   await writeFileAtomic(rel, stringifyFrontmatter(result.data as Record<string, unknown>, body));
 }
 
+/**
+ * Creates an entry only if `rel` doesn't already exist; an existing file is left untouched (no read-then-write
+ * race: a temp file is written first, then linked into place, so a destination created after any existence
+ * check a caller made is still not overwritten). Returns whether it created the file.
+ */
+export async function createEntryIfAbsent<K extends Kind>(kind: K, rel: string, data: KindData<K>, body = ""): Promise<boolean> {
+  if (!KINDS[kind].pattern.test(rel)) throw new ValidationError(`${rel} is not a valid path for ${kind}`);
+  const result = KINDS[kind].schema.safeParse(data);
+  if (!result.success) throw new ValidationError(formatIssues(result.error));
+  const abs = resolveInData(rel);
+  await mkdir(path.dirname(abs), { recursive: true });
+  const tmp = path.join(path.dirname(abs), `.${path.basename(abs)}.${randomBytes(4).toString("hex")}.tmp`);
+  await writeFile(tmp, stringifyFrontmatter(result.data as Record<string, unknown>, body), "utf8");
+  try {
+    await link(tmp, abs);
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "EEXIST") return false;
+    throw err;
+  } finally {
+    await unlink(tmp).catch(() => {});
+  }
+}
+
 /** "Deleting" moves the file to _archive/<original path>; a repeat archive gets a timestamp suffix (atomic, no overwrite). */
 export async function archiveEntry(rel: string): Promise<string> {
   const from = resolveInData(rel);
