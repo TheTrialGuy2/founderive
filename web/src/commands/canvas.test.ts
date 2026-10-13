@@ -2,8 +2,11 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readEntry } from "../store/read";
-import { useTempData } from "../store/test-helpers";
-import { confirmImported, loadCanvas, loadCanvasBlock, saveCanvasBlock } from "./canvas";
+import { clearLoopRecords, useTempData } from "../store/test-helpers";
+import { confirmImported, loadBlockEvidence, loadCanvas, loadCanvasBlock, saveCanvasBlock } from "./canvas";
+import { createConversation } from "./conversations";
+import { DANA, PILOT } from "./test-inputs";
+import { createTest } from "./venture-tests";
 
 let env: Awaited<ReturnType<typeof useTempData>>;
 beforeEach(async () => {
@@ -64,5 +67,18 @@ describe("saveCanvasBlock", () => {
     const e = await readEntry("canvasBlock", "canvas/problem.md");
     expect(e?.ok && e.data.seeded).toBeUndefined();
     expect(e?.ok && e.data.text).toBe("Schedules are rebuilt by hand");
+  });
+});
+
+describe("loadBlockEvidence", () => {
+  it("lists tests and conversations tagged with a block id that is also an area", async () => {
+    await clearLoopRecords(env.dir);
+    await createTest(PILOT, "2026-10-13");
+    await createConversation({ ...DANA, areas: ["revenue"] });
+    await createConversation({ ...DANA, person: "Lee Park", org: null, areas: ["problem"] });
+    const ev = await loadBlockEvidence("revenue");
+    expect(ev?.tests.map((t) => t.title)).toEqual([PILOT.title]);
+    expect(ev?.conversations.map((c) => c.label)).toEqual(["Dana Ortiz · Bright Home Care"]);
+    expect(await loadBlockEvidence("advantage")).toBeNull();
   });
 });

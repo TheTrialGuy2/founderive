@@ -6,7 +6,8 @@ import { BlockForm } from "@/components/canvas/BlockForm";
 import { ActionButton } from "@/components/today/ActionButton";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { confirmImportedAction } from "@/app/(workbook)/canvas/actions";
-import { loadCanvasBlock } from "@/commands/canvas";
+import { loadBlockEvidence, loadCanvasBlock } from "@/commands/canvas";
+import { STATUS_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
 
 export default function CanvasBlockPage({ params }: PageProps<"/canvas/[id]">) {
   return (
@@ -36,6 +37,7 @@ async function BlockContent({ id }: { id: string }) {
   }
   const { def, block, notes, flagged } = view;
   const history = [...(block?.history ?? [])].reverse();
+  const evidence = await loadBlockEvidence(id);
   return (
     <>
       <PageHeader eyebrow="Canvas" title={def.title}>
@@ -54,6 +56,37 @@ async function BlockContent({ id }: { id: string }) {
           )}
           <BlockForm id={id} initial={{ text: block?.text ?? "", status: block?.status ?? "untested", notes }} />
         </>
+      )}
+      {evidence && (
+        <section aria-labelledby="block-evidence-heading" className="mt-10">
+          <h2 id="block-evidence-heading" className="font-semibold text-navy">
+            Tests and conversations on this
+          </h2>
+          {evidence.tests.length === 0 && evidence.conversations.length === 0 ? (
+            <p className="mt-2 text-sm text-muted">Nothing is tagged {def.title.toLowerCase()} yet.</p>
+          ) : (
+            <ul className="mt-2 space-y-1 text-sm">
+              {evidence.tests.map((t) => (
+                <li key={t.slug}>
+                  <Link href={`/tests/${t.slug}`} className="font-medium text-teal-dark hover:text-navy">
+                    {t.title}
+                  </Link>{" "}
+                  <span className="text-muted">· Test · {STATUS_LABELS[t.status]}</span>
+                </li>
+              ))}
+              {evidence.conversations.map((c) => (
+                <li key={c.slug}>
+                  <Link href={`/conversations/${c.slug}`} className="font-medium text-teal-dark hover:text-navy">
+                    {c.label}
+                  </Link>{" "}
+                  <span className="text-muted">
+                    · {TYPE_LABELS[c.type]} · {c.date ? formatDate(c.date) : "date unknown"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
       <section aria-labelledby="history-heading" className="mt-10">
         <h2 id="history-heading" className="font-semibold text-navy">

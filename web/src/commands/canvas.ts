@@ -1,6 +1,7 @@
 import { applyBlockSave, canvasBlocks, confirmImport, type CanvasBlockDef } from "../core/canvas";
+import { slugOf } from "../core/slug";
 import { listEntries, readEntry, type Entry } from "../store/read";
-import { CANVAS_STATUSES, type KindData } from "../store/schemas";
+import { AREAS, CANVAS_STATUSES, type ConversationType, type KindData, type TestStatus } from "../store/schemas";
 import { updateEntry } from "../store/update";
 import { oneOf, required } from "./form";
 
@@ -59,6 +60,28 @@ export async function saveCanvasBlock(id: string, input: { text: string; status:
     data: applyBlockSave(data, id, { text, status }, today),
     body: input.notes === undefined ? body : input.notes.trim() ? `${input.notes.trim()}\n` : "",
   }));
+}
+
+export type BlockEvidence = {
+  tests: { slug: string; title: string; status: TestStatus }[];
+  conversations: { slug: string; label: string; type: ConversationType; date: string | null }[];
+};
+
+/** Tests and conversations tagged with this block, when the block id is also a business-model area. Null otherwise. */
+export async function loadBlockEvidence(id: string): Promise<BlockEvidence | null> {
+  if (!oneOf(AREAS, id)) return null;
+  const area = id;
+  const [tests, conversations] = await Promise.all([listEntries("test"), listEntries("conversation")]);
+  return {
+    tests: tests.flatMap((t) => (t.ok && t.data.area === area ? [{ slug: slugOf(t.path), title: t.data.title, status: t.data.status }] : [])),
+    conversations: conversations
+      .flatMap((c) =>
+        c.ok && c.data.areas.includes(area)
+          ? [{ slug: slugOf(c.path), label: c.data.org ? `${c.data.person} · ${c.data.org}` : c.data.person, type: c.data.type, date: c.data.date ?? null }]
+          : [],
+      )
+      .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")),
+  };
 }
 
 /** The founder accepts an imported block's text as their own. */
