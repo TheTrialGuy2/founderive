@@ -41,4 +41,33 @@ describe("checkData", () => {
     expect(report.errors.map((e) => e.path)).not.toContain("tests/2026-10-01-broken.md");
     expect(report.warnings).toEqual([{ path: "tests/2026-10-01-broken.md", warning: "relatedConversations: conversations/2026-10-01-gone.md isn't in founder-data" }]);
   });
+
+  it("warns about a link listed on only one side, naming both files", async () => {
+    await mkdir(path.join(env.dir, "tests"), { recursive: true });
+    await mkdir(path.join(env.dir, "conversations"), { recursive: true });
+    const test = (name: string, convs: string[]) =>
+      `---\ntitle: ${name}\narea: revenue\nbelief: Owners will pay\ntest: Offer a pilot\nsuccessCriteria: Two sign\nfailureCriteria: None sign\nrelatedConversations: [${convs.join(", ")}]\n---\n`;
+    const conv = (tests: string[]) => `---\ntype: customer\nperson: Dana\nrelatedTests: [${tests.join(", ")}]\n---\n`;
+    await writeFile(path.join(env.dir, "tests/2026-10-01-pilot.md"), test("Pilot", ["conversations/2026-10-01-dana.md"]));
+    await writeFile(path.join(env.dir, "conversations/2026-10-01-dana.md"), conv([]));
+    await writeFile(path.join(env.dir, "tests/2026-10-02-price.md"), test("Price", []));
+    await writeFile(path.join(env.dir, "conversations/2026-10-02-sam.md"), conv(["tests/2026-10-02-price.md"]));
+    const report = await checkData();
+    expect(report.errors).toEqual(expect.not.arrayContaining([expect.objectContaining({ path: expect.stringMatching(/pilot|price|dana|sam/) })]));
+    expect(report.warnings).toEqual(
+      expect.arrayContaining([
+        {
+          path: "tests/2026-10-01-pilot.md",
+          warning:
+            "tests/2026-10-01-pilot.md lists conversations/2026-10-01-dana.md as evidence, but conversations/2026-10-01-dana.md doesn't list the test. Link them again from the test page to repair.",
+        },
+        {
+          path: "conversations/2026-10-02-sam.md",
+          warning:
+            "conversations/2026-10-02-sam.md lists tests/2026-10-02-price.md, but tests/2026-10-02-price.md doesn't list the conversation. Link them again from the test page to repair.",
+        },
+      ]),
+    );
+    expect(report.warnings).toHaveLength(2);
+  });
 });
