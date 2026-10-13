@@ -42,7 +42,7 @@ export const founderSchema = z.strictObject({
   name: z.string().default(""),
   venture: z.string().default(""),
   city: z.string().nullish(),
-  region: z.string().nullish(), // state or province
+  region: z.string().nullish(), // two-letter US state code (setup offers US states only for now)
   commitment: z.enum(COMMITMENTS).nullish(),
   cofounders: z.enum(COFOUNDERS).nullish(),
   cofounderNames: z.array(z.string().min(1)).optional(),

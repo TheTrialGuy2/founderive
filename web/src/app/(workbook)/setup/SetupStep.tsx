@@ -148,7 +148,7 @@ export function SetupStep({ step, initial, canJump }: { step: number; initial: R
                       className={inputClass}
                     />
                     {i > 0 && (
-                      <button type="button" onClick={() => setCofounderNames(cofounderNames.filter((_, idx) => idx !== i))} className={buttonQuiet}>
+                      <button type="button" aria-label={`Remove co-founder ${i + 1}`} onClick={() => setCofounderNames(cofounderNames.filter((_, idx) => idx !== i))} className={buttonQuiet}>
                         Remove
                       </button>
                     )}
@@ -221,7 +221,7 @@ export function SetupStep({ step, initial, canJump }: { step: number; initial: R
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending} className={buttonPrimary}>
-          {pending ? "Saving…" : last ? "Save and see my first action" : canJump ? "Save" : "Save and continue"}
+          {pending ? "Saving…" : canJump ? "Save" : last ? "Save and see my first action" : "Save and continue"}
         </button>
         {step > 1 && (
           <Link href={`/setup?step=${step - 1}`} className={buttonQuiet}>
