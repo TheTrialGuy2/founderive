@@ -109,6 +109,7 @@ Signal lime should stay scarce. If everything is lime, nothing feels like progre
 ## Typography
 
 - **Product UI:** IBM Plex Sans. Its practical, editorial character makes the workspace feel authored and operational rather than like a generic SaaS template.
+- **Wordmark:** IBM Plex Sans Semibold with restrained custom tracking. The two-color construction provides the recognizable brand behavior rather than relying on a fashionable display face.
 - **Page titles and key numbers:** IBM Plex Serif, set at regular weight and a compact scale. The contrast gives founder reflections and evidence a document quality without turning every heading into a display moment.
 - **Numbers and metadata:** IBM Plex Sans with tabular numerals where values need to align.
 - **Name construction:** set `founder` in Evidence Teal and `ive` in Record Ink on light backgrounds. On dark backgrounds, keep `founder` teal and reverse `ive` to Paper. This reveals the name's construction while retaining a calm, two-color wordmark.

@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { Icon } from "@/components/icons";
 import { FOUNDER_NAV, FOUNDER_TABS, OPERATOR_NAV } from "@/lib/nav";
 import { useDemo } from "@/state/DemoStore";
@@ -35,7 +35,7 @@ export function SideNav() {
     // Founders get the bottom tab bar on phones, so their side nav is desktop-only.
     <nav className={`${isOperator ? "border-b" : "hidden md:block"} border-line bg-paper md:w-60 md:shrink-0 md:border-r md:border-b-0`}>
       <div className="hidden px-5 pt-6 pb-4 md:block">
-        <Image src="/founderive-wordmark.svg" alt="Founderive" width={132} height={29} priority />
+        <BrandWordmark />
         <p className="mt-2 text-xs font-medium text-muted">{isOperator ? "Program team" : `${basics.name} · ${basics.ventureName}`}</p>
       </div>
       <ul className="flex gap-1 overflow-x-auto px-3 py-2 md:flex-col md:overflow-visible">
