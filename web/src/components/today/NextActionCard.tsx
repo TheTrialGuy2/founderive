@@ -7,6 +7,7 @@ import { setFollowUpStatusAction } from "@/app/(workbook)/conversations/actions"
 import { buttonPrimary, buttonQuiet, errorText, inputClass } from "@/components/workbook/form";
 import type { Candidate } from "@/core/next-step";
 import { IDLE } from "@/lib/action-state";
+import { commitmentFields } from "@/lib/commitment-fields";
 import { ActionButton } from "./ActionButton";
 import { OutcomeForm } from "./OutcomeForm";
 
@@ -42,7 +43,8 @@ function Primary({ action, weekId, programWeek }: Omit<Props, "today" | "tomorro
     case "outcome":
       return <OutcomeForm weekId={weekId} initial={action.suggestion ?? ""} />;
     case "commitment":
-      return <ActionButton action={saveCommitmentStatus} fields={{ week: weekId, id: action.ref ?? "", status: "done" }} label="Mark it done" />;
+      // A carried commitment's own week, so "done" lands in the check-in it lives in.
+      return <ActionButton action={saveCommitmentStatus} fields={commitmentFields({ id: action.ref ?? "", week: action.week }, weekId, "done")} label="Mark it done" />;
     case "program":
       return <ActionButton action={saveHomeworkStatus} fields={{ programWeek: String(programWeek ?? ""), id: action.ref ?? "", status: "done" }} label="Mark it done" />;
     case "guide":

@@ -2,7 +2,9 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
-import { PILOT } from "./test-inputs";
+import { addCommitment } from "./checkin";
+import { createConversation } from "./conversations";
+import { DANA, PILOT } from "./test-inputs";
 import { loadToday } from "./today";
 import { formatToday } from "./today-text";
 import { createTest } from "./venture-tests";
@@ -110,4 +112,22 @@ describe("formatToday with the loop", () => {
     const rel = await createTest(PILOT, "2026-10-13");
     expect(formatToday(await loadToday())).toContain(`Current test: ${PILOT.title} · due 2026-10-20 · 0 linked · 0 customer evidence · strength none (${rel})`);
   });
+});
+
+describe("formatToday across weeks and follow-ups", () => {
+  it("lists a commitment carried from an earlier week with the week it came from", async () => {
+    await addCommitment("2026-W41", { text: "Book the venue", due: "2026-10-09" });
+    const text = formatToday(await loadToday());
+    expect(text).toMatch(/^ {2}Book the venue · due 2026-10-09 \(overdue\) · from week 2026-W41 \(id c-[^)]+\)$/m);
+  });
+  it("prints a Follow-ups due: block that matches the JSON and the Today page", async () => {
+    await createConversation(DANA);
+    const view = await loadToday();
+    if (view.status !== "ready") throw new Error(view.status);
+    const text = formatToday(view);
+    expect(view.followUps).toHaveLength(1);
+    const fu = view.followUps[0];
+    expect(text).toContain(`Follow-ups due:\n  ${fu.text} · overdue since ${fu.due} (id ${fu.id})`);
+  });
+  it("says none when no follow-up is due", async () => expect(formatToday(await loadToday())).toContain("Follow-ups due:\n  none"));
 });

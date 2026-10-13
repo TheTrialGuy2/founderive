@@ -34,8 +34,12 @@ export type TodayView =
       currentTest: CurrentTest | null;
       plannedTests: number;
       followUps: { id: string; text: string; href: string; due: string }[];
+      /** Open commitments from earlier weeks' check-ins, each with the week it lives in. They stay where they were written. */
+      carried: CarriedCommitment[];
       capacity: string | null;
     };
+
+export type CarriedCommitment = KindData<"checkin">["commitments"][number] & { week: string };
 
 /** Everything Today shows, read from founder-data at request time. An invalid founder.md comes back flagged, never thrown. */
 export async function loadToday(): Promise<TodayView> {
@@ -50,6 +54,11 @@ export async function loadToday(): Promise<TodayView> {
   const checkin = checkinEntry?.ok ? checkinEntry.data : null;
   // Deferrals can run past the week they were made in, so every readable check-in is consulted.
   const checkins = (await listEntries("checkin")).flatMap((e) => (e.ok ? [e.data] : []));
+  // Open commitments carry lazily: read from the earlier week's file, never moved or copied (done/dropped write back there).
+  const carried: CarriedCommitment[] = checkins
+    .filter((c) => c.week < weekId)
+    .sort((a, b) => a.week.localeCompare(b.week))
+    .flatMap((c) => c.commitments.filter((x) => x.status === "open").map((x) => ({ ...x, week: c.week })));
 
   const inProgram = !!(f.programTitle && f.programStart && f.programWeeks);
   const programWeek = inProgram ? currentWeek({ programStart: f.programStart, today, totalWeeks: f.programWeeks ?? 1, override: f.currentWeek }) : null;
@@ -58,14 +67,16 @@ export async function loadToday(): Promise<TodayView> {
   const openHomework = homework.filter((h) => h.status === "open");
 
   const commitments = checkin?.commitments ?? [];
+  const ranked = [...commitments.map((c) => ({ ...c, week: weekId })), ...carried];
   const records = await loadLoopRecords();
   const facts = await loadGuideFacts(f, records);
-  const guide = guideStepForWeek(f.stage, facts, commitments);
+  const guide = guideStepForWeek(f.stage, facts, ranked);
   const report = await checkData();
   const followUps = dueFollowUps(records.conversations, today);
 
   const next = nextStep({
     today,
+    weekId,
     outcome: checkin?.outcome,
     blocker: checkin?.blocker,
     risks: [],
@@ -73,7 +84,7 @@ export async function loadToday(): Promise<TodayView> {
       // An imported test the founder hasn't confirmed isn't resumed: its criteria aren't theirs yet.
       .filter((t) => t.data.status === "running" && !t.data.seeded)
       .map((t) => ({ path: t.path, title: t.data.title, href: `/tests/${slugOf(t.path)}`, due: t.data.due })),
-    commitments,
+    commitments: ranked,
     followUps,
     guideStep: guide ? { id: guide.id, title: guide.title, why: guide.why, progress: guideProgress(guide, facts) } : null,
     programWork: openHomework.map((h) => ({ id: h.id, title: h.title, due: h.due })),
@@ -81,7 +92,7 @@ export async function loadToday(): Promise<TodayView> {
     choices: activeChoices(checkins, weekId, today),
   });
 
-  const openCount = commitments.filter((c) => c.status === "open").length + openHomework.length;
+  const openCount = ranked.filter((c) => c.status === "open").length + openHomework.length;
   return {
     status: "ready",
     founder: f,
@@ -100,6 +111,7 @@ export async function loadToday(): Promise<TodayView> {
     currentTest: currentTest(records.tests, records.conversations),
     plannedTests: records.tests.filter((t) => t.data.status === "planned").length,
     followUps,
+    carried,
     capacity: capacityWarning(f.hoursPerWeek, f.commitment, openCount),
   };
 }

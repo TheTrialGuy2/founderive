@@ -2,6 +2,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { slugOf } from "../core/slug";
+import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
 import { updateEntry } from "../store/update";
 import { addCommitment, recordChoice, setCommitmentStatus, setOutcome } from "./checkin";
@@ -9,7 +10,7 @@ import { createConversation } from "./conversations";
 import { confirmImportedRecord } from "./import";
 import { DANA, MENTOR, PILOT } from "./test-inputs";
 import { loadFounderToday, loadPromptContext, loadToday } from "./today";
-import { abandonTest, createTest, linkEvidence } from "./venture-tests";
+import { abandonTest, completeTest, createTest, linkEvidence } from "./venture-tests";
 
 let env: Awaited<ReturnType<typeof useTempData>>;
 beforeEach(async () => (env = await useTempData()));
@@ -41,6 +42,8 @@ describe("loadToday", () => {
   });
   it("keeps last week's deferral in force until its date", async () => {
     await clearLoopRecords(env.dir);
+    // Last week's open commitment would carry into this week at tier 4; this test is about the deferral alone.
+    await setCommitmentStatus("2026-W42", "c-1", "done");
     await recordChoice("2026-W42", "2026-10-14", { actionId: "guide:problem-conversations", label: "Talk to five people", choice: "deferred", reason: "Conference week", until: "2026-10-21" });
     await recordChoice("2026-W42", "2026-10-14", { actionId: "fix:program/week-02.md", label: "Fix it", choice: "dismissed", reason: "Later" });
     await pinToday("2026-10-19");
@@ -55,6 +58,7 @@ describe("loadToday", () => {
   });
   it("proposes no new guide step while a guide commitment is open, and seeds facts from evidence", async () => {
     await clearLoopRecords(env.dir);
+    await setCommitmentStatus("2026-W42", "c-1", "done");
     await pinToday("2026-10-19");
     await setOutcome("2026-W43", "Book three demos");
     await addCommitment("2026-W43", { text: "Talk to five people who have the problem", link: "guide:problem-conversations" });
@@ -149,6 +153,58 @@ describe("loadToday with the loop", () => {
     for (const text of ["A", "B", "C", "D", "E"]) await addCommitment("2026-W42", { text });
     const view = await ready();
     expect(view.capacity).toBe("6 open items this week against the 15 hours you said you have. Does that fit?");
+  });
+});
+
+describe("open commitments carry across weeks", () => {
+  beforeEach(() => clearLoopRecords(env.dir));
+  const W42 = "checkins/2026-W42.md";
+
+  it("shows last week's open commitment on Monday, labelled with its week, ranked as if it were this week's", async () => {
+    await pinToday("2026-10-19");
+    await setOutcome("2026-W43", "Book three demos");
+    const view = await ready();
+    expect(view.weekId).toBe("2026-W43");
+    expect(view.carried).toEqual([expect.objectContaining({ id: "c-1", week: "2026-W42", status: "open" })]);
+    // c-1 was due 2026-10-12, so it's overdue: tier 4, like an overdue commitment made this week.
+    expect(view.next).toMatchObject({ id: "commitment:c-1", tier: 4, week: "2026-W42" });
+  });
+  it("ranks a carried commitment that isn't overdue at tier 6, and a test's next commitment at tier 7", async () => {
+    await addCommitment("2026-W42", { text: "Call the meetup host", due: "2026-10-23" });
+    await setCommitmentStatus("2026-W42", "c-1", "done");
+    await pinToday("2026-10-19");
+    await setOutcome("2026-W43", "Book three demos");
+    expect((await ready()).next).toMatchObject({ tier: 6, label: "Call the meetup host", week: "2026-W42" });
+  });
+  it("a Friday completion with next week's due date still shows on Monday; marking it done updates the original week's file", async () => {
+    await setCommitmentStatus("2026-W42", "c-1", "done");
+    await pinToday("2026-10-16"); // Friday of 2026-W42
+    const t = await createTest(PILOT, "2026-10-13");
+    await linkEvidence(t, await createConversation({ ...DANA, followUps: [] }));
+    const form = { result: "supported", evidenceStrength: "moderate", learning: "Two signed", decision: "continue", why: "Price held", nextCommitment: "Onboard the two pilots", nextCommitmentDue: "2026-10-20" };
+    const { commitmentId } = await completeTest(t, form, "2026-10-16");
+
+    await pinToday("2026-10-19"); // Monday of 2026-W43
+    await setOutcome("2026-W43", "Onboard pilots");
+    const monday = await ready();
+    expect(monday.next).toMatchObject({ id: `commitment:${commitmentId}`, tier: 7, week: "2026-W42", label: "Onboard the two pilots" });
+    // Repeating the completion on Monday finds it in the closing week instead of copying it into this one.
+    expect(await completeTest(t, form, "2026-10-19")).toEqual({ commitmentId, alreadyComplete: true });
+    expect((await readEntry("checkin", "checkins/2026-W43.md"))?.ok && (await ready()).checkin?.commitments).toEqual([]);
+
+    // Today's action passes the commitment's own week, so "done" lands in the file it lives in.
+    await setCommitmentStatus(monday.next!.week!, monday.next!.ref!, "done");
+    const w42 = await readEntry("checkin", W42);
+    expect(w42?.ok && w42.data.commitments.find((c) => c.id === commitmentId)?.status).toBe("done");
+    const after = await ready();
+    expect(after.carried).toEqual([]);
+    expect(after.next?.id).not.toBe(`commitment:${commitmentId}`);
+  });
+  it("never carries a commitment forward from a later week, or a done or dropped one", async () => {
+    await addCommitment("2026-W43", { text: "Next week's thing" });
+    await addCommitment("2026-W41", { text: "Dropped one" }).then((id) => setCommitmentStatus("2026-W41", id, "dropped", "No longer relevant"));
+    const view = await ready();
+    expect(view.carried.map((c) => [c.text, c.week])).toEqual([]);
   });
 });
 

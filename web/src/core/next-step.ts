@@ -11,15 +11,18 @@ export type Candidate = {
   due?: string | null;
   suggestion?: string;
   detail?: string; // evidence so far, shown under the reason
+  week?: string; // a commitment's own check-in week (YYYY-Www), so done and dropped write to the file it lives in
 };
 
 export type NextStepInput = {
   today: string;
+  weekId?: string; // this ISO week; a commitment from an earlier one says so in its reason
   outcome: string | null | undefined;
   blocker: string | null | undefined;
   risks: { id: string; label: string; reason: string; href: string }[];
   currentTests: { path: string; title: string; href: string; due?: string | null }[];
-  commitments: { id: string; text: string; due?: string | null; status: "open" | "done" | "dropped"; link?: string | null }[];
+  // This week's commitments and open ones carried from earlier weeks (`week` is the check-in each lives in).
+  commitments: { id: string; text: string; due?: string | null; status: "open" | "done" | "dropped"; link?: string | null; week?: string }[];
   followUps: { id: string; text: string; href: string; due?: string | null }[];
   guideStep: { id: string; title: string; why: string; progress?: string | null } | null;
   programWork: { id: string; title: string; due?: string | null }[];
@@ -48,7 +51,7 @@ export function rankCandidates(input: NextStepInput): Candidate[] {
     out.push({ id: `test:${t.path}`, tier: 3, kind: "test", label: `Continue: ${t.title}`, reason: "A test is running. Finishing it produces the learning.", href: t.href, due: t.due });
   }
   for (const c of input.commitments.filter((c) => c.status === "open" && c.due && c.due < input.today).sort(byDue)) {
-    out.push({ id: `commitment:${c.id}`, tier: 4, kind: "commitment", label: c.text, reason: `Overdue since ${c.due}.`, ref: c.id, due: c.due });
+    out.push({ id: `commitment:${c.id}`, tier: 4, kind: "commitment", label: c.text, reason: `Overdue since ${c.due}.`, ref: c.id, due: c.due, week: c.week });
   }
   for (const f of input.followUps.filter((f) => !f.due || f.due <= input.today).sort(byDue)) {
     out.push({ id: `followup:${f.id}`, tier: 5, kind: "followup", label: f.text, reason: "Someone is waiting on you.", ref: f.id, href: f.href, due: f.due });
@@ -56,16 +59,18 @@ export function rankCandidates(input: NextStepInput): Candidate[] {
   // Do what you said you'd do before taking on a new guide step. Guide and test commitments rank at 7 with their own reason.
   const notOverdue = (c: { due?: string | null }) => !(c.due && c.due < input.today);
   for (const c of input.commitments.filter((c) => c.status === "open" && notOverdue(c) && !isGuideLink(c.link) && !isTestLink(c.link)).sort(byDue)) {
-    out.push({ id: `commitment:${c.id}`, tier: 6, kind: "commitment", label: c.text, reason: "You committed to this for this week.", ref: c.id, due: c.due });
+    const carried = !!c.week && !!input.weekId && c.week !== input.weekId;
+    const reason = carried ? `You committed to this in week ${c.week}, and it's still open.` : "You committed to this for this week.";
+    out.push({ id: `commitment:${c.id}`, tier: 6, kind: "commitment", label: c.text, reason, ref: c.id, due: c.due, week: c.week });
   }
   // An open guide commitment is this week's guide work, so no new guide step is proposed alongside it.
   const guideCommitments = input.commitments.filter((c) => c.status === "open" && isGuideLink(c.link));
   for (const c of guideCommitments.filter(notOverdue).sort(byDue)) {
-    out.push({ id: `commitment:${c.id}`, tier: 7, kind: "commitment", label: c.text, reason: "You committed to this step this week.", ref: c.id, due: c.due });
+    out.push({ id: `commitment:${c.id}`, tier: 7, kind: "commitment", label: c.text, reason: "You committed to this step this week.", ref: c.id, due: c.due, week: c.week });
   }
   // The next commitment chosen when completing a test is the loop's next step (amendment §1), so it ranks with guide commitments.
   for (const c of input.commitments.filter((c) => c.status === "open" && isTestLink(c.link) && notOverdue(c)).sort(byDue)) {
-    out.push({ id: `commitment:${c.id}`, tier: 7, kind: "commitment", label: c.text, reason: "You chose this as the next step after a test.", ref: c.id, due: c.due });
+    out.push({ id: `commitment:${c.id}`, tier: 7, kind: "commitment", label: c.text, reason: "You chose this as the next step after a test.", ref: c.id, due: c.due, week: c.week });
   }
   if (input.guideStep && guideCommitments.length === 0)
     out.push({ id: `guide:${input.guideStep.id}`, tier: 8, kind: "guide", label: input.guideStep.title, reason: input.guideStep.why, ref: input.guideStep.id, detail: input.guideStep.progress ?? undefined });

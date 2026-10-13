@@ -186,3 +186,23 @@ describe("activeChoices", () => {
     expect(active).toEqual([]);
   });
 });
+
+describe("commitments carried from an earlier week", () => {
+  const base = { today: "2026-10-19", weekId: "2026-W43", outcome: "Ship", blocker: null, risks: [], currentTests: [], followUps: [], guideStep: null, programWork: [], flagged: [], choices: [] };
+  it("rank exactly like this week's, keep their week, and say where they came from", () => {
+    const ranked = rankCandidates({
+      ...base,
+      commitments: [
+        { id: "a", text: "Overdue from last week", due: "2026-10-12", status: "open", week: "2026-W42" },
+        { id: "b", text: "Open from last week", due: "2026-10-23", status: "open", week: "2026-W42" },
+        { id: "c", text: "Test next step", status: "open", link: "tests/2026-10-06-pilot.md", week: "2026-W42" },
+      ],
+    });
+    expect(ranked.map((c) => [c.id, c.tier, c.week])).toEqual([
+      ["commitment:a", 4, "2026-W42"],
+      ["commitment:b", 6, "2026-W42"],
+      ["commitment:c", 7, "2026-W42"],
+    ]);
+    expect(ranked[1].reason).toBe("You committed to this in week 2026-W42, and it's still open.");
+  });
+});

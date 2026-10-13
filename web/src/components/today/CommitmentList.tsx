@@ -4,16 +4,18 @@ import { useActionState } from "react";
 import { saveCommitmentStatus, saveHomeworkStatus, saveNewCommitment } from "@/app/(workbook)/actions";
 import { buttonQuiet, errorText, inputClass } from "@/components/workbook/form";
 import { IDLE, type ActionState } from "@/lib/action-state";
+import { commitmentFields } from "@/lib/commitment-fields";
 import { ActionButton } from "./ActionButton";
 
-type Commitment = { id: string; text: string; due?: string | null; status: "open" | "done" | "dropped"; reason?: string | null };
+type Commitment = { id: string; text: string; due?: string | null; status: "open" | "done" | "dropped"; reason?: string | null; week?: string };
 type Homework = { id: string; title: string; due?: string | null; status: "open" | "done" | "skipped"; skipReason?: string | null };
-type Props = { weekId: string; today: string; commitments: Commitment[]; programWeek: number | null; programLabel: string | null; homework: Homework[] };
+type Props = { weekId: string; today: string; commitments: Commitment[]; carried: (Commitment & { week: string })[]; programWeek: number | null; programLabel: string | null; homework: Homework[] };
 
 const dueText = (due: string | null | undefined, today: string) => (!due ? null : due < today ? `Overdue · ${due}` : `Due ${due}`);
 
-export function CommitmentList({ weekId, today, commitments, programWeek, programLabel, homework }: Props) {
-  const open = commitments.filter((c) => c.status === "open");
+export function CommitmentList({ weekId, today, commitments, carried, programWeek, programLabel, homework }: Props) {
+  // Open commitments from earlier weeks show here too, labelled with their week; they stay in that week's file.
+  const open = [...commitments.filter((c) => c.status === "open"), ...carried];
   const closed = commitments.filter((c) => c.status !== "open");
   const openHomework = homework.filter((h) => h.status === "open");
   return (
@@ -22,11 +24,12 @@ export function CommitmentList({ weekId, today, commitments, programWeek, progra
       <ul className="space-y-2">
         {open.map((c) => (
           <li key={c.id} className="rounded-lg border border-line p-3">
+            {c.week && c.week !== weekId && <p className="text-xs font-medium text-teal-dark">From week {c.week}</p>}
             <p className="text-sm text-ink">{c.text}</p>
             {dueText(c.due, today) && <p className="text-xs text-muted">{dueText(c.due, today)}</p>}
             <div className="mt-2 flex flex-wrap items-start gap-2">
-              <ActionButton action={saveCommitmentStatus} fields={{ week: weekId, id: c.id, status: "done" }} label="Done" variant="quiet" />
-              <ReasonForm action={saveCommitmentStatus} fields={{ week: weekId, id: c.id, status: "dropped" }} summary="Drop" submit="Drop it" />
+              <ActionButton action={saveCommitmentStatus} fields={commitmentFields(c, weekId, "done")} label="Done" variant="quiet" />
+              <ReasonForm action={saveCommitmentStatus} fields={commitmentFields(c, weekId, "dropped")} summary="Drop" submit="Drop it" />
             </div>
           </li>
         ))}

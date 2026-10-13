@@ -36,9 +36,9 @@ async function TodayContent() {
     );
   }
 
-  const { founder: f, today, tomorrow, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, next, currentTest, plannedTests, followUps, capacity } = view;
+  const { founder: f, today, tomorrow, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, next, currentTest, plannedTests, followUps, carried, capacity } = view;
   const promptVars = await loadPromptContext();
-  const openCount = (checkin?.commitments ?? []).filter((c) => c.status === "open").length;
+  const openCount = (checkin?.commitments ?? []).filter((c) => c.status === "open").length + carried.length;
   const ending = !checkin?.outcome ? "no-outcome" : openCount === 0 ? "no-commitments" : null;
   const weekChatPrompt = weekPrompt({ ...promptVars, ...weekPromptVars(checkin) });
 
@@ -92,6 +92,7 @@ async function TodayContent() {
             weekId={weekId}
             today={today}
             commitments={checkin?.commitments ?? []}
+            carried={carried}
             programWeek={programWeek}
             programLabel={programWeek ? `${f.programTitle} · Week ${programWeek}` : null}
             homework={homework}

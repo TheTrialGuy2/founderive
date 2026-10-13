@@ -23,12 +23,13 @@ export function formatToday(view: TodayView): string {
   const t = view.currentTest;
   out.push(t ? `Current test: ${t.title}${t.due ? ` · due ${t.due}` : ""} · ${t.linkedCount} linked · ${t.evidenceCount} customer evidence · strength ${t.evidenceStrength} (${t.path})` : `Current test: none running${view.plannedTests ? ` (${view.plannedTests} planned)` : ""}`);
   const commitments = view.checkin?.commitments ?? [];
-  const open = [...commitments.filter((c) => c.status === "open")].sort(byDue);
+  // Open commitments from earlier weeks carry here; each says the week whose check-in it lives in (write status back there).
+  const open = [...commitments.filter((c) => c.status === "open").map((c) => ({ ...c, week: view.weekId })), ...view.carried].sort(byDue);
   const done = commitments.filter((c) => c.status === "done");
   const dropped = commitments.filter((c) => c.status === "dropped");
   out.push("Commitments:");
   if (open.length === 0) out.push("  none");
-  for (const c of open) out.push(`  ${c.text}${dueMarker(c.due, view.today)} (id ${c.id})`);
+  for (const c of open) out.push(`  ${c.text}${dueMarker(c.due, view.today)}${c.week !== view.weekId ? ` · from week ${c.week}` : ""} (id ${c.id})`);
   if (done.length > 0) {
     out.push("Done this week:");
     for (const c of done) out.push(`  ${c.text} (id ${c.id})`);
@@ -37,6 +38,10 @@ export function formatToday(view: TodayView): string {
     out.push("Dropped this week:");
     for (const c of dropped) out.push(`  ${c.text} — ${c.reason} (id ${c.id})`);
   }
+  // The same follow-ups as the JSON and the Today page: open, due today or earlier, oldest first.
+  out.push("Follow-ups due:");
+  if (view.followUps.length === 0) out.push("  none");
+  for (const f of view.followUps) out.push(`  ${f.text} · ${f.due < view.today ? `overdue since ${f.due}` : "due today"} (id ${f.id})`);
   if (view.capacity) out.push(`Capacity: ${view.capacity}`);
   const homework = view.homework.filter((h) => h.status === "open");
   if (homework.length > 0) {
