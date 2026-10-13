@@ -9,6 +9,12 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: "/conversations", label: "Conversations" },
     ],
   },
-  { label: "Record", items: [{ href: "/canvas", label: "Canvas" }] },
+  {
+    label: "Record",
+    items: [
+      { href: "/canvas", label: "Canvas" },
+      { href: "/decisions", label: "Decisions" },
+    ],
+  },
 ];
 export const isActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);

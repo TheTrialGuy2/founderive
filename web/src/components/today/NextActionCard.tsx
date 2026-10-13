@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { addGuideStep, chooseNotNow, saveCommitmentStatus, saveHomeworkStatus } from "@/app/(workbook)/actions";
+import { setFollowUpStatusAction } from "@/app/(workbook)/conversations/actions";
 import { buttonPrimary, buttonQuiet, errorText, inputClass } from "@/components/workbook/form";
 import type { Candidate } from "@/core/next-step";
 import { IDLE } from "@/lib/action-state";
@@ -22,6 +23,12 @@ export function NextActionCard({ action, weekId, today, tomorrow, programWeek }:
         <span className="font-medium text-ink">Why: </span>
         {action.reason}
       </p>
+      {action.detail && (
+        <p className="mt-1 text-sm text-muted">
+          <span className="font-medium text-ink">Evidence so far: </span>
+          {action.detail}
+        </p>
+      )}
       <div className="mt-4">
         <Primary action={action} weekId={weekId} programWeek={programWeek} />
       </div>
@@ -46,6 +53,26 @@ function Primary({ action, weekId, programWeek }: Omit<Props, "today" | "tomorro
           Update your blocker
         </a>
       );
+    case "test":
+      return action.href ? (
+        <Link href={action.href} className={buttonPrimary}>
+          Open the test
+        </Link>
+      ) : null;
+    case "followup": {
+      // ref is "<conversation path>#<follow-up id>" (core/conversations dueFollowUps).
+      const [path = "", id = ""] = (action.ref ?? "").split("#");
+      return (
+        <div className="flex flex-wrap items-center gap-3">
+          <ActionButton action={setFollowUpStatusAction} fields={{ path, id, status: "done" }} label="Mark the follow-up done" />
+          {action.href && (
+            <Link href={action.href} className={buttonQuiet}>
+              Open the conversation
+            </Link>
+          )}
+        </div>
+      );
+    }
     case "fix":
       return <p className="font-mono text-xs text-ink">founder-data/{action.ref} · run pnpm check-data in web/ for details</p>;
     default:

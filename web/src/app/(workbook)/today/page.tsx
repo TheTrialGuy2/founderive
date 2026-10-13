@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { Card, formatDate, PageHeader } from "@/components/ui";
 import { BlockerForm } from "@/components/today/BlockerForm";
 import { CommitmentList } from "@/components/today/CommitmentList";
+import { CurrentTestCard } from "@/components/today/CurrentTestCard";
 import { NextActionCard } from "@/components/today/NextActionCard";
 import { OutcomeForm } from "@/components/today/OutcomeForm";
 import { CopyPrompt } from "@/components/workbook/CopyPrompt";
@@ -32,7 +34,7 @@ async function TodayContent() {
     );
   }
 
-  const { founder: f, today, tomorrow, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, next } = view;
+  const { founder: f, today, tomorrow, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, next, currentTest, plannedTests, followUps, capacity } = view;
   const promptVars = await loadPromptContext();
   const openCount = (checkin?.commitments ?? []).filter((c) => c.status === "open").length;
   const ending = !checkin?.outcome ? "no-outcome" : openCount === 0 ? "no-commitments" : null;
@@ -44,6 +46,17 @@ async function TodayContent() {
         <div className="mb-4">
           <FlaggedFile path={checkinEntry.path} error={checkinEntry.error} />
         </div>
+      )}
+      {checkin?.outcome && (
+        <Card title="This week's outcome" className="mb-4">
+          <p className="text-ink">{checkin.outcome}</p>
+          <details className="mt-3 text-sm">
+            <summary className="cursor-pointer text-teal-dark">Change it</summary>
+            <div className="mt-2">
+              <OutcomeForm weekId={weekId} initial={checkin.outcome} />
+            </div>
+          </details>
+        </Card>
       )}
       {next ? (
         <NextActionCard action={next} weekId={weekId} today={today} tomorrow={tomorrow} programWeek={programWeek} />
@@ -59,18 +72,9 @@ async function TodayContent() {
         />
       )}
       <div className="mt-6 grid gap-4 md:grid-cols-2">
-        {checkin?.outcome && (
-          <Card title="This week's outcome">
-            <p className="text-ink">{checkin.outcome}</p>
-            <details className="mt-3 text-sm">
-              <summary className="cursor-pointer text-teal-dark">Change it</summary>
-              <div className="mt-2">
-                <OutcomeForm weekId={weekId} initial={checkin.outcome} />
-              </div>
-            </details>
-          </Card>
-        )}
-        <Card title="Commitments">
+        <CurrentTestCard test={currentTest} plannedCount={plannedTests} today={today} />
+        <Card title="Commitments and follow-ups">
+          {capacity && <p className="mb-3 text-sm text-ink">{capacity}</p>}
           <CommitmentList
             weekId={weekId}
             today={today}
@@ -79,6 +83,18 @@ async function TodayContent() {
             programLabel={programWeek ? `${f.programTitle} · Week ${programWeek}` : null}
             homework={homework}
           />
+          {followUps.length > 0 && (
+            <ul className="mt-4 space-y-1 text-sm">
+              {followUps.map((fu) => (
+                <li key={fu.id}>
+                  <Link href={fu.href} className="font-medium text-teal-dark hover:text-navy">
+                    {fu.text}
+                  </Link>{" "}
+                  <span className="text-muted">· {fu.due < today ? `overdue since ${formatDate(fu.due)}` : "due today"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
         <div id="blocker" className="scroll-mt-6">
           <Card title="Blocker or help needed">
