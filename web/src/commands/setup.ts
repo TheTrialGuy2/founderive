@@ -1,4 +1,5 @@
 import { weekFile } from "../core/program";
+import { US_STATES } from "../lib/us-states";
 import { initData } from "../store/init";
 import { BUSINESS_MODELS, COFOUNDERS, COMMITMENTS, EVIDENCE_LEVELS, STAGES, type KindData } from "../store/schemas";
 import { updateEntry } from "../store/update";
@@ -59,10 +60,22 @@ export function parseSetupStep(step: number, fd: FormData): StepParse {
   if (step === 1) {
     need("name", "Add your name.");
     need("city", "Add your city.");
-    need("region", "Add your state or province.");
+    if (!US_STATES.some((s) => s.code === values.region)) errors.region = "Pick your state.";
     if (!oneOf(COMMITMENTS, values.commitment)) errors.commitment = "Pick how much time you're giving it.";
     if (!oneOf(COFOUNDERS, values.cofounders)) errors.cofounders = "Pick how many founders there are.";
-    patch = { name: values.name, city: values.city, region: values.region, commitment: values.commitment as FounderData["commitment"], cofounders: values.cofounders as FounderData["cofounders"] };
+    const rawNames = fd
+      .getAll("cofounderName")
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter((n) => n.length > 0);
+    const cofounderNames = values.cofounders === "two" ? rawNames.slice(0, 1) : values.cofounders === "three-plus" ? rawNames : [];
+    patch = {
+      name: values.name,
+      city: values.city,
+      region: values.region,
+      commitment: values.commitment as FounderData["commitment"],
+      cofounders: values.cofounders as FounderData["cofounders"],
+      cofounderNames,
+    };
   }
   if (step === 2) {
     need("venture", "Add your venture's name. A working name is fine.");
@@ -114,11 +127,17 @@ export function firstIncompleteStep(f: FounderData | null): number | null {
   return 4;
 }
 
-/** Saves one setup step. The first save creates founder-data; the last marks setup complete and creates blank program weeks (never overwriting). */
-export async function saveSetupStep(step: number, patch: StepPatch): Promise<void> {
+/**
+ * Saves one setup step. The first save creates founder-data; the last marks setup complete and creates blank program
+ * weeks (never overwriting). Reports whether setup was already complete before this save, so a caller can tell a
+ * first-time walkthrough from an edit to an already-finished setup.
+ */
+export async function saveSetupStep(step: number, patch: StepPatch): Promise<{ wasComplete: boolean }> {
   await initData();
+  let wasComplete = false;
   const { data } = await updateEntry("founder", "founder.md", (existing, body) => {
     const previous: FounderData = existing ?? { name: "", venture: "", setupComplete: false };
+    wasComplete = previous.setupComplete;
     return { data: { ...previous, ...patch, setupComplete: previous.setupComplete || step === LAST_STEP }, body };
   });
 
@@ -127,4 +146,5 @@ export async function saveSetupStep(step: number, patch: StepPatch): Promise<voi
       await createEntryIfAbsent("week", weekFile(n), { week: n, title: `Week ${n}`, status: "not-started", exercises: [], homework: [] });
     }
   }
+  return { wasComplete };
 }

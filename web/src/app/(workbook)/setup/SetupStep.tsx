@@ -5,6 +5,7 @@ import { useActionState, useState, type ReactNode } from "react";
 import { saveSetupStepAction } from "@/app/(workbook)/actions";
 import { buttonPrimary, buttonQuiet, errorText, inputClass } from "@/components/workbook/form";
 import { IDLE } from "@/lib/action-state";
+import { US_STATES } from "@/lib/us-states";
 
 const TITLES = ["You", "Your venture", "Where you are", "Customer, goal and time"];
 const COMMITMENT = [
@@ -40,11 +41,21 @@ const EVIDENCE = [
   ["repeat-customers", "Repeat customers"],
 ] as const;
 
-export function SetupStep({ step, initial }: { step: number; initial: Record<string, string> }) {
+export function SetupStep({ step, initial, canJump }: { step: number; initial: Record<string, string>; canJump: boolean }) {
   const [state, formAction, pending] = useActionState(saveSetupStepAction, IDLE);
   const v = { ...initial, ...state.values };
   const err = state.errors ?? {};
   const [inProgram, setInProgram] = useState(v.inProgram === "on");
+  const [cofounders, setCofounders] = useState(v.cofounders);
+  const initialCofounderNames: string[] = (() => {
+    try {
+      const parsed = JSON.parse(v.cofounderNames || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  })();
+  const [cofounderNames, setCofounderNames] = useState<string[]>(initialCofounderNames.length >= 2 ? initialCofounderNames : [...initialCofounderNames, ...Array(2 - initialCofounderNames.length).fill("")]);
   const last = step === TITLES.length;
 
   const text = (name: string, label: string, example: string, props: { type?: string; optional?: boolean } = {}) => (
@@ -65,14 +76,33 @@ export function SetupStep({ step, initial }: { step: number; initial: Record<str
   return (
     <form action={formAction} className="max-w-2xl space-y-6" noValidate>
       <div>
-        <p className="text-sm font-medium text-ink">
-          Step {step} of {TITLES.length} · {TITLES[step - 1]}
-        </p>
-        <div className="mt-2 flex gap-1" role="progressbar" aria-valuemin={1} aria-valuemax={TITLES.length} aria-valuenow={step} aria-label="Setup progress">
-          {TITLES.map((t, i) => (
-            <span key={t} className={`h-1.5 flex-1 rounded-full ${i < step ? "bg-teal-dark" : "bg-sand"}`} />
-          ))}
-        </div>
+        {canJump ? (
+          <nav aria-label="Setup steps">
+            <ol className="flex flex-wrap gap-4 text-sm">
+              {TITLES.map((t, i) => {
+                const n = i + 1;
+                return (
+                  <li key={t}>
+                    <Link href={`/setup?step=${n}`} aria-current={n === step ? "step" : undefined} className={n === step ? "font-semibold text-ink underline" : "text-teal-dark underline"}>
+                      {n}. {t}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
+        ) : (
+          <>
+            <p className="text-sm font-medium text-ink">
+              Step {step} of {TITLES.length} · {TITLES[step - 1]}
+            </p>
+            <div className="mt-2 flex gap-1" role="progressbar" aria-valuemin={1} aria-valuemax={TITLES.length} aria-valuenow={step} aria-label="Setup progress">
+              {TITLES.map((t, i) => (
+                <span key={t} className={`h-1.5 flex-1 rounded-full ${i < step ? "bg-teal-dark" : "bg-sand"}`} />
+              ))}
+            </div>
+          </>
+        )}
       </div>
       {state.status === "error" && state.message && (
         <p role="alert" className="rounded-md border border-coral bg-coral-soft/60 p-3 text-sm text-ink">
@@ -86,10 +116,50 @@ export function SetupStep({ step, initial }: { step: number; initial: Record<str
           {text("name", "Your name", "e.g. Sam Rivera")}
           <div className="grid gap-4 sm:grid-cols-2">
             {text("city", "City", "e.g. Charlotte")}
-            {text("region", "State or province", "e.g. NC")}
+            <Field id="region" label="State" error={err.region}>
+              <select id="region" name="region" defaultValue={v.region} className={inputClass} aria-invalid={!!err.region} aria-describedby={err.region ? "region-error" : undefined}>
+                <option value="">Choose a state</option>
+                {US_STATES.map((s) => (
+                  <option key={s.code} value={s.code}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
           <Choice name="commitment" legend="Time you're giving it" options={COMMITMENT} value={v.commitment} error={err.commitment} />
-          <Choice name="cofounders" legend="Founders" options={COFOUNDERS} value={v.cofounders} error={err.cofounders} />
+          <Choice name="cofounders" legend="Founders" options={COFOUNDERS} value={cofounders} error={err.cofounders} onChange={setCofounders} />
+          {cofounders === "two" && (
+            <Field id="cofounderName-0" label="Your co-founder's name (optional)">
+              <input id="cofounderName-0" name="cofounderName" defaultValue={initialCofounderNames[0] ?? ""} placeholder="e.g. Jordan Lee" className={inputClass} />
+            </Field>
+          )}
+          {cofounders === "three-plus" && (
+            <div className="space-y-3">
+              {cofounderNames.map((name, i) => (
+                <Field key={i} id={`cofounderName-${i}`} label={`Co-founder ${i + 1} (optional)`}>
+                  <div className="flex gap-2">
+                    <input
+                      id={`cofounderName-${i}`}
+                      name="cofounderName"
+                      value={name}
+                      onChange={(e) => setCofounderNames(cofounderNames.map((n, idx) => (idx === i ? e.target.value : n)))}
+                      placeholder="e.g. Jordan Lee"
+                      className={inputClass}
+                    />
+                    {i > 0 && (
+                      <button type="button" onClick={() => setCofounderNames(cofounderNames.filter((_, idx) => idx !== i))} className={buttonQuiet}>
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </Field>
+              ))}
+              <button type="button" onClick={() => setCofounderNames([...cofounderNames, ""])} className={buttonQuiet}>
+                Add another founder
+              </button>
+            </div>
+          )}
         </>
       )}
 
@@ -151,7 +221,7 @@ export function SetupStep({ step, initial }: { step: number; initial: Record<str
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending} className={buttonPrimary}>
-          {pending ? "Saving…" : last ? "Save and see my first action" : "Save and continue"}
+          {pending ? "Saving…" : last ? "Save and see my first action" : canJump ? "Save" : "Save and continue"}
         </button>
         {step > 1 && (
           <Link href={`/setup?step=${step - 1}`} className={buttonQuiet}>
@@ -179,14 +249,28 @@ function Field({ id, label, error, children }: { id: string; label: string; erro
   );
 }
 
-function Choice({ name, legend, options, value, error }: { name: string; legend: string; options: readonly (readonly [string, string])[]; value: string; error?: string }) {
+function Choice({
+  name,
+  legend,
+  options,
+  value,
+  error,
+  onChange,
+}: {
+  name: string;
+  legend: string;
+  options: readonly (readonly [string, string])[];
+  value: string;
+  error?: string;
+  onChange?: (value: string) => void;
+}) {
   return (
     <fieldset aria-describedby={error ? `${name}-error` : undefined}>
       <legend className="mb-1 text-sm font-medium text-ink">{legend}</legend>
       <div className="flex flex-wrap gap-2">
         {options.map(([optionValue, label]) => (
           <label key={optionValue} className="flex min-h-10 items-center gap-2 rounded-md border border-line bg-paper px-3 text-sm text-ink has-[:checked]:border-teal-dark has-[:checked]:bg-aqua/40">
-            <input type="radio" name={name} value={optionValue} defaultChecked={value === optionValue} /> {label}
+            <input type="radio" name={name} value={optionValue} defaultChecked={value === optionValue} onChange={() => onChange?.(optionValue)} /> {label}
           </label>
         ))}
       </div>

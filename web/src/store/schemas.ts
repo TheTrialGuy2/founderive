@@ -45,6 +45,7 @@ export const founderSchema = z.strictObject({
   region: z.string().nullish(), // state or province
   commitment: z.enum(COMMITMENTS).nullish(),
   cofounders: z.enum(COFOUNDERS).nullish(),
+  cofounderNames: z.array(z.string().min(1)).optional(),
   website: z.string().nullish(),
   industry: z.string().nullish(),
   startedOn: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "use YYYY-MM").nullish(),

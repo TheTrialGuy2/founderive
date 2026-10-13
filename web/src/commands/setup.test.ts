@@ -7,9 +7,12 @@ import { useTempData } from "../store/test-helpers";
 import { firstIncompleteStep, parseSetupStep, saveSetupStep } from "./setup";
 
 const STARTER = fileURLToPath(new URL("../../../starter-data", import.meta.url));
-const form = (fields: Record<string, string>) => {
+const form = (fields: Record<string, string | string[]>) => {
   const fd = new FormData();
-  for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+  for (const [k, v] of Object.entries(fields)) {
+    if (Array.isArray(v)) for (const vv of v) fd.append(k, vv);
+    else fd.set(k, v);
+  }
   return fd;
 };
 const STEP_FORMS: Record<number, Record<string, string>> = {
@@ -53,6 +56,23 @@ describe("parseSetupStep", () => {
       const r = parseSetupStep(2, form({ ...STEP_FORMS[2], startedOn: typed }));
       expect(!r.ok && r.errors.startedOn).toBe("Pick the month you started (for example 2026-03).");
     }
+  });
+  it("requires a real US state code for region", () => {
+    expect(parseSetupStep(1, form({ ...STEP_FORMS[1], region: "NC" })).ok).toBe(true);
+    const bad = parseSetupStep(1, form({ ...STEP_FORMS[1], region: "Carolina" }));
+    expect(!bad.ok && bad.errors.region).toBe("Pick your state.");
+    const empty = parseSetupStep(1, form({ ...STEP_FORMS[1], region: "" }));
+    expect(!empty.ok && empty.errors.region).toBe("Pick your state.");
+  });
+  it("keeps co-founder names by cofounders count, dropping empties and keeping order", () => {
+    const two = parseSetupStep(1, form({ ...STEP_FORMS[1], cofounders: "two", cofounderName: ["Jordan", "Spare"] }));
+    expect(two.ok && two.patch.cofounderNames).toEqual(["Jordan"]);
+
+    const three = parseSetupStep(1, form({ ...STEP_FORMS[1], cofounders: "three-plus", cofounderName: ["Jordan", "", "Alex"] }));
+    expect(three.ok && three.patch.cofounderNames).toEqual(["Jordan", "Alex"]);
+
+    const solo = parseSetupStep(1, form({ ...STEP_FORMS[1], cofounders: "solo", cofounderName: ["Jordan"] }));
+    expect(solo.ok && solo.patch.cofounderNames).toEqual([]);
   });
   it("requires program details only when in a program", () => {
     const r = parseSetupStep(4, form({ ...STEP_FORMS[4], inProgram: "on", programTitle: "", programStart: "", programWeeks: "0" }));
@@ -114,5 +134,12 @@ describe("saveSetupStep", () => {
     await saveSetupStep(1, { ...patch(1), city: "Raleigh" });
     const f = await readEntry("founder", "founder.md");
     expect(f?.ok && f.data).toMatchObject({ city: "Raleigh", setupComplete: true });
+  });
+  it("reports whether setup was already complete before this save", async () => {
+    expect((await saveSetupStep(1, patch(1))).wasComplete).toBe(false);
+    expect((await saveSetupStep(2, patch(2))).wasComplete).toBe(false);
+    expect((await saveSetupStep(3, patch(3))).wasComplete).toBe(false);
+    expect((await saveSetupStep(4, patch(4))).wasComplete).toBe(false);
+    expect((await saveSetupStep(1, { ...patch(1), city: "Raleigh" })).wasComplete).toBe(true);
   });
 });

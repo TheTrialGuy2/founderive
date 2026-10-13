@@ -26,12 +26,15 @@ export async function saveSetupStepAction(_prev: ActionState, fd: FormData): Pro
   const step = Number(field(fd, "step"));
   const parsed = parseSetupStep(step, fd);
   if (!parsed.ok) return { status: "error", message: parsed.errors.step ?? "Check the highlighted answers.", errors: parsed.errors, values: parsed.values };
+  let wasComplete = false;
   try {
-    await saveSetupStep(step, parsed.patch);
+    ({ wasComplete } = await saveSetupStep(step, parsed.patch));
   } catch (error) {
     return { status: "error", message: error instanceof Error ? error.message : "Couldn't save this step. Try again.", values: parsed.values };
   }
-  redirect(step >= LAST_STEP ? "/today" : `/setup?step=${step + 1}`);
+  // A completed setup lets a founder jump to any step to edit it; saving from there returns to /today rather than
+  // walking the rest of the steps again.
+  redirect(wasComplete || step >= LAST_STEP ? "/today" : `/setup?step=${step + 1}`);
 }
 
 export async function saveOutcome(_prev: ActionState, fd: FormData): Promise<ActionState> {

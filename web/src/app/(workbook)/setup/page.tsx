@@ -24,8 +24,9 @@ async function SetupContent({ searchParams }: { searchParams: PageProps<"/setup"
   const f = founder?.ok ? founder.data : null;
   const requested = Number((await searchParams).step);
   const resumeAt = firstIncompleteStep(f) ?? 1;
+  const canJump = f?.setupComplete === true;
   // You can go back to any step, but not skip ahead of the first unfinished one.
-  const step = Number.isInteger(requested) && requested >= 1 && requested <= (f?.setupComplete ? LAST_STEP : resumeAt) ? requested : resumeAt;
+  const step = Number.isInteger(requested) && requested >= 1 && requested <= (canJump ? LAST_STEP : resumeAt) ? requested : resumeAt;
   const s = (v: string | number | null | undefined) => (v == null ? "" : String(v));
   const initial: Record<string, string> = {
     name: s(f?.name),
@@ -33,6 +34,7 @@ async function SetupContent({ searchParams }: { searchParams: PageProps<"/setup"
     region: s(f?.region),
     commitment: s(f?.commitment),
     cofounders: s(f?.cofounders),
+    cofounderNames: JSON.stringify(f?.cofounderNames ?? []),
     venture: s(f?.venture),
     oneLiner: s(f?.oneLiner),
     stillWorking: f?.venture && f.industry && !f.oneLiner ? "on" : "",
@@ -51,5 +53,5 @@ async function SetupContent({ searchParams }: { searchParams: PageProps<"/setup"
     programStart: s(f?.programStart),
     programWeeks: s(f?.programWeeks),
   };
-  return <SetupStep key={step} step={step} initial={initial} />;
+  return <SetupStep key={step} step={step} initial={initial} canJump={canJump} />;
 }
