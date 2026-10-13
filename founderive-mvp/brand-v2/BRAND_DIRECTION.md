@@ -108,12 +108,14 @@ Signal lime should stay scarce. If everything is lime, nothing feels like progre
 
 ## Typography
 
-- **Product and wordmark:** Manrope or a similar humanist geometric sans. It is clear and operational without feeling corporate.
-- **Long-form founder writing:** Source Serif 4. It gives reflections and evidence a document quality.
-- **Numbers and metadata:** Manrope with tabular numerals.
+- **Product UI:** IBM Plex Sans. Its practical, editorial character makes the workspace feel authored and operational rather than like a generic SaaS template.
+- **Page titles and key numbers:** IBM Plex Serif, set at regular weight and a compact scale. The contrast gives founder reflections and evidence a document quality without turning every heading into a display moment.
+- **Numbers and metadata:** IBM Plex Sans with tabular numerals where values need to align.
 - **Name construction:** set `founder` in Evidence Teal and `ive` in Record Ink on light backgrounds. On dark backgrounds, keep `founder` teal and reverse `ive` to Paper. This reveals the name's construction while retaining a calm, two-color wordmark.
 
-The supplied SVG wordmark uses a resilient system-font stack for preview portability. A production brand package should outline the approved Manrope lettering before external distribution.
+The supplied SVG wordmark uses a resilient system-font stack for preview portability. A production brand package should outline the approved lettering before external distribution.
+
+Most product surfaces are separated with rules, spacing, and alignment rather than shadows. Corner radii stay modest; pills are reserved for status, filters, and compact toggles. Elevation is reserved for genuinely floating controls such as quick log.
 
 ## Asset notes
 

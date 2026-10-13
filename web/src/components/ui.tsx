@@ -7,17 +7,17 @@ export function formatDate(iso: string) {
 
 export function PageHeader({ eyebrow, title, children }: { eyebrow?: string; title: string; children?: ReactNode }) {
   return (
-    <header className="mb-7">
+    <header className="mb-8">
       {eyebrow && <p className="text-xs font-semibold tracking-[0.12em] text-teal-dark uppercase">{eyebrow}</p>}
-      <h1 className="mt-1 text-4xl font-semibold tracking-[-0.045em] text-navy">{title}</h1>
-      {children && <div className="mt-2 max-w-3xl text-sm text-muted">{children}</div>}
+      <h1 className="mt-1 font-serif text-[2rem] leading-[1.15] font-normal tracking-[-0.025em] text-navy md:text-4xl">{title}</h1>
+      {children && <div className="mt-2 max-w-3xl text-[15px] leading-6 text-muted">{children}</div>}
     </header>
   );
 }
 
 export function Card({ title, action, children, className = "" }: { title?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-2xl border border-line bg-paper p-5 shadow-[0_1px_2px_rgba(18,32,51,0.04)] ${className}`}>
+    <section className={`rounded-xl border border-line bg-paper p-5 ${className}`}>
       {(title || action) && (
         <div className="mb-3 flex items-start justify-between gap-3">
           {title && <h2 className="font-semibold tracking-[-0.01em] text-navy">{title}</h2>}
@@ -73,9 +73,9 @@ export function ProgressBar({ value, max, tone = "lime" }: { value: number; max:
 
 export function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-line bg-paper p-4 shadow-[0_1px_2px_rgba(18,32,51,0.04)]">
+    <div className="rounded-lg border border-line bg-paper p-4">
       <p className="text-xs font-medium text-muted">{label}</p>
-      <p className="mt-1 text-3xl font-semibold tracking-[-0.04em] text-navy">{value}</p>
+      <p className="mt-1 font-serif text-3xl font-normal tracking-[-0.025em] text-navy">{value}</p>
       {sub && <p className="mt-1 text-xs text-muted">{sub}</p>}
     </div>
   );
@@ -90,10 +90,10 @@ export function Button({ children, onClick, variant = "primary", type = "button"
 }) {
   const styles =
     variant === "primary"
-      ? "bg-navy text-white shadow-sm hover:bg-navy-light"
+      ? "bg-navy text-white hover:bg-navy-light"
       : "border border-line bg-paper text-navy hover:border-teal/50 hover:bg-aqua/35";
   return (
-    <button type={type} onClick={onClick} disabled={disabled} className={`rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${styles}`}>
+    <button type={type} onClick={onClick} disabled={disabled} className={`rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${styles}`}>
       {children}
     </button>
   );
@@ -130,7 +130,7 @@ export function Ring({ value, max, label, size = 88 }: { value: number; max: num
           strokeDasharray={`${c * pct} ${c}`}
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
-        <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" className="fill-navy font-sans font-semibold" fontSize={size / 4}>
+        <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" className="fill-navy font-serif font-normal" fontSize={size / 4}>
           {value}
           <tspan className="fill-muted font-sans" fontSize={size / 8}>
             /{max}

@@ -51,12 +51,12 @@ export default function DesignSystemPage() {
 
       <Section title="Type">
         <div className="space-y-2">
-          <p className="text-5xl font-semibold tracking-[-0.05em] text-navy">2 week streak</p>
-          <p className="text-4xl font-semibold tracking-[-0.045em] text-navy">Page title · display 4xl</p>
-          <p className="font-semibold text-navy">Card title · sans semibold</p>
-          <p className="text-sm">Body · sans sm</p>
-          <p className="text-xs text-muted">Meta · sans xs muted</p>
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Eyebrow · xs uppercase</p>
+          <p className="font-serif text-5xl font-normal tracking-[-0.035em] text-navy">2 week streak</p>
+          <p className="font-serif text-4xl font-normal tracking-[-0.025em] text-navy">Page title · Plex Serif 36/40</p>
+          <p className="font-semibold text-navy">Card title · Plex Sans semibold</p>
+          <p className="text-sm">Body · Plex Sans 14/21</p>
+          <p className="text-xs text-muted">Meta · Plex Sans 12 muted</p>
+          <p className="text-xs font-medium tracking-wide text-muted uppercase">Eyebrow · Plex Sans 12 uppercase</p>
         </div>
       </Section>
 

@@ -45,7 +45,7 @@ export function SideNav() {
             <li key={item.href}>
               <Link
                 href={item.href}
-                className={`block rounded-xl px-3 py-2 text-sm whitespace-nowrap ${active ? "bg-navy font-semibold text-white shadow-sm" : "text-ink hover:bg-aqua/45"}`}
+                className={`block rounded-md px-3 py-2 text-sm whitespace-nowrap ${active ? "bg-navy font-semibold text-white" : "text-ink hover:bg-aqua/45"}`}
               >
                 {item.label}
               </Link>
