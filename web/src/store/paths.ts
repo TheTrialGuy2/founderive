@@ -48,9 +48,12 @@ function configuredDataDir(): string | null {
  * 2. founderive.local.json at the repo root → { "dataDir": "<path>" } (supports ~/ and relative paths)
  * 3. default: <repo root>/founder-data
  * Read on every call (nothing cached) so tests and settings changes take effect immediately.
+ * Under the test runner (VITEST set) only FOUNDER_DATA_DIR counts: no settings file, no default folder, so a test can
+ * never reach the founder's real data.
  */
 export function dataDir(): string {
   if (process.env.FOUNDER_DATA_DIR) return path.resolve(process.env.FOUNDER_DATA_DIR);
+  if (process.env.VITEST) throw new Error("Tests must set FOUNDER_DATA_DIR (see src/test-setup.ts).");
   const configured = configuredDataDir();
   if (configured) return path.resolve(configured);
   return path.resolve(repoRoot(), "founder-data");

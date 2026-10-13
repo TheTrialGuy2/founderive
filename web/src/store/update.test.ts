@@ -60,11 +60,13 @@ describe("updateEntry", () => {
     expect(runs).toBe(3);
   });
   it("serializes concurrent updates to the same file", async () => {
-    await Promise.all(
+    // allSettled so a failure in one can't leave the others writing after this test's folder is gone.
+    const settled = await Promise.allSettled(
       ["a", "b", "c"].map((id) =>
         updateEntry("checkin", REL, (data, body) => ({ data: { ...data!, commitments: [...data!.commitments, { id, text: id, status: "open" as const }] }, body })),
       ),
     );
+    expect(settled.map((x) => x.status)).toEqual(["fulfilled", "fulfilled", "fulfilled"]);
     const e = await readEntry("checkin", REL);
     expect(e?.ok && e.data.commitments.map((c) => c.id)).toEqual(["c-1", "c-2", "a", "b", "c"]);
   });

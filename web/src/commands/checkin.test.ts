@@ -38,7 +38,12 @@ describe("check-in commands", () => {
     expect(data.commitments.some((c) => c.text === "Visit two agencies")).toBe(true);
   });
   it("keeps both of two commitments added at the same moment", async () => {
-    const [a, b] = await Promise.all([addCommitment("2026-W42", { text: "Call Dana" }), addCommitment("2026-W42", { text: "Call Lee" })]);
+    // allSettled so a failure in one can't leave the other writing after this test's folder is gone.
+    const settled = await Promise.allSettled([addCommitment("2026-W42", { text: "Call Dana" }), addCommitment("2026-W42", { text: "Call Lee" })]);
+    const [a, b] = settled.map((x) => {
+      if (x.status === "rejected") throw x.reason;
+      return x.value;
+    });
     const ids = (await loadCheckin("2026-W42")).data.commitments.map((c) => c.id);
     expect(ids).toEqual(expect.arrayContaining(["c-1", "c-2", a, b]));
     expect(ids).toHaveLength(4);

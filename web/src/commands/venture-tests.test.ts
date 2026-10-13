@@ -228,8 +228,9 @@ describe("the next commitment is added exactly once", () => {
     await writeFile(file, "---\nweek: nope\n---\n");
     await expect(completeTest(t, complete(), TODAY)).rejects.toThrow(/saved as complete/);
     await writeFile(file, good);
-    const [a, b] = await Promise.all([completeTest(t, complete(), TODAY), completeTest(t, complete(), TODAY)]);
-    expect(a).toEqual(b);
+    const [sa, sb] = await Promise.allSettled([completeTest(t, complete(), TODAY), completeTest(t, complete(), TODAY)]);
+    if (sa.status === "rejected" || sb.status === "rejected") throw new Error("both completions should resolve");
+    expect(sa.value).toEqual(sb.value);
     const week = await readEntry("checkin", "checkins/2026-W42.md");
     expect(week?.ok && week.data.commitments.filter((c) => c.link === t)).toHaveLength(1);
   });
@@ -331,15 +332,19 @@ describe("link and unlink never leave the two sides disagreeing", () => {
       expect(conv?.ok && conv.data.relatedTests.includes(t)).toBe(onTest);
     };
     // An unlink that starts between the link's two writes, while the link pauses there, must wait for the link.
-    let unlinking: Promise<void> = Promise.resolve();
+    // Both operations are settled before the test goes on, so neither can write after this test's folder is gone.
+    let startUnlink!: (p: Promise<void>) => void;
+    const unlinking = new Promise<Promise<void>>((r) => (startUnlink = r));
     const unlinkMidway = () => {
-      unlinking = unlinkEvidence(t, c);
+      startUnlink(unlinkEvidence(t, c));
       return new Promise<void>((r) => setTimeout(r, 50));
     };
-    await Promise.all([linkEvidence(t, c, { beforeSecondWrite: unlinkMidway }), new Promise((r) => setTimeout(r, 60)).then(() => unlinking)]);
+    const settled = await Promise.allSettled([linkEvidence(t, c, { beforeSecondWrite: unlinkMidway }), unlinking.then((u) => u)]);
+    expect(settled.map((x) => x.status)).toEqual(["fulfilled", "fulfilled"]);
     await agree();
     for (let i = 0; i < 5; i++) {
-      await Promise.all([linkEvidence(t, c), unlinkEvidence(t, c)]);
+      const both = await Promise.allSettled([linkEvidence(t, c), unlinkEvidence(t, c)]);
+      expect(both.map((x) => x.status)).toEqual(["fulfilled", "fulfilled"]);
       await agree();
     }
   });
@@ -400,7 +405,11 @@ describe("completion and unlinking of one test never interleave", () => {
   it("two completions at the same moment both resolve, one saying it was already complete, with one commitment", async () => {
     const t = await createTest(PILOT, TODAY);
     await withNotes(t);
-    const results = await Promise.all([completeTest(t, complete(), TODAY), completeTest(t, complete(), TODAY)]);
+    const settled = await Promise.allSettled([completeTest(t, complete(), TODAY), completeTest(t, complete(), TODAY)]);
+    const results = settled.map((x) => {
+      if (x.status === "rejected") throw x.reason;
+      return x.value;
+    });
     expect(results.filter((r) => r.alreadyComplete)).toHaveLength(1);
     expect(results[0].commitmentId).toBe(results[1].commitmentId);
     const week = await readEntry("checkin", "checkins/2026-W42.md");
@@ -409,7 +418,12 @@ describe("completion and unlinking of one test never interleave", () => {
   it("still refuses to complete an abandoned test", async () => {
     const t = await createTest(PILOT, TODAY);
     await abandonTest(t, "Pricing changed", TODAY);
-    await expect(Promise.all([completeTest(t, complete(), TODAY), completeTest(t, complete(), TODAY)])).rejects.toThrow(/already closed/);
+    // allSettled, not Promise.all: the second completion must finish before the test ends, not run on after it.
+    const both = await Promise.allSettled([completeTest(t, complete(), TODAY), completeTest(t, complete(), TODAY)]);
+    expect(both.map((x) => (x.status === "rejected" ? String(x.reason) : "fulfilled"))).toEqual([
+      expect.stringMatching(/already closed/),
+      expect.stringMatching(/already closed/),
+    ]);
   });
 });
 

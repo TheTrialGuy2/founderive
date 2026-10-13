@@ -14,8 +14,9 @@ export async function useTempData(withFixture = true): Promise<{ dir: string; cl
   return {
     dir,
     cleanup: async () => {
-      if (previous === undefined) delete process.env.FOUNDER_DATA_DIR;
-      else process.env.FOUNDER_DATA_DIR = previous;
+      // Put back what was there (the run's sandbox, see test-setup.ts); never unset it, so a write that lands after
+      // cleanup still stays out of the founder's folder.
+      if (previous !== undefined) process.env.FOUNDER_DATA_DIR = previous;
       await rm(dir, { recursive: true, force: true });
     },
   };

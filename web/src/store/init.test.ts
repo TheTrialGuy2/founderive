@@ -14,7 +14,7 @@ beforeEach(async () => {
   process.env.FOUNDER_STARTER_DIR = STARTER;
 });
 afterEach(async () => {
-  delete process.env.FOUNDER_STARTER_DIR;
+  // Leave FOUNDER_STARTER_DIR set: test-setup.ts points the whole run at the same starter folder.
   await env.cleanup();
 });
 

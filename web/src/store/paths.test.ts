@@ -1,9 +1,15 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { dataDir, OutsideDataDirError, resolveInData } from "./paths";
 import { useTempData } from "./test-helpers";
+
+/** Puts an env var back exactly as it was (assigning undefined would store the string "undefined"). */
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
+}
 
 describe("resolveInData", () => {
   let env: Awaited<ReturnType<typeof useTempData>>;
@@ -25,15 +31,20 @@ describe("dataDir resolution order", () => {
   let tmp: string;
   let previousDataDir: string | undefined;
   let previousConfig: string | undefined;
+  let previousVitest: string | undefined;
 
+  // These cases check the app's own resolution order, so they switch the test-runner guard off and back on.
   beforeEach(() => {
     tmp = mkdtempSync(path.join(os.tmpdir(), "founderive-config-"));
     previousDataDir = process.env.FOUNDER_DATA_DIR;
     previousConfig = process.env.FOUNDERIVE_LOCAL_CONFIG;
+    previousVitest = process.env.VITEST;
     delete process.env.FOUNDER_DATA_DIR;
+    delete process.env.VITEST;
   });
 
   afterEach(() => {
+    restoreEnv("VITEST", previousVitest);
     if (previousDataDir === undefined) delete process.env.FOUNDER_DATA_DIR;
     else process.env.FOUNDER_DATA_DIR = previousDataDir;
     if (previousConfig === undefined) delete process.env.FOUNDERIVE_LOCAL_CONFIG;
@@ -85,5 +96,55 @@ describe("dataDir resolution order", () => {
   it("throws a clear error when dataDir is missing or not a string", () => {
     writeConfig(JSON.stringify({ dataDir: 42 }));
     expect(() => dataDir()).toThrow('founderive.local.json is invalid: expected { "dataDir": "/path/to/your/data" }');
+  });
+});
+
+describe("under the test runner", () => {
+  let tmp: string;
+  let previousDataDir: string | undefined;
+  let previousConfig: string | undefined;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(path.join(os.tmpdir(), "founderive-guard-"));
+    previousDataDir = process.env.FOUNDER_DATA_DIR;
+    previousConfig = process.env.FOUNDERIVE_LOCAL_CONFIG;
+  });
+
+  afterEach(() => {
+    restoreEnv("FOUNDER_DATA_DIR", previousDataDir);
+    restoreEnv("FOUNDERIVE_LOCAL_CONFIG", previousConfig);
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("runs every test file inside a sandbox, never the founder's folder", () => {
+    expect(process.env.VITEST).toBeTruthy();
+    expect(path.resolve(process.env.FOUNDER_DATA_DIR ?? "")).toContain(path.resolve(os.tmpdir()));
+    expect(existsSync(process.env.FOUNDERIVE_LOCAL_CONFIG ?? "")).toBe(false);
+    expect(process.env.FOUNDER_STARTER_DIR).toBeTruthy();
+  });
+
+  it("refuses to resolve the data folder when FOUNDER_DATA_DIR is unset", () => {
+    delete process.env.FOUNDER_DATA_DIR;
+    expect(() => dataDir()).toThrow("Tests must set FOUNDER_DATA_DIR");
+  });
+
+  it("never reads founderive.local.json, even a valid one", () => {
+    const decoy = path.join(tmp, "decoy-data");
+    const configPath = path.join(tmp, "founderive.local.json");
+    writeFileSync(configPath, JSON.stringify({ dataDir: decoy }));
+    process.env.FOUNDERIVE_LOCAL_CONFIG = configPath;
+    delete process.env.FOUNDER_DATA_DIR;
+    expect(() => dataDir()).toThrow("Tests must set FOUNDER_DATA_DIR");
+    process.env.FOUNDER_DATA_DIR = path.join(tmp, "env-data");
+    expect(dataDir()).toBe(path.join(tmp, "env-data"));
+  });
+
+  it("useTempData puts the sandbox back after cleanup instead of unsetting it", async () => {
+    const sandbox = process.env.FOUNDER_DATA_DIR;
+    const env = await useTempData(false);
+    expect(process.env.FOUNDER_DATA_DIR).toBe(env.dir);
+    await env.cleanup();
+    expect(process.env.FOUNDER_DATA_DIR).toBe(sandbox);
+    expect(() => dataDir()).not.toThrow();
   });
 });
