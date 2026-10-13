@@ -494,6 +494,18 @@ describe("completion and unlinking of one test never interleave", () => {
 });
 
 describe("cleaning up a broken link on a closed test", () => {
+  it("removes the link from a readable conversation when the test exists but can't be read, leaving the test file alone", async () => {
+    const t = await createTest(PILOT, TODAY);
+    const c = await createConversation(DANA);
+    await linkEvidence(t, c);
+    const file = path.join(env.dir, t);
+    const broken = (await readFile(file, "utf8")).replace("status: running", "status: bogus");
+    await writeFile(file, broken);
+    await unlinkEvidence(t, c);
+    const conv = await readEntry("conversation", c);
+    expect(conv?.ok && conv.data.relatedTests).toEqual([]);
+    expect(await readFile(file, "utf8")).toBe(broken);
+  });
   it("removes a link to a conversation that's gone", async () => {
     const t = await createTest(PILOT, TODAY);
     await withNotes(t);

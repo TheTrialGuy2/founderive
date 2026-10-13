@@ -204,12 +204,14 @@ export async function unlinkEvidence(testRel: string, conversationRel: string, h
   return serializedTest(testRel, async () => {
     const test = KINDS.test.pattern.test(testRel) ? await readEntry("test", testRel) : null;
     const conversation = KINDS.conversation.pattern.test(conversationRel) ? await readEntry("conversation", conversationRel) : null;
-    const brokenLink = !conversation?.ok;
-    if (test?.ok && !brokenLink) refuseClosed(test.data);
-    const removedFromConversation = brokenLink ? false : await setConversationLink(conversationRel, testRel, false);
+    const brokenLink = !conversation?.ok || !test?.ok;
+    if (test?.ok && conversation?.ok) refuseClosed(test.data);
+    // A flagged test is treated like a missing side: the readable conversation still lets go of it.
+    const removedFromConversation = conversation?.ok ? await setConversationLink(conversationRel, testRel, false) : false;
     try {
       await hooks.beforeSecondWrite?.();
-      if (test) await setTestLink(testRel, conversationRel, false, brokenLink);
+      // The test side is written only when it reads; an unreadable test file is never rewritten here.
+      if (test?.ok) await setTestLink(testRel, conversationRel, false, brokenLink);
     } catch (error) {
       if (removedFromConversation) {
         try {
