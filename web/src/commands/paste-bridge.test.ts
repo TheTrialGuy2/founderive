@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyWeekPlan, blockBody, describeDraft, parseImportBlock, parseWeekBlock } from "./paste-bridge";
+import { applyWeekPlan, blockBody, describeDraft, ignoredAfterBlock, matchesExistingConversation, weekPreviewRows, parseImportBlock, parseWeekBlock, weekPlanBlocked } from "./paste-bridge";
 
 const BLOCKS = [
   { id: "customer", title: "Customer" },
@@ -199,7 +199,7 @@ describe("applyWeekPlan", () => {
     const c = base();
     const open = c.commitments.map((x) => ({ id: x.id, text: x.text }));
     applyWeekPlan(c, parseWeekBlock("outcome: New\nkept: c-1\ndone: c-3\ndropped: c-4 | not this week\nnew: Visit | 2026-10-16\nhelp: Chris", open), () => "c-new");
-    expect(c).toMatchObject({ outcome: "New", blocker: null, helpNeeded: "Chris" });
+    expect(c).toMatchObject({ outcome: "New", blocker: "Old blocker", helpNeeded: "Chris" });
     expect(c.commitments.map((x) => [x.id, x.status, x.reason])).toEqual([
       ["c-1", "open", null],
       ["c-3", "done", null],
@@ -217,4 +217,106 @@ describe("applyWeekPlan", () => {
     c.commitments = c.commitments.filter((x) => x.id !== "c-3");
     expect(() => applyWeekPlan(c, parseWeekBlock("done: c-3", [{ id: "c-3", text: "Call" }]), () => "x")).toThrow(/isn't in this week's check-in anymore/);
   });
+});
+
+// Review fixes (Task 11): a cut-off answer, blocker and help words, a stray bar, text after the block, contact details.
+describe("review fixes: the weekly block", () => {
+  const open = [
+    { id: "c-1", text: "Email the two agencies" },
+    { id: "c-3", text: "Call Lee" },
+  ];
+  it("a cut-off answer blocks: every open commitment needs a kept, done or dropped line", () => {
+    const plan = parseWeekBlock("outcome: Book three demos\ndone: c-1", open);
+    expect(plan.notReviewed).toEqual([{ id: "c-3", text: "Call Lee" }]);
+    expect(weekPlanBlocked(plan)).toBe(true);
+    expect(weekPlanBlocked(parseWeekBlock("done: c-1\nkept: c-3", open))).toBe(false);
+  });
+  it.each(["none", "None", "nothing", "N/A", "n/a", "no", "NO"])("blocker or help %j clears the field", (word) => {
+    const plan = parseWeekBlock(`kept: c-1\nkept: c-3\nblocker: ${word}\nhelp: ${word}`, open);
+    expect(plan).toMatchObject({ blocker: null, help: null, errors: [] });
+  });
+  it("an omitted blocker or help line keeps the current value", () => {
+    const plan = parseWeekBlock("kept: c-1\nkept: c-3", open);
+    expect(plan.blocker).toBeUndefined();
+    expect(plan.help).toBeUndefined();
+  });
+  it("a real blocker that starts with no is kept as written", () => expect(parseWeekBlock("kept: c-1\nkept: c-3\nblocker: no intros yet", open).blocker).toBe("no intros yet"));
+  it("done or kept with something after a bar is an error, not trimmed", () =>
+    expect(parseWeekBlock("done: c-1 | sent both\nkept: c-3 | slow", open).errors).toEqual([
+      'Line 1: done takes only a commitment id. Remove "| sent both", or use dropped if you need a reason.',
+      'Line 2: kept takes only a commitment id. Remove "| slow", or use dropped if you need a reason.',
+    ]));
+});
+
+describe("review fixes: applyWeekPlan", () => {
+  const base = () => ({
+    week: "2026-W42",
+    outcome: "Old outcome",
+    blocker: "Old blocker",
+    helpNeeded: "Old help",
+    commitments: [{ id: "c-1", text: "Email", status: "open" as const, due: null, reason: null, link: null }],
+    nextStepLog: [],
+  });
+  const open = [{ id: "c-1", text: "Email" }];
+  it("keeps the blocker and help when their lines are left out", () => {
+    const c = base();
+    applyWeekPlan(c, parseWeekBlock("kept: c-1", open), () => "x");
+    expect(c).toMatchObject({ blocker: "Old blocker", helpNeeded: "Old help" });
+  });
+  it("clears them on none", () => {
+    const c = base();
+    applyWeekPlan(c, parseWeekBlock("kept: c-1\nblocker: none\nhelp: n/a", open), () => "x");
+    expect(c).toMatchObject({ blocker: null, helpNeeded: null });
+  });
+  it("names new commitments by their line ordinal", () => {
+    const c = base();
+    applyWeekPlan(c, parseWeekBlock("kept: c-1\nnew: Visit |\nnew: Call |", open), (n) => `c-op-${n}`);
+    expect(c.commitments.map((x) => x.id)).toEqual(["c-1", "c-op-1", "c-op-2"]);
+  });
+});
+
+describe("review fixes: text after the block", () => {
+  it("notes text after the closing fence", () => expect(ignoredAfterBlock("```founderive-week\nkept: c-1\n```\nLet me know if you need more!", "founderive-week")).toBe(true));
+  it("notes a second block", () => expect(ignoredAfterBlock("```founderive-import\n## Founder\nname: Sam\n```\n```founderive-import\n## Founder\nname: Al\n```", "founderive-import")).toBe(true));
+  it("is quiet when nothing follows, or when the fence was lost", () => {
+    expect(ignoredAfterBlock("Sure:\n```founderive-week\nkept: c-1\n```\n  \n", "founderive-week")).toBe(false);
+    expect(ignoredAfterBlock("kept: c-1", "founderive-week")).toBe(false);
+  });
+});
+
+describe("review fixes: no contact details", () => {
+  const conv = (person: string) => parseImportBlock(`## Conversation\ntype: customer\nperson: ${person}`, BLOCKS);
+  it.each(["dana@agency.com", "https://linkedin.com/in/dana", "www.dana.io", "linkedin.com/in/dana", "+1 (704) 555-0182", "704-555-0182", "7045550182"])("refuses %j as a person", (p) => {
+    const r = conv(p);
+    expect(r.drafts).toEqual([]);
+    expect(r.errors).toEqual(["Line 3: person looks like contact details. Use a first name or a role instead, like Dana or agency owner."]);
+  });
+  it.each(["Dana", "agency owner", "Owner of 3 agencies", "Dr. Lee"])("accepts %j", (p) => expect(conv(p).errors).toEqual([]));
+});
+
+describe("review fixes: a conversation already logged", () => {
+  const existing = [{ person: "Dana", type: "customer" as const, date: "2026-10-12" }, { person: "Lee", type: "prospect" as const, date: null }];
+  const input = (person: string, type: "customer" | "prospect", date: string | null) => ({ person, type, date });
+  it("matches the same person, type and date, ignoring case", () => {
+    expect(matchesExistingConversation(input("dana", "customer", "2026-10-12"), existing)).toBe(true);
+    expect(matchesExistingConversation(input("Lee", "prospect", null), existing)).toBe(true);
+  });
+  it("doesn't match a different type or date", () => {
+    expect(matchesExistingConversation(input("Dana", "prospect", "2026-10-12"), existing)).toBe(false);
+    expect(matchesExistingConversation(input("Dana", "customer", "2026-10-13"), existing)).toBe(false);
+  });
+});
+
+describe("review fixes: the weekly preview", () => {
+  const open = [{ id: "c-1", text: "Email" }];
+  const rows = (text: string, current: { blocker?: string | null; help?: string | null }) => weekPreviewRows(parseWeekBlock(text, open), current);
+  it("says the blocker and help will be cleared only when there's one now", () => {
+    expect(rows("kept: c-1\nblocker: none\nhelp: none", { blocker: "No intros", help: "Chris" })).toEqual(
+      expect.arrayContaining(["Blocker will be cleared", "Help request will be cleared"]),
+    );
+    const quiet = rows("kept: c-1\nblocker: none\nhelp: none", { blocker: null, help: "" });
+    expect(quiet.some((r) => /cleared/.test(r))).toBe(false);
+  });
+  it("says nothing about a blocker or help line that was left out", () => expect(rows("kept: c-1", { blocker: "No intros", help: "Chris" }).some((r) => /Blocker|Help/.test(r))).toBe(false));
+  it("lists commitments that weren't reviewed", () => expect(rows("outcome: x", {})).toContain("Not reviewed: Email"));
 });

@@ -145,6 +145,7 @@ export const checkinSchema = z.strictObject({
   blocker: z.string().nullish(),
   helpNeeded: z.string().nullish(),
   nextStepLog: z.array(nextStepChoiceSchema).default([]),
+  appliedUpdates: z.array(z.string()).optional(), // ids of weekly updates pasted from a browser chat, so one is never applied twice
 });
 
 const blockId = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "use lowercase letters, digits and hyphens");

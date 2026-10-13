@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/ui";
 import { ImportFlow } from "@/components/import/ImportFlow";
 import { CopyPrompt } from "@/components/workbook/CopyPrompt";
 import { loadCanvasDefs } from "@/commands/canvas";
+import { loadLoopRecords } from "@/commands/loop";
 import { loadPromptContext } from "@/commands/today";
 import { importPrompt } from "@/lib/prompts";
 
@@ -22,11 +23,12 @@ export default function ImportPage() {
 
 async function ImportContent() {
   await connection();
-  const [{ defs }, vars] = await Promise.all([loadCanvasDefs(), loadPromptContext()]);
+  const [{ defs }, vars, records] = await Promise.all([loadCanvasDefs(), loadPromptContext(), loadLoopRecords()]);
+  const existing = records.conversations.map((c) => ({ person: c.data.person, type: c.data.type, date: c.data.date ?? null }));
   return (
     <div className="space-y-6">
       <CopyPrompt title="1. Copy this into the chat where you worked on your business" prompts={{ pasteBridge: importPrompt(vars) }} />
-      <ImportFlow blocks={defs.map((d) => ({ id: d.id, title: d.title }))} />
+      <ImportFlow blocks={defs.map((d) => ({ id: d.id, title: d.title }))} existing={existing} />
     </div>
   );
 }

@@ -88,15 +88,15 @@ kept: <commitment id>
 done: <commitment id>
 dropped: <commitment id> | <my reason, in my words>
 new: <what I'm committing to> | <due date as YYYY-MM-DD, or nothing after the bar>
-blocker: <one line>
-help: <one line>
+blocker: <one line, or none>
+help: <one line, or none>
 \`\`\`
 
 Rules for the block:
 - One \`kept\`, \`done\` or \`dropped\` line for every commitment in the list above, using only those ids, so every one is accounted for.
 - A \`dropped\` line always has my reason after the bar.
 - One \`new\` line per new commitment.
-- Leave out \`blocker\`, \`help\` or \`new\` if there's nothing to say.
+- Always include \`blocker\` and \`help\`. Write \`none\` if there's nothing. Leave out \`new\` if there's nothing new.
 - Every value on one line. Write "or" instead of a bar character inside a value.
 - Never output a placeholder.
 - If I decided not to set an outcome, leave the \`outcome\` line out, and the app keeps what it has.`;

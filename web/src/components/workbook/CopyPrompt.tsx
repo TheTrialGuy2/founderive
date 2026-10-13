@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { buttonQuiet } from "./form";
 
 type Family = "fileChat" | "pasteBridge";
@@ -9,8 +9,20 @@ const LABELS: Record<Family, string> = {
   pasteBridge: "I use ChatGPT or Claude in the browser",
 };
 
-/** A ready prompt for the founder's AI, in whichever family fits how they use it (spec §5a first-run states). */
-export function CopyPrompt({ prompts, title = "Or ask your AI" }: { prompts: { fileChat?: string; pasteBridge?: string }; title?: string }) {
+/**
+ * A ready prompt for the founder's AI, in whichever family fits how they use it (spec §5a first-run states). The
+ * family's label is always shown, even when only one is offered. `after` adds something under one family's prompt,
+ * such as where to paste the browser chat's answer.
+ */
+export function CopyPrompt({
+  prompts,
+  title = "Or ask your AI",
+  after = {},
+}: {
+  prompts: { fileChat?: string; pasteBridge?: string };
+  title?: string;
+  after?: Partial<Record<Family, ReactNode>>;
+}) {
   const families = (Object.keys(LABELS) as Family[]).filter((f) => !!prompts[f]);
   const [family, setFamily] = useState<Family | undefined>(families[0]);
   const [copied, setCopied] = useState(false);
@@ -42,6 +54,7 @@ export function CopyPrompt({ prompts, title = "Or ask your AI" }: { prompts: { f
           ))}
         </fieldset>
       )}
+      {families.length === 1 && <p className="mt-1 text-sm font-medium text-ink">{LABELS[family]}</p>}
       <pre id={`${id}-text`} className="mt-2 max-h-64 overflow-auto text-sm whitespace-pre-wrap text-ink">
         {text}
       </pre>
@@ -65,6 +78,7 @@ export function CopyPrompt({ prompts, title = "Or ask your AI" }: { prompts: { f
       <span aria-live="polite" className="ml-2 text-xs text-muted">
         {copied ? "Copied" : copyFailed ? "Couldn't copy. Select the text above and copy it." : ""}
       </span>
+      {after[family] && <div className="mt-3">{after[family]}</div>}
     </div>
   );
 }

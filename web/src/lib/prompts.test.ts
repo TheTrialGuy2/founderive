@@ -41,6 +41,12 @@ describe("browser-chat prompts", () => {
     expect(p).toContain("```founderive-week");
     expect(p).not.toMatch(leftover);
   });
+  it("the weekly prompt always asks for blocker and help, with none when there's nothing", () => {
+    const p = weekPrompt({ ...vars, outcome: "x", commitments: "none open" });
+    expect(p).toContain("blocker: <one line, or none>\nhelp: <one line, or none>\n```");
+    expect(p).toContain("- Always include `blocker` and `help`. Write `none` if there's nothing. Leave out `new` if there's nothing new.\n");
+    expect(p).not.toContain("Leave out `blocker`, `help` or `new`");
+  });
   it("uses the app fills when there's no outcome or nothing open", () => {
     expect(weekPromptVars(null)).toEqual({ outcome: "none yet", commitments: "none open" });
   });

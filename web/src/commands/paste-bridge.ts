@@ -7,6 +7,13 @@ import { isRealDate, oneOf } from "./form";
 
 const KEY_LINE = /^([A-Za-z][A-Za-z-]*):\s*(.*)$/;
 const TYPES_TEXT = "customer, prospect, mentor, partner, investor or other";
+
+/** An email, a web address or a phone number (seven or more digits). A conversation's person is a first name or a role. */
+export function looksLikeContactDetails(v: string): boolean {
+  if (/\S+@\S+\.\S+/.test(v)) return true;
+  if (/https?:\/\/|www\./i.test(v) || /\b[a-z0-9-]+\.(com|org|net|io|co|ai|app|dev|me|us|uk)\b/i.test(v)) return true;
+  return (v.match(/\d/g)?.length ?? 0) >= 7 && /^[\d\s+().-]+$/.test(v.replace(/^(tel|phone|cell|mobile):?\s*/i, ""));
+}
 const APP_FILLS = new Set([NONE_YET, NONE_OPEN]);
 
 /** The text inside ```<lang> … ```, or the whole text when the fence was lost in copying. A lost closing fence reads to the end. */
@@ -16,6 +23,13 @@ export function blockBody(text: string, lang: string): string {
   const open = new RegExp("```" + lang + "[^\\n]*\\n([\\s\\S]*)$").exec(text);
   return open ? open[1] : text;
 }
+
+/** True when there's text after the first block's closing fence (a chat's sign-off, or a second block). Only the first block is read. */
+export function ignoredAfterBlock(text: string, lang: string): boolean {
+  const m = new RegExp("```" + lang + "[^\\n]*\\n[\\s\\S]*?```").exec(text);
+  return !!m && text.slice(m.index + m[0].length).trim() !== "";
+}
+export const IGNORED_AFTER_BLOCK = "Only the first block was read.";
 
 /** A value copied from the prompt's template rather than the founder's words: "…", "..." or "<something>". */
 const isPlaceholder = (v: string) => /^(…|\.{3})$/.test(v) || /^<[^<>]*>$/.test(v);
@@ -109,6 +123,7 @@ export function parseImportBlock(text: string, blocks: { id: string; title: stri
       else if (!oneOf(CONVERSATION_TYPES, f.type.value)) errors.push(`Line ${f.type.n}: "${f.type.value}" isn't a conversation type (${TYPES_TEXT}).`);
       if (f.date && !isRealDate(f.date.value)) errors.push(`Line ${f.date.n}: "${f.date.value}" isn't a real date as YYYY-MM-DD.`);
       if (!f.person) errors.push(`Line ${s.n}: a conversation needs a person: line (a first name or a role).`);
+      else if (looksLikeContactDetails(f.person.value)) errors.push(`Line ${f.person.n}: person looks like contact details. Use a first name or a role instead, like Dana or agency owner.`);
       if (errors.length === before && f.type && f.person) {
         drafts.push({
           kind: "conversation",
@@ -147,23 +162,34 @@ export function describeDraft(d: ImportDraft): string {
   return `Conversation: ${d.input.person} (${d.input.type}), ${d.input.date ?? "date unknown"}`;
 }
 
+/** True when a conversation with the same person (any case), type and date is already logged. Shown in the preview. */
+export function matchesExistingConversation(c: { person: string; type: string; date?: string | null }, existing: { person: string; type: string; date?: string | null }[]): boolean {
+  return existing.some((e) => e.person.trim().toLowerCase() === c.person.trim().toLowerCase() && e.type === c.type && (e.date ?? null) === (c.date ?? null));
+}
+
 export type WeekPlan = {
   outcome: string | null; // null keeps the current outcome
   kept: { id: string; text: string }[];
   done: { id: string; text: string }[];
   dropped: { id: string; text: string; reason: string }[];
   added: { text: string; due: string | null }[];
-  blocker: string | null;
-  help: string | null;
-  notReviewed: { id: string; text: string }[];
+  blocker?: string | null; // undefined (line left out) keeps the current blocker; null ("none") clears it
+  help?: string | null; // the same for help
+  notReviewed: { id: string; text: string }[]; // also blocks the whole update: a cut-off answer is never applied
   errors: string[]; // any error blocks the whole update
 };
+
+/** Whether the plan can't be applied: a line to fix, or an open commitment with no kept, done or dropped line. */
+export const weekPlanBlocked = (plan: WeekPlan): boolean => plan.errors.length > 0 || plan.notReviewed.length > 0;
+
+/** Words that mean "nothing" on a blocker or help line, in any case. They clear the field. */
+const CLEARS = new Set(["none", "nothing", "n/a", "no"]);
 
 const WEEK_KEYS = new Set(["outcome", "blocker", "help", "kept", "done", "dropped", "new"]);
 
 /** Reads a founderive-week block against this week's open commitments. */
 export function parseWeekBlock(text: string, open: { id: string; text: string }[]): WeekPlan {
-  const plan: WeekPlan = { outcome: null, kept: [], done: [], dropped: [], added: [], blocker: null, help: null, notReviewed: [], errors: [] };
+  const plan: WeekPlan = { outcome: null, kept: [], done: [], dropped: [], added: [], notReviewed: [], errors: [] };
   const status = new Map<string, string>();
   const once = new Set<string>();
   let anyLine = false;
@@ -186,8 +212,8 @@ export function parseWeekBlock(text: string, open: { id: string; text: string }[
         if (!value) return void plan.errors.push(`Line ${n}: ${key} has no value. Leave the line out instead.`);
         if (isPlaceholder(value)) return void plan.errors.push(placeholderError(n, value));
         if (key === "outcome") plan.outcome = value;
-        else if (key === "blocker") plan.blocker = value;
-        else plan.help = value;
+        else if (key === "blocker") plan.blocker = CLEARS.has(value.toLowerCase()) ? null : value;
+        else plan.help = CLEARS.has(value.toLowerCase()) ? null : value;
         return;
       }
       if (key === "kept" || key === "done" || key === "dropped") {
@@ -199,6 +225,7 @@ export function parseWeekBlock(text: string, open: { id: string; text: string }[
         if (!c) return void plan.errors.push(`Line ${n}: "${id}" isn't one of this week's open commitments.`);
         if (status.has(id)) return void plan.errors.push(`Line ${n}: ${id} already has a ${status.get(id)} line.`);
         status.set(id, key);
+        if (key !== "dropped" && bar >= 0) return void plan.errors.push(`Line ${n}: ${key} takes only a commitment id. Remove "${value.slice(bar).trim()}", or use dropped if you need a reason.`);
         if (key === "dropped") {
           if (!reason) return void plan.errors.push(`Line ${n}: dropped ${id} needs a reason after the bar.`);
           if (isPlaceholder(reason)) return void plan.errors.push(placeholderError(n, reason));
@@ -220,14 +247,35 @@ export function parseWeekBlock(text: string, open: { id: string; text: string }[
   return plan;
 }
 
+/**
+ * The weekly preview, one row per change. "Will be cleared" appears only when there's a blocker or help request now;
+ * a line that was left out keeps the current value and isn't mentioned.
+ */
+export function weekPreviewRows(plan: WeekPlan, current: { blocker?: string | null; help?: string | null }): string[] {
+  const rows = [
+    plan.outcome ? `Outcome → ${plan.outcome}` : "Outcome: keeps the current one",
+    ...plan.done.map((c) => `Done: ${c.text}`),
+    ...plan.dropped.map((c) => `Dropped: ${c.text} (${c.reason})`),
+    ...plan.kept.map((c) => `Still going: ${c.text}`),
+    ...plan.added.map((a) => `New: ${a.text}${a.due ? ` · due ${a.due}` : ""}`),
+  ];
+  if (plan.blocker) rows.push(`Blocker: ${plan.blocker}`);
+  else if (plan.blocker === null && current.blocker?.trim()) rows.push("Blocker will be cleared");
+  if (plan.help) rows.push(`Help needed: ${plan.help}`);
+  else if (plan.help === null && current.help?.trim()) rows.push("Help request will be cleared");
+  rows.push(...plan.notReviewed.map((c) => `Not reviewed: ${c.text}`));
+  return rows;
+}
+
 type WeekCheckin = KindData<"checkin">;
 
 /**
  * Applies a checked plan to a check-in object in memory. Called inside one updateEntry callback, so the file is
- * written once with every change, or not at all. An omitted blocker or help clears it: the weekly prompt asks about
- * both every week. `afterChange` is a test seam that runs after each change.
+ * written once with every change, or not at all. A blocker or help line that was left out keeps the current value;
+ * "none" clears it. `makeId` gets each new commitment's ordinal (1, 2, …). `afterChange` is a test seam that runs
+ * after each change.
  */
-export function applyWeekPlan(c: WeekCheckin, plan: WeekPlan, makeId: () => string, afterChange: () => void = () => {}): void {
+export function applyWeekPlan(c: WeekCheckin, plan: WeekPlan, makeId: (ordinal: number) => string, afterChange: () => void = () => {}): void {
   if (plan.outcome) {
     c.outcome = plan.outcome;
     afterChange();
@@ -246,11 +294,16 @@ export function applyWeekPlan(c: WeekCheckin, plan: WeekPlan, makeId: () => stri
     item.reason = d.reason;
     afterChange();
   }
-  for (const a of plan.added) {
-    c.commitments.push({ id: makeId(), text: a.text, due: a.due, status: "open", reason: null, link: null });
+  for (const [i, a] of plan.added.entries()) {
+    c.commitments.push({ id: makeId(i + 1), text: a.text, due: a.due, status: "open", reason: null, link: null });
     afterChange();
   }
-  c.blocker = plan.blocker;
-  c.helpNeeded = plan.help;
-  afterChange();
+  if (plan.blocker !== undefined) {
+    c.blocker = plan.blocker;
+    afterChange();
+  }
+  if (plan.help !== undefined) {
+    c.helpNeeded = plan.help;
+    afterChange();
+  }
 }

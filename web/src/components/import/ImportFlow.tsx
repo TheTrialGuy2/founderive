@@ -4,14 +4,20 @@ import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { createImportAction } from "@/app/(workbook)/import/actions";
 import type { ImportItem, ImportResult } from "@/commands/import";
-import { describeDraft, parseImportBlock } from "@/commands/paste-bridge";
+import { describeDraft, FOUNDER_LABELS, IGNORED_AFTER_BLOCK, ignoredAfterBlock, matchesExistingConversation, parseImportBlock, type FounderField, type ImportDraft } from "@/commands/paste-bridge";
 import { buttonPrimary, buttonQuiet, errorText, inputClass } from "@/components/workbook/form";
 import { hrefFor } from "@/core/slug";
 import { IDLE } from "@/lib/action-state";
 
-export function ImportFlow({ blocks }: { blocks: { id: string; title: string }[] }) {
+type Existing = { person: string; type: string; date: string | null };
+
+export function ImportFlow({ blocks, existing }: { blocks: { id: string; title: string }[]; existing: Existing[] }) {
   const [text, setText] = useState("");
+  // founder.md values the founder unchecked in the preview; every proposed value starts checked.
+  const [unchecked, setUnchecked] = useState<FounderField[]>([]);
   const parsed = useMemo(() => parseImportBlock(text, blocks), [text, blocks]);
+  const founder = parsed.drafts.find((d): d is Extract<ImportDraft, { kind: "founder" }> => d.kind === "founder");
+  const chosen = (Object.keys(founder?.fields ?? {}) as FounderField[]).filter((k) => !unchecked.includes(k));
   const [state, formAction, pending] = useActionState(createImportAction, IDLE);
   if (state.status === "saved" && state.result?.json) {
     const result = JSON.parse(state.result.json) as ImportResult;
@@ -23,6 +29,9 @@ export function ImportFlow({ blocks }: { blocks: { id: string; title: string }[]
           // Same block again: drafts already created are skipped, so only the failed ones are tried.
           <form action={formAction}>
             <input type="hidden" name="answer" value={text} />
+            {chosen.map((k) => (
+              <input key={k} type="hidden" name="founderField" value={k} />
+            ))}
             <button type="submit" disabled={pending} className={buttonPrimary}>
               {pending ? "Trying again…" : "Try the failed ones again"}
             </button>
@@ -47,11 +56,44 @@ export function ImportFlow({ blocks }: { blocks: { id: string; title: string }[]
             <p className="mt-2 text-sm text-muted">Nothing yet.</p>
           ) : (
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink">
-              {parsed.drafts.map((d, i) => (
-                <li key={i}>{describeDraft(d)}</li>
-              ))}
+              {parsed.drafts.map((d, i) =>
+                d.kind === "founder" ? (
+                  <li key={i}>
+                    <fieldset>
+                      <legend>Founder details, only where yours are empty. Uncheck any you don&apos;t want:</legend>
+                      <ul className="mt-1 space-y-1">
+                        {(Object.entries(d.fields) as [FounderField, string][]).map(([k, v]) => (
+                          <li key={k}>
+                            <label className="flex items-start gap-2">
+                              <input
+                                type="checkbox"
+                                name="founderField"
+                                value={k}
+                                checked={!unchecked.includes(k)}
+                                onChange={(e) => setUnchecked((u) => (e.target.checked ? u.filter((x) => x !== k) : [...u, k]))}
+                                className="mt-1"
+                              />
+                              <span>
+                                <span className="font-medium">{FOUNDER_LABELS[k]}:</span> {v}
+                              </span>
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
+                    </fieldset>
+                  </li>
+                ) : (
+                  <li key={i}>
+                    {describeDraft(d)}
+                    {d.kind === "conversation" && matchesExistingConversation(d.input, existing) && (
+                      <span className="text-muted"> · You already have a conversation with this person, type and date. Check it isn&apos;t the same one.</span>
+                    )}
+                  </li>
+                ),
+              )}
             </ul>
           )}
+          {ignoredAfterBlock(text, "founderive-import") && <p className="mt-2 text-sm text-muted">{IGNORED_AFTER_BLOCK}</p>}
           {parsed.errors.length > 0 && (
             <div role="alert" className="mt-3">
               <p className="text-sm font-semibold text-[#8a2d1c]">Fix these lines first. Nothing is created until they&apos;re fixed:</p>

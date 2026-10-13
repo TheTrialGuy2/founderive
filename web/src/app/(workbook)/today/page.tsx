@@ -40,6 +40,7 @@ async function TodayContent() {
   const promptVars = await loadPromptContext();
   const openCount = (checkin?.commitments ?? []).filter((c) => c.status === "open").length;
   const ending = !checkin?.outcome ? "no-outcome" : openCount === 0 ? "no-commitments" : null;
+  const weekChatPrompt = weekPrompt({ ...promptVars, ...weekPromptVars(checkin) });
 
   return (
     <>
@@ -67,8 +68,20 @@ async function TodayContent() {
           <p className="text-sm text-muted">Nothing is waiting. Add a commitment that moves this week&apos;s outcome forward.</p>
         </Card>
       )}
-      {/* The browser-chat version of this prompt lives in "Update your week from a browser chat" below, with its paste box. */}
-      {ending && <CopyPrompt title="Prefer to talk it through? Ask your AI" prompts={{ fileChat: fileChatPrompt(ending, promptVars) }} />}
+      {/* First run: both families. The browser chat's answer is pasted in "Update your week from a browser chat" below, which is open. */}
+      {ending && (
+        <CopyPrompt
+          title="Prefer to talk it through? Ask your AI"
+          prompts={{ fileChat: fileChatPrompt(ending, promptVars), pasteBridge: weekChatPrompt }}
+          after={{
+            pasteBridge: (
+              <a href="#week-paste" className="text-sm font-medium text-teal-dark hover:text-navy">
+                Paste your chat&apos;s answer below
+              </a>
+            ),
+          }}
+        />
+      )}
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <CurrentTestCard test={currentTest} plannedCount={plannedTests} today={today} />
         <Card title="Commitments and follow-ups">
@@ -105,12 +118,20 @@ async function TodayContent() {
           <BringWhatYouHave />
         </div>
       )}
-      {/* Collapsed by default; open in the first-run states, where it's the browser-chat way to set the week. */}
-      <details className="mt-6 rounded-xl border border-line bg-paper p-5" open={!!ending}>
+      {/* Collapsed by default; open in the first-run states, where the prompt to copy is the one under the next action. */}
+      <details id="week-paste" className="mt-6 scroll-mt-6 rounded-xl border border-line bg-paper p-5" open={!!ending}>
         <summary className="cursor-pointer font-semibold text-navy">Update your week from a browser chat</summary>
-        <CopyPrompt title="1. Copy this into your chat and answer its questions" prompts={{ pasteBridge: weekPrompt({ ...promptVars, ...weekPromptVars(checkin) }) }} />
+        {ending ? (
+          <p className="mt-3 text-sm text-muted">1. Copy the prompt under the next action, with &quot;I use ChatGPT or Claude in the browser&quot; chosen.</p>
+        ) : (
+          <CopyPrompt title="1. Copy this into your chat and answer its questions" prompts={{ pasteBridge: weekChatPrompt }} />
+        )}
         <div className="mt-4">
-          <WeekPaste weekId={weekId} open={(checkin?.commitments ?? []).filter((c) => c.status === "open").map((c) => ({ id: c.id, text: c.text }))} />
+          <WeekPaste
+            weekId={weekId}
+            open={(checkin?.commitments ?? []).filter((c) => c.status === "open").map((c) => ({ id: c.id, text: c.text }))}
+            current={{ blocker: checkin?.blocker ?? null, help: checkin?.helpNeeded ?? null }}
+          />
         </div>
       </details>
       {report.errors.length > 0 && (

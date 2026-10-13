@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
 import { setBlocker, setCommitmentStatus } from "./checkin";
-import { applyWeekUpdate, confirmImportedRecord, createImportDrafts, dismissBringWhatYouHave, importIdOf } from "./import";
+import { applyWeekUpdate, confirmImportedRecord, createImportDrafts, dismissBringWhatYouHave, importIdOf, weekUpdateIdOf } from "./import";
 
 let env: Awaited<ReturnType<typeof useTempData>>;
 beforeEach(async () => {
@@ -31,6 +31,7 @@ const BLOCK = [
   "```",
 ].join("\n");
 const TWO_CONVERSATIONS = "## Conversation\nperson: Dana\ntype: customer\n## Conversation\nperson: Lee\ntype: prospect\n## Canvas: customer\nOwners";
+const T = "2026-10-13";
 const conversationFiles = async () => (await readdir(path.join(env.dir, "conversations"))).sort();
 
 describe("createImportDrafts", () => {
@@ -107,24 +108,24 @@ describe("the Bring what you have card", () => {
 describe("applyWeekUpdate", () => {
   const file = () => path.join(env.dir, "checkins/2026-W42.md");
   it("applies a clean update in one write", async () => {
-    await applyWeekUpdate("2026-W42", "outcome: Book three demos\ndone: c-1\nnew: Call Lee | 2026-10-15\nblocker: No intros yet");
+    await applyWeekUpdate("2026-W42", "outcome: Book three demos\ndone: c-1\nnew: Call Lee | 2026-10-15\nblocker: No intros yet", T);
     const week = await readEntry("checkin", "checkins/2026-W42.md");
     if (!week?.ok) throw new Error("check-in unreadable");
-    expect(week.data).toMatchObject({ outcome: "Book three demos", blocker: "No intros yet", helpNeeded: null });
+    expect(week.data).toMatchObject({ outcome: "Book three demos", blocker: "No intros yet" });
     expect(week.data.commitments.find((c) => c.id === "c-1")?.status).toBe("done");
     expect(week.data.commitments.some((c) => c.text === "Call Lee" && c.due === "2026-10-15" && c.status === "open")).toBe(true);
   });
-  it("keeps the outcome when its line is left out, and clears the blocker and help when theirs are", async () => {
+  it("keeps the outcome, the blocker and the help when their lines are left out", async () => {
     await setBlocker("2026-W42", "No intros", "Chris, for two intros");
-    await applyWeekUpdate("2026-W42", "kept: c-1");
+    await applyWeekUpdate("2026-W42", "kept: c-1", T);
     const week = await readEntry("checkin", "checkins/2026-W42.md");
-    expect(week?.ok && week.data).toMatchObject({ outcome: "Talk to five agency owners about scheduling", blocker: null, helpNeeded: null });
+    expect(week?.ok && week.data).toMatchObject({ outcome: "Talk to five agency owners about scheduling", blocker: "No intros", helpNeeded: "Chris, for two intros" });
   });
   it("is all or nothing: a failure after the first change leaves the file exactly as it was", async () => {
     const before = await readFile(file(), "utf8");
     let changes = 0;
     await expect(
-      applyWeekUpdate("2026-W42", "outcome: Book three demos\ndone: c-1\nnew: Call Lee |", {
+      applyWeekUpdate("2026-W42", "outcome: Book three demos\ndone: c-1\nnew: Call Lee |", T, {
         afterChange: () => {
           changes += 1;
           if (changes === 1) throw new Error("disk full");
@@ -136,7 +137,7 @@ describe("applyWeekUpdate", () => {
   });
   it("applies nothing when a line blocks", async () => {
     const before = await readFile(file(), "utf8");
-    await expect(applyWeekUpdate("2026-W42", "done: c-1\ndropped: c-9 | no reason")).rejects.toThrow(/Nothing was changed/);
+    await expect(applyWeekUpdate("2026-W42", "done: c-1\ndropped: c-9 | no reason", T)).rejects.toThrow(/Nothing was changed/);
     expect(await readFile(file(), "utf8")).toBe(before);
   });
 });
@@ -236,7 +237,7 @@ describe("applyWeekUpdate, edge cases", () => {
     const before = await readFile(file(), "utf8");
     let changes = 0;
     await expect(
-      applyWeekUpdate("2026-W42", "outcome: Book three demos\ndone: c-1\nnew: Call Lee |\nblocker: None", {
+      applyWeekUpdate("2026-W42", "outcome: Book three demos\ndone: c-1\nnew: Call Lee |\nblocker: None", T, {
         afterChange: () => {
           changes += 1;
           if (changes === 4) throw new Error("disk full");
@@ -249,20 +250,110 @@ describe("applyWeekUpdate, edge cases", () => {
   it("re-checks against the file: a commitment closed since the preview blocks the whole update", async () => {
     await setCommitmentStatus("2026-W42", "c-1", "done");
     const before = await readFile(file(), "utf8");
-    await expect(applyWeekUpdate("2026-W42", "outcome: New\ndone: c-1")).rejects.toThrow(/Nothing was changed.*"c-1" isn't one of this week's open commitments/);
+    await expect(applyWeekUpdate("2026-W42", "outcome: New\ndone: c-1", T)).rejects.toThrow(/Nothing was changed.*"c-1" isn't one of this week's open commitments/);
     expect(await readFile(file(), "utf8")).toBe(before);
   });
   it("an empty paste changes nothing", async () => {
     const before = await readFile(file(), "utf8");
-    await expect(applyWeekUpdate("2026-W42", "  \n")).rejects.toThrow(/Nothing was changed/);
+    await expect(applyWeekUpdate("2026-W42", "  \n", T)).rejects.toThrow(/Nothing was changed/);
     expect(await readFile(file(), "utf8")).toBe(before);
   });
   it("starts the week's check-in when there isn't one yet", async () => {
-    await applyWeekUpdate("2026-W43", "outcome: Book demos\nnew: Call Lee | 2026-10-20");
+    await applyWeekUpdate("2026-W43", "outcome: Book demos\nnew: Call Lee | 2026-10-20", "2026-10-20");
     const week = await readEntry("checkin", "checkins/2026-W43.md");
     expect(week?.ok && week.data).toMatchObject({ week: "2026-W43", outcome: "Book demos", commitments: [{ text: "Call Lee", due: "2026-10-20", status: "open" }] });
   });
   it("refuses a malformed week id", async () => {
-    await expect(applyWeekUpdate("../2026-W42", "outcome: x")).rejects.toThrow();
+    await expect(applyWeekUpdate("../2026-W42", "outcome: x", T)).rejects.toThrow();
+  });
+});
+
+// Review fixes (Task 11).
+describe("review fixes: founder values the founder chose", () => {
+  const founderFile = () => path.join(env.dir, "founder.md");
+  const block = "## Founder\nindustry: Home care\nproblem: Schedules are rebuilt by hand";
+  beforeEach(async () => writeFile(founderFile(), (await readFile(founderFile(), "utf8")).replace(/^problem: .*\n/m, "").replace(/^industry: .*\n/m, "")));
+  it("writes only the checked fields; an unchecked field isn't written", async () => {
+    const r = await createImportDrafts(block, T, { founderFields: ["problem"] });
+    const founder = await readEntry("founder", "founder.md");
+    expect(founder?.ok && founder.data.problem).toBe("Schedules are rebuilt by hand");
+    expect(founder?.ok && founder.data.industry).toBeFalsy();
+    expect(r.items[0]).toMatchObject({ status: "created", label: "Founder details: problem" });
+  });
+  it("writes nothing to founder.md when every field is unchecked", async () => {
+    const before = await readFile(founderFile(), "utf8");
+    const r = await createImportDrafts(block, T, { founderFields: [] });
+    expect(await readFile(founderFile(), "utf8")).toBe(before);
+    expect(r.items[0]).toMatchObject({ status: "skipped", detail: "Not chosen, so nothing was written." });
+  });
+});
+
+describe("review fixes: a weekly update is applied once", () => {
+  const UPDATE = "```founderive-week\nkept: c-1\nnew: Call Lee | 2026-10-15\nnew: Visit an agency |\n```";
+  const week = async () => {
+    const w = await readEntry("checkin", "checkins/2026-W42.md");
+    if (!w?.ok) throw new Error("check-in unreadable");
+    return w.data;
+  };
+  it("records the update's id and names new commitments from it", async () => {
+    expect(await applyWeekUpdate("2026-W42", UPDATE, T)).toEqual({ status: "applied" });
+    const op = weekUpdateIdOf(UPDATE);
+    expect(op).toMatch(/^[0-9a-f]{12}$/);
+    const w = await week();
+    expect(w.appliedUpdates).toEqual([op]);
+    expect(w.commitments.filter((c) => c.id !== "c-1" && c.id !== "c-2").map((c) => c.id)).toEqual([`c-${op}-1`, `c-${op}-2`]);
+  });
+  it("the id ignores surrounding text, blank lines and indentation", () =>
+    expect(weekUpdateIdOf("Here:\n```founderive-week\n  kept: c-1\n\nnew: Call Lee | 2026-10-15\nnew: Visit an agency |\n```\nDone!")).toBe(weekUpdateIdOf(UPDATE)));
+  it("a replay changes nothing and says so", async () => {
+    await applyWeekUpdate("2026-W42", UPDATE, T);
+    const after = await readFile(path.join(env.dir, "checkins/2026-W42.md"), "utf8");
+    expect(await applyWeekUpdate("2026-W42", UPDATE, T)).toEqual({ status: "already-applied", message: "This update was already applied." });
+    expect(await readFile(path.join(env.dir, "checkins/2026-W42.md"), "utf8")).toBe(after);
+    expect((await week()).commitments.filter((c) => c.text === "Call Lee")).toHaveLength(1);
+  });
+  it("a replay of an update that closed a commitment is recognized, not refused", async () => {
+    await applyWeekUpdate("2026-W42", "done: c-1", T);
+    expect(await applyWeekUpdate("2026-W42", "done: c-1", T)).toMatchObject({ status: "already-applied" });
+  });
+  it("a concurrent double submit leaves exactly one set of commitments", async () => {
+    const results = await Promise.all([applyWeekUpdate("2026-W42", UPDATE, T), applyWeekUpdate("2026-W42", UPDATE, T)]);
+    expect(results.map((r) => r.status).sort()).toEqual(["already-applied", "applied"]);
+    const w = await week();
+    expect(w.commitments.filter((c) => c.text === "Call Lee")).toHaveLength(1);
+    expect(w.commitments.filter((c) => c.text === "Visit an agency")).toHaveLength(1);
+    expect(w.appliedUpdates).toHaveLength(1);
+  });
+});
+
+describe("review fixes: a cut-off or stale weekly update is refused", () => {
+  const file = () => path.join(env.dir, "checkins/2026-W42.md");
+  it("refuses while an open commitment isn't reviewed, changing nothing", async () => {
+    const before = await readFile(file(), "utf8");
+    await expect(applyWeekUpdate("2026-W42", "outcome: Book three demos", T)).rejects.toThrow(
+      "Nothing was changed. Every open commitment needs a kept, done or dropped line. Not reviewed: Email the two agencies from the meetup.",
+    );
+    expect(await readFile(file(), "utf8")).toBe(before);
+  });
+  it("blocker none clears the blocker", async () => {
+    await setBlocker("2026-W42", "No intros", "Chris");
+    await applyWeekUpdate("2026-W42", "kept: c-1\nblocker: None\nhelp: nothing", T);
+    const w = await readEntry("checkin", "checkins/2026-W42.md");
+    expect(w?.ok && w.data).toMatchObject({ blocker: null, helpNeeded: null });
+  });
+  it("refuses a page from last week", async () => {
+    const before = await readFile(file(), "utf8");
+    await expect(applyWeekUpdate("2026-W42", "kept: c-1", "2026-10-19")).rejects.toThrow("This page is from last week. Reload and paste again.");
+    expect(await readFile(file(), "utf8")).toBe(before);
+  });
+});
+
+describe("review fixes: unconfirmed imports aren't evidence until confirmed", () => {
+  it("confirming an imported conversation clears seeded", async () => {
+    const r = await createImportDrafts("## Conversation\nperson: Dana\ntype: customer", T);
+    const rel = r.items[0].path!;
+    await confirmImportedRecord(rel);
+    const c = await readEntry("conversation", rel);
+    expect(c?.ok && c.data.seeded).toBeUndefined();
   });
 });

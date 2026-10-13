@@ -3,9 +3,10 @@ import { listEntries, readEntry } from "../store/read";
 import { kindOf, type KindData } from "../store/schemas";
 import { updateEntry } from "../store/update";
 import { confirmImported, importCanvasBlock, loadCanvasDefs } from "./canvas";
-import { checkinPath, newId } from "./checkin";
+import { isoWeekId } from "../core/week";
+import { checkinPath } from "./checkin";
 import { createConversation } from "./conversations";
-import { applyWeekPlan, blockBody, FOUNDER_LABELS, parseImportBlock, parseWeekBlock, type FounderField, type WeekPlan } from "./paste-bridge";
+import { applyWeekPlan, blockBody, FOUNDER_LABELS, parseImportBlock, parseWeekBlock, type FounderField } from "./paste-bridge";
 
 export type ImportItem = { label: string; status: "created" | "skipped" | "failed"; path?: string; detail?: string };
 export type ImportResult = { importId: string; items: ImportItem[]; assumptions: { belief: string; risk: string | null }[] };
@@ -35,11 +36,17 @@ function oneAtATime<T>(work: () => Promise<T>): Promise<T> {
  * all is written while any line needs fixing. Assumptions are never written: they come back for "Turn this into a
  * test". `beforeDraft` is a test seam.
  */
-export function createImportDrafts(text: string, today: string, hooks: { beforeDraft?: (index: number) => void } = {}): Promise<ImportResult> {
-  return oneAtATime(() => importDrafts(text, today, hooks));
+export type ImportOptions = {
+  /** The founder.md fields the founder left checked in the preview. Only these are written (and still only where empty). Omitted: all. */
+  founderFields?: FounderField[];
+  beforeDraft?: (index: number) => void;
+};
+
+export function createImportDrafts(text: string, today: string, options: ImportOptions = {}): Promise<ImportResult> {
+  return oneAtATime(() => importDrafts(text, today, options));
 }
 
-async function importDrafts(text: string, today: string, hooks: { beforeDraft?: (index: number) => void }): Promise<ImportResult> {
+async function importDrafts(text: string, today: string, hooks: ImportOptions): Promise<ImportResult> {
   const { defs } = await loadCanvasDefs();
   const { drafts, errors } = parseImportBlock(text, defs);
   if (errors.length > 0) throw new Error(`Nothing was created. Fix these lines first: ${errors.join(" ")}`);
@@ -63,7 +70,9 @@ async function importDrafts(text: string, today: string, hooks: { beforeDraft?: 
     try {
       hooks.beforeDraft?.(index);
       if (d.kind === "founder") {
-        result.items.push(await fillFounder(d.fields, label));
+        const chosen = hooks.founderFields;
+        const fields = chosen ? Object.fromEntries(Object.entries(d.fields).filter(([k]) => chosen.includes(k as FounderField))) : d.fields;
+        result.items.push(Object.keys(fields).length === 0 ? { label, status: "skipped", detail: "Not chosen, so nothing was written." } : await fillFounder(fields, label));
       } else if (d.kind === "canvas") {
         const rel = `canvas/${d.id}.md`;
         const r = await importCanvasBlock(d.id, d.text, meta, today);
@@ -149,21 +158,46 @@ export async function confirmImportedRecord(rel: string): Promise<void> {
   });
 }
 
+/** The id of a pasted weekly update: a hash of its block's lines, trimmed, without blank lines or the text around the fence. */
+export function weekUpdateIdOf(text: string): string {
+  const lines = blockBody(text, "founderive-week")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return createHash("sha256").update(lines.join("\n")).digest("hex").slice(0, 12);
+}
+
+export type WeekUpdateResult = { status: "applied" } | { status: "already-applied"; message: string };
+export const ALREADY_APPLIED = "This update was already applied.";
+
+class AlreadyApplied extends Error {}
+
 /**
- * Applies a pasted founderive-week block. The plan is re-checked against this week's open commitments inside one
- * updateEntry callback, and every change is made there, so the check-in is written once with all of them or not at
- * all. Any parse error means nothing is written. `afterChange` is a test seam.
+ * Applies a pasted founderive-week block, once. The page's week must be this week (recomputed here from `today`).
+ * Inside one updateEntry callback the update's id is checked against the ids already applied (so a replay or a
+ * double submit changes nothing), the plan is re-checked against this week's open commitments, and every change is
+ * made, so the check-in is written once with all of them or not at all. Any parse error, or an open commitment with
+ * no kept, done or dropped line, means nothing is written. New commitments get ids from the update's id and their
+ * line's ordinal. `afterChange` is a test seam.
  */
-export async function applyWeekUpdate(weekId: string, text: string, hooks: { afterChange?: () => void } = {}): Promise<WeekPlan> {
-  const out: { plan?: WeekPlan } = {};
-  await updateEntry("checkin", checkinPath(weekId), (data, body) => {
-    const c: KindData<"checkin"> = data ? structuredClone(data) : { week: weekId, commitments: [], nextStepLog: [] };
-    const plan = parseWeekBlock(text, c.commitments.filter((x) => x.status === "open"));
-    if (plan.errors.length > 0) throw new Error(`Nothing was changed. Fix these lines first: ${plan.errors.join(" ")}`);
-    applyWeekPlan(c, plan, () => newId("c"), hooks.afterChange);
-    out.plan = plan;
-    return { data: c, body };
-  });
-  if (!out.plan) throw new Error("Nothing was changed.");
-  return out.plan;
+export async function applyWeekUpdate(weekId: string, text: string, today: string, hooks: { afterChange?: () => void } = {}): Promise<WeekUpdateResult> {
+  if (weekId !== isoWeekId(today)) throw new Error("This page is from last week. Reload and paste again.");
+  const op = weekUpdateIdOf(text);
+  try {
+    await updateEntry("checkin", checkinPath(weekId), (data, body) => {
+      if (data?.appliedUpdates?.includes(op)) throw new AlreadyApplied(ALREADY_APPLIED);
+      const c: KindData<"checkin"> = data ? structuredClone(data) : { week: weekId, commitments: [], nextStepLog: [] };
+      const plan = parseWeekBlock(text, c.commitments.filter((x) => x.status === "open"));
+      if (plan.errors.length > 0) throw new Error(`Nothing was changed. Fix these lines first: ${plan.errors.join(" ")}`);
+      if (plan.notReviewed.length > 0)
+        throw new Error(`Nothing was changed. Every open commitment needs a kept, done or dropped line. Not reviewed: ${plan.notReviewed.map((x) => x.text).join("; ")}.`);
+      applyWeekPlan(c, plan, (n) => `c-${op}-${n}`, hooks.afterChange);
+      c.appliedUpdates = [...(c.appliedUpdates ?? []), op];
+      return { data: c, body };
+    });
+  } catch (error) {
+    if (error instanceof AlreadyApplied) return { status: "already-applied", message: ALREADY_APPLIED };
+    throw error;
+  }
+  return { status: "applied" };
 }
