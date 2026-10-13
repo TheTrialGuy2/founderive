@@ -1,0 +1,57 @@
+import { access, readdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { OutsideDataDirError } from "./paths";
+import { readEntry } from "./read";
+import { useTempData } from "./test-helpers";
+import { archiveEntry, saveEntry, ValidationError, writeFileAtomic } from "./write";
+
+let env: Awaited<ReturnType<typeof useTempData>>;
+beforeEach(async () => (env = await useTempData()));
+afterEach(() => env.cleanup());
+
+const exists = (p: string) => access(p).then(() => true, () => false);
+
+describe("writeFileAtomic", () => {
+  it("creates folders and leaves no temp files", async () => {
+    await writeFileAtomic("pitch/message/2026-10-13.md", "hello");
+    const dir = path.join(env.dir, "pitch/message");
+    expect(await readFile(path.join(dir, "2026-10-13.md"), "utf8")).toBe("hello");
+    expect(await readdir(dir)).toEqual(["2026-10-13.md"]);
+  });
+  it("refuses paths outside founder-data", async () => {
+    await expect(writeFileAtomic("../escape.md", "x")).rejects.toThrow(OutsideDataDirError);
+  });
+});
+
+describe("saveEntry", () => {
+  it("writes a valid entry that reads back the same", async () => {
+    await saveEntry("week", "program/week-04.md", { week: 4, title: "Building the relationship", status: "in-progress", exercises: [], homework: [] }, "Notes\n");
+    const e = await readEntry("week", "program/week-04.md");
+    expect(e?.ok && e.data).toMatchObject({ week: 4, status: "in-progress" });
+    expect(e?.ok && e.body).toBe("Notes\n");
+  });
+  it("rejects invalid data and writes nothing", async () => {
+    const bad = { week: 4, title: "x", status: "maybe" } as never;
+    await expect(saveEntry("week", "program/week-04.md", bad)).rejects.toThrow(ValidationError);
+    expect(await exists(path.join(env.dir, "program/week-04.md"))).toBe(false);
+  });
+  it("rejects a path that doesn't match the kind", async () => {
+    await expect(saveEntry("week", "notes/week.md", { week: 1, title: "x", status: "done", exercises: [], homework: [] })).rejects.toThrow(ValidationError);
+  });
+});
+
+describe("archiveEntry", () => {
+  it("moves the file under _archive with its original path", async () => {
+    const target = await archiveEntry("program/week-01.md");
+    expect(target).toBe("_archive/program/week-01.md");
+    expect(await exists(path.join(env.dir, "program/week-01.md"))).toBe(false);
+    expect(await exists(path.join(env.dir, target))).toBe(true);
+  });
+  it("never overwrites an earlier archived copy", async () => {
+    await archiveEntry("program/week-01.md");
+    await writeFile(path.join(env.dir, "program/week-01.md"), "---\nweek: 1\ntitle: again\n---\n");
+    const second = await archiveEntry("program/week-01.md");
+    expect(second).toMatch(/^_archive\/program\/week-01\.\d{4}-.+\.md$/);
+  });
+});
