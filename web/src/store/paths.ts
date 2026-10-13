@@ -14,3 +14,8 @@ export function resolveInData(rel: string): string {
   if (abs !== root && !abs.startsWith(root + path.sep)) throw new OutsideDataDirError(`Path escapes founder-data: ${rel}`);
   return abs;
 }
+
+/** Where the starter template lives. Defaults to ../starter-data relative to web/. */
+export function starterDir(): string {
+  return path.resolve(process.env.FOUNDER_STARTER_DIR ?? path.join(process.cwd(), "..", "starter-data"));
+}
