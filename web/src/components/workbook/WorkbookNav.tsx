@@ -1,18 +1,20 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { WORKBOOK_NAV } from "@/lib/workbook-nav";
 
 export function WorkbookNav() {
   const pathname = usePathname();
   return (
-    <nav className="border-b border-line bg-paper md:w-56 md:shrink-0 md:border-r md:border-b-0" aria-label="Workbook">
-      <div className="hidden px-5 pt-5 pb-3 md:block">
-        <Image src="/founderive-wordmark.svg" alt="founderive" width={120} height={26} />
+    <nav className="sticky top-0 z-30 border-b border-line bg-paper/95 backdrop-blur md:h-screen md:w-60 md:shrink-0 md:border-r md:border-b-0" aria-label="Workbook">
+      <div className="flex items-center justify-between px-4 py-3 md:block md:px-5 md:pt-6 md:pb-4">
+        <BrandWordmark />
+        <p className="hidden text-[11px] font-medium tracking-[0.06em] text-muted uppercase md:mt-2 md:block">Founder operating record</p>
+        <span className="rounded-full bg-aqua px-2 py-1 text-[10px] font-semibold text-teal-dark md:hidden">Your record</span>
       </div>
-      <ul className="flex gap-1 overflow-x-auto px-3 py-2 md:flex-col md:overflow-visible">
+      <ul className="flex gap-1 overflow-x-auto border-t border-line/60 px-3 py-2 md:flex-col md:overflow-visible md:border-t-0">
         {WORKBOOK_NAV.map((item) => {
           if (!item.ready) {
             return (
@@ -29,7 +31,7 @@ export function WorkbookNav() {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`block rounded-md px-3 py-2 text-sm whitespace-nowrap ${active ? "bg-navy font-medium text-white" : "text-ink hover:bg-sand/60"}`}
+                className={`block rounded-md px-3 py-2 text-sm whitespace-nowrap ${active ? "bg-navy font-semibold text-white" : "text-ink hover:bg-aqua/45"}`}
               >
                 {item.label}
               </Link>
@@ -37,9 +39,9 @@ export function WorkbookNav() {
           );
         })}
       </ul>
-      <div className="hidden px-5 py-4 md:block">
-        <Link href="/demo/founder/today" className="text-xs text-muted hover:text-navy">
-          Demo
+      <div className="hidden px-5 py-5 md:block">
+        <Link href="/demo/founder/today" className="text-xs font-medium text-teal-dark hover:text-navy">
+          View product demo →
         </Link>
       </div>
     </nav>

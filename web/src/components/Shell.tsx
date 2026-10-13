@@ -7,11 +7,11 @@ import { FounderTabBar, PersonaSwitch, QuickLog, SideNav } from "./Nav";
 export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between gap-4 bg-navy px-4 py-2.5 text-sm text-white md:px-6">
+      <header className="flex items-center justify-between gap-4 border-b border-white/10 bg-navy px-4 py-2.5 text-sm text-white shadow-sm md:px-6">
         <div className="flex items-center gap-3">
           <Image src="/founderive-mark.svg" alt="" width={28} height={28} />
-          <span className="font-serif text-base">{ORG_NAME}</span>
-          <span className="hidden rounded bg-white/10 px-2 py-0.5 text-xs text-white/70 sm:inline">Demo</span>
+          <span className="hidden font-semibold tracking-[-0.01em] sm:inline">{ORG_NAME}</span>
+          <span className="hidden rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/70 sm:inline">Product demo</span>
         </div>
         <Suspense fallback={null}>
           <PersonaSwitch />
@@ -19,12 +19,12 @@ export function Shell({ children }: { children: ReactNode }) {
       </header>
 
       <div className="flex flex-1 flex-col md:flex-row">
-        <Suspense fallback={<div className="md:w-56" />}>
+        <Suspense fallback={<div className="md:w-60" />}>
           <SideNav />
           <FounderTabBar />
           <QuickLog />
         </Suspense>
-        <main className="flex-1 px-4 pt-6 pb-28 md:px-10 md:py-8">
+        <main className="flex-1 bg-canvas px-4 pt-7 pb-28 md:px-10 md:py-10">
           <div className="mx-auto max-w-5xl">{children}</div>
         </main>
       </div>

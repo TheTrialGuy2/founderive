@@ -13,6 +13,8 @@
     "smoke": "tsx scripts/smoke.mts"
   },
   "dependencies": {
+    "@ibm/plex-sans": "^1.1.0",
+    "@ibm/plex-serif": "^2.0.0",
     "lucide-react": "^1.55.0",
     "next": "16.4.0",
     "react": "19.3.0",
