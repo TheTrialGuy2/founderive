@@ -32,7 +32,11 @@ const isGuideLink = (link: string | null | undefined) => !!link?.startsWith("gui
 const isTestLink = (link: string | null | undefined) => !!link?.startsWith("tests/");
 const byDue = (a: { due?: string | null }, b: { due?: string | null }) => (a.due ?? LAST).localeCompare(b.due ?? LAST);
 
-/** Every eligible action in amendment §7 order: risk, blocker, test, overdue commitment, follow-up, guide, program, upkeep. */
+/**
+ * Every eligible action, in order: 1 risk, 2 missing outcome or blocker, 3 running test, 4 overdue commitment,
+ * 5 due follow-up, 6 open commitment (not overdue), 7 guide or test commitment, 8 guide step, 9 program work, 10 upkeep.
+ * Within a tier: earliest due first, undated after dated, then file order (the sort is stable).
+ */
 export function rankCandidates(input: NextStepInput): Candidate[] {
   const out: Candidate[] = [];
   for (const r of input.risks) out.push({ id: `risk:${r.id}`, tier: 1, kind: "risk", label: r.label, reason: r.reason, href: r.href });
@@ -49,22 +53,27 @@ export function rankCandidates(input: NextStepInput): Candidate[] {
   for (const f of input.followUps.filter((f) => !f.due || f.due <= input.today).sort(byDue)) {
     out.push({ id: `followup:${f.id}`, tier: 5, kind: "followup", label: f.text, reason: "Someone is waiting on you.", ref: f.id, href: f.href, due: f.due });
   }
+  // Do what you said you'd do before taking on a new guide step. Guide and test commitments rank at 7 with their own reason.
+  const notOverdue = (c: { due?: string | null }) => !(c.due && c.due < input.today);
+  for (const c of input.commitments.filter((c) => c.status === "open" && notOverdue(c) && !isGuideLink(c.link) && !isTestLink(c.link)).sort(byDue)) {
+    out.push({ id: `commitment:${c.id}`, tier: 6, kind: "commitment", label: c.text, reason: "You committed to this for this week.", ref: c.id, due: c.due });
+  }
   // An open guide commitment is this week's guide work, so no new guide step is proposed alongside it.
   const guideCommitments = input.commitments.filter((c) => c.status === "open" && isGuideLink(c.link));
-  for (const c of guideCommitments.filter((c) => !(c.due && c.due < input.today)).sort(byDue)) {
-    out.push({ id: `commitment:${c.id}`, tier: 6, kind: "commitment", label: c.text, reason: "You committed to this step this week.", ref: c.id, due: c.due });
+  for (const c of guideCommitments.filter(notOverdue).sort(byDue)) {
+    out.push({ id: `commitment:${c.id}`, tier: 7, kind: "commitment", label: c.text, reason: "You committed to this step this week.", ref: c.id, due: c.due });
   }
-  // The next commitment chosen when completing a test is the loop's next step (amendment §1), so it ranks with guide work.
-  for (const c of input.commitments.filter((c) => c.status === "open" && isTestLink(c.link) && !(c.due && c.due < input.today)).sort(byDue)) {
-    out.push({ id: `commitment:${c.id}`, tier: 6, kind: "commitment", label: c.text, reason: "You chose this as the next step after a test.", ref: c.id, due: c.due });
+  // The next commitment chosen when completing a test is the loop's next step (amendment §1), so it ranks with guide commitments.
+  for (const c of input.commitments.filter((c) => c.status === "open" && isTestLink(c.link) && notOverdue(c)).sort(byDue)) {
+    out.push({ id: `commitment:${c.id}`, tier: 7, kind: "commitment", label: c.text, reason: "You chose this as the next step after a test.", ref: c.id, due: c.due });
   }
   if (input.guideStep && guideCommitments.length === 0)
-    out.push({ id: `guide:${input.guideStep.id}`, tier: 6, kind: "guide", label: input.guideStep.title, reason: input.guideStep.why, ref: input.guideStep.id, detail: input.guideStep.progress ?? undefined });
+    out.push({ id: `guide:${input.guideStep.id}`, tier: 8, kind: "guide", label: input.guideStep.title, reason: input.guideStep.why, ref: input.guideStep.id, detail: input.guideStep.progress ?? undefined });
   for (const p of [...input.programWork].sort(byDue)) {
-    out.push({ id: `program:${p.id}`, tier: 7, kind: "program", label: p.title, reason: p.due ? `Program work due ${p.due}.` : "Program work for this week.", ref: p.id, due: p.due });
+    out.push({ id: `program:${p.id}`, tier: 9, kind: "program", label: p.title, reason: p.due ? `Program work due ${p.due}.` : "Program work for this week.", ref: p.id, due: p.due });
   }
   for (const f of input.flagged) {
-    out.push({ id: `fix:${f.path}`, tier: 8, kind: "fix", label: `Fix ${f.path}`, reason: "Founderive can't read this file, so it's left out everywhere.", ref: f.path });
+    out.push({ id: `fix:${f.path}`, tier: 10, kind: "fix", label: `Fix ${f.path}`, reason: "Founderive can't read this file, so it's left out everywhere.", ref: f.path });
   }
   return out.sort((a, b) => a.tier - b.tier);
 }

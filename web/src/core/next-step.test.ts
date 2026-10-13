@@ -36,7 +36,7 @@ describe("nextStep", () => {
     });
     expect(n).toMatchObject({ id: "test:tests/a.md", label: "Continue: Paid pilot" });
   });
-  it("only overdue open commitments rank (not done, not future)", () => {
+  it("done commitments don't rank; overdue ones rank at 4, open ones not yet due at 6", () => {
     const ranked = rankCandidates({
       ...base,
       commitments: [
@@ -45,15 +45,18 @@ describe("nextStep", () => {
         { id: "c", text: "Later", due: "2026-10-20", status: "open" },
       ],
     });
-    expect(ranked.filter((c) => c.kind === "commitment").map((c) => c.ref)).toEqual(["a"]);
+    expect(ranked.filter((c) => c.kind === "commitment").map((c) => [c.ref, c.tier])).toEqual([
+      ["a", 4],
+      ["c", 6],
+    ]);
   });
-  it("orders guide (6) before program work (7) before upkeep (8)", () => {
+  it("orders guide (8) before program work (9) before upkeep (10)", () => {
     const ranked = rankCandidates({
       ...base,
       programWork: [{ id: "hw-1", title: "Interview two owners", due: "2026-10-20" }],
       flagged: [{ path: "program/week-02.md", error: "bad" }],
     });
-    expect(ranked.map((c) => c.tier)).toEqual([6, 7, 8]);
+    expect(ranked.map((c) => c.tier)).toEqual([8, 9, 10]);
   });
   it("skips dismissed and replaced actions, and deferred ones until their date", () => {
     const input = { ...base, programWork: [{ id: "hw-1", title: "Interview two owners", due: null }] };
@@ -73,13 +76,13 @@ describe("nextStep", () => {
     });
     expect(n).toMatchObject({ tier: 5, kind: "followup", ref: "conversations/2026-10-08-dana.md#f-1", href: "/conversations/2026-10-08-dana" });
   });
-  it("ranks a commitment chosen after a test at tier 6, before a new guide step", () => {
+  it("ranks a commitment chosen after a test at tier 7, before a new guide step", () => {
     const ranked = rankCandidates({
       ...base,
       commitments: [{ id: "n", text: "Offer the pilot to three more owners", due: "2026-10-20", status: "open", link: "tests/2026-10-06-paid-pilot.md" }],
     });
     expect(ranked.map((c) => c.id)).toEqual(["commitment:n", "guide:riskiest-assumption"]);
-    expect(ranked[0].reason).toBe("You chose this as the next step after a test.");
+    expect(ranked[0]).toMatchObject({ tier: 7, reason: "You chose this as the next step after a test." });
   });
   it("an overdue test commitment stays at tier 4", () => {
     const ranked = rankCandidates({ ...base, commitments: [{ id: "n", text: "Offer the pilot", due: "2026-10-10", status: "open", link: "tests/2026-10-06-paid-pilot.md" }] });
@@ -93,10 +96,10 @@ describe("nextStep", () => {
 
 describe("open guide commitments", () => {
   const guideCommitment = { id: "c-9", text: "Talk to five people who have the problem", status: "open" as const, link: "guide:problem-conversations" };
-  it("rank at tier 6 as a commitment, with the committed reason", () => {
+  it("rank at tier 7 as a commitment, with the committed reason", () => {
     const ranked = rankCandidates({ ...base, guideStep: null, commitments: [{ ...guideCommitment, due: "2026-10-16" }] });
     expect(ranked).toEqual([
-      expect.objectContaining({ id: "commitment:c-9", tier: 6, kind: "commitment", label: "Talk to five people who have the problem", reason: "You committed to this step this week.", ref: "c-9" }),
+      expect.objectContaining({ id: "commitment:c-9", tier: 7, kind: "commitment", label: "Talk to five people who have the problem", reason: "You committed to this step this week.", ref: "c-9" }),
     ]);
   });
   it("still rank at tier 4 once overdue", () => {
@@ -112,8 +115,58 @@ describe("open guide commitments", () => {
     const ranked = rankCandidates({ ...base, commitments: [{ ...guideCommitment, status: "done" }, { ...guideCommitment, id: "c-10", status: "dropped" }] });
     expect(ranked.map((c) => c.id)).toEqual(["guide:riskiest-assumption"]);
   });
-  it("open commitments not linked to the guide and not overdue don't rank", () => {
-    const ranked = rankCandidates({ ...base, commitments: [{ id: "c-1", text: "Call Dana", due: "2026-10-20", status: "open", link: null }] });
+});
+
+describe("open commitments that aren't overdue (do what you said before a new guide step)", () => {
+  const open = (id: string, due: string | null, text = `Commitment ${id}`) => ({ id, text, due, status: "open" as const, link: null });
+  it("rank at tier 6, above the guide step, labeled with the commitment", () => {
+    const ranked = rankCandidates({ ...base, commitments: [open("c-1", "2026-10-16", "Call Dana")] });
+    expect(ranked.map((c) => [c.id, c.tier])).toEqual([
+      ["commitment:c-1", 6],
+      ["guide:riskiest-assumption", 8],
+    ]);
+    expect(ranked[0]).toMatchObject({ kind: "commitment", label: "Call Dana", reason: "You committed to this for this week.", ref: "c-1", due: "2026-10-16" });
+    expect(nextStep({ ...base, commitments: [open("c-1", "2026-10-16", "Call Dana")] })?.id).toBe("commitment:c-1");
+  });
+  it("one due today still ranks at 6, not as overdue", () => {
+    expect(rankCandidates({ ...base, commitments: [open("c-1", "2026-10-13")] })[0]).toMatchObject({ id: "commitment:c-1", tier: 6 });
+  });
+  it("one that matches this week's outcome outranks the guide step", () => {
+    const n = nextStep({ ...base, outcome: "Talk to five agency owners", commitments: [open("c-1", null, "Talk to five agency owners")] });
+    expect(n).toMatchObject({ id: "commitment:c-1", tier: 6 });
+  });
+  it("an overdue one stays at tier 4 and isn't ranked again at 6", () => {
+    const ranked = rankCandidates({ ...base, commitments: [open("c-1", "2026-10-10")] });
+    expect(ranked.filter((c) => c.id === "commitment:c-1").map((c) => c.tier)).toEqual([4]);
+  });
+  it("sit below a due follow-up", () => {
+    const n = nextStep({ ...base, commitments: [open("c-1", "2026-10-16")], followUps: [{ id: "f", text: "Follow up with Dana", href: "/conversations/x", due: "2026-10-12" }] });
+    expect(n?.kind).toBe("followup");
+  });
+  it("orders earliest due first, undated after dated, then file order", () => {
+    const ranked = rankCandidates({ ...base, guideStep: null, commitments: [open("u1", null), open("late", "2026-10-18"), open("u2", null), open("early", "2026-10-14"), open("late2", "2026-10-18")] });
+    expect(ranked.map((c) => c.ref)).toEqual(["early", "late", "late2", "u1", "u2"]);
+  });
+  it("leave guide-linked and test-chosen commitments at tier 7, ranked once", () => {
+    const ranked = rankCandidates({
+      ...base,
+      commitments: [
+        { id: "g", text: "Talk to five people", due: "2026-10-16", status: "open", link: "guide:problem-conversations" },
+        { id: "t", text: "Offer the pilot", due: "2026-10-15", status: "open", link: "tests/2026-10-06-paid-pilot.md" },
+        open("c-1", "2026-10-17"),
+      ],
+    });
+    expect(ranked.map((c) => [c.id, c.tier])).toEqual([
+      ["commitment:c-1", 6],
+      ["commitment:g", 7],
+      ["commitment:t", 7],
+    ]);
+  });
+  it("with no commitments, the guide step is next as before", () => {
+    expect(nextStep(base)).toMatchObject({ id: "guide:riskiest-assumption", tier: 8 });
+  });
+  it("done or dropped ones don't rank", () => {
+    const ranked = rankCandidates({ ...base, commitments: [{ ...open("d", "2026-10-16"), status: "done" }, { ...open("x", "2026-10-16"), status: "dropped" }] });
     expect(ranked.map((c) => c.id)).toEqual(["guide:riskiest-assumption"]);
   });
 });

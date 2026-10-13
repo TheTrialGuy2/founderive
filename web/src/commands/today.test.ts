@@ -58,7 +58,7 @@ describe("loadToday", () => {
     await addCommitment("2026-W43", { text: "Talk to five people who have the problem", link: "guide:problem-conversations" });
     const view = await ready();
     expect(view.guide).toBeNull();
-    expect(view.next).toMatchObject({ tier: 6, kind: "commitment", reason: "You committed to this step this week." });
+    expect(view.next).toMatchObject({ tier: 7, kind: "commitment", reason: "You committed to this step this week." });
 
     const file = path.join(env.dir, "founder.md");
     await writeFile(file, (await readFile(file, "utf8")).replace("evidence: conversations", "evidence: paying-customers"));

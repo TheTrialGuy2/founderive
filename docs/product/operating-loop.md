@@ -40,9 +40,11 @@ Today shows one recommended action with a one-line reason. It's computed by one 
 3. A running venture test
 4. An overdue commitment
 5. A follow-up that is due
-6. A commitment made for a guide step or chosen when completing a test (while not overdue), otherwise the next guide step, which completes from logged evidence rather than a checkbox
-7. Program work
-8. Fixing a file Founderive can't read
+6. Any other open commitment for this week that isn't overdue, earliest due first: do what you said you'd do before taking on a new guide step
+7. A commitment made for a guide step or chosen when completing a test (while not overdue)
+8. The next guide step, unless a guide commitment is open. It completes from logged evidence rather than a checkbox
+9. Program work
+10. Fixing a file Founderive can't read
 
 The founder can skip a recommendation for the week, defer it to a date, or replace it with something else. Each choice needs a reason and is kept in that week's check-in. Events and journal entries never outrank these.
 
