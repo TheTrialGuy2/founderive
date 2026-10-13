@@ -1,3 +1,4 @@
+import { brokenLinks, describeBrokenLink, linksOf } from "../core/links";
 import { readEntry } from "./read";
 import { kindOf } from "./schemas";
 import { walkMarkdown } from "./walk";
@@ -25,6 +26,7 @@ const FOLDER_NAMES: Record<string, string> = {
 /** Validates every Markdown file in founder-data. Misnamed files in known folders are warnings; other unknown files are listed. */
 export async function checkData(): Promise<CheckReport> {
   const rels = await walkMarkdown();
+  const present = new Set(rels);
   const errors: CheckReport["errors"] = [];
   const warnings: CheckReport["warnings"] = [];
   const misnamed: string[] = [];
@@ -41,7 +43,13 @@ export async function checkData(): Promise<CheckReport> {
       continue;
     }
     const entry = await readEntry(kind, rel);
-    if (entry && !entry.ok) errors.push({ path: rel, error: entry.error });
+    if (!entry) continue;
+    if (!entry.ok) {
+      errors.push({ path: rel, error: entry.error });
+      continue;
+    }
+    // A broken link is a warning; the record itself is still valid and still shown (amendment §13).
+    for (const b of brokenLinks(linksOf(kind, entry.data), (r) => present.has(r))) warnings.push({ path: rel, warning: describeBrokenLink(b) });
   }
   return { checked: rels.length, errors, warnings, misnamed, unknown };
 }

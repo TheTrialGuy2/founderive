@@ -38,3 +38,8 @@ export async function listEntries<K extends Kind>(kind: K): Promise<Entry<K>[]> 
   const entries = await Promise.all(rels.map((rel) => readEntry(kind, rel)));
   return entries.filter((e): e is Entry<K> => e !== null);
 }
+
+/** Every live Markdown path in founder-data (_archive and _reference are skipped), for checking links. */
+export async function existingPaths(): Promise<Set<string>> {
+  return new Set(await walkMarkdown());
+}

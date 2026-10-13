@@ -30,4 +30,15 @@ describe("checkData", () => {
     ]);
     expect(report.unknown).toEqual(["notes/scratch.md"]);
   });
+
+  it("warns about a broken link without failing the record", async () => {
+    await mkdir(path.join(env.dir, "tests"), { recursive: true });
+    await writeFile(
+      path.join(env.dir, "tests/2026-10-01-broken.md"),
+      "---\ntitle: Paid pilot\narea: revenue\nbelief: Owners will pay\ntest: Offer a pilot\nsuccessCriteria: Two sign\nfailureCriteria: None sign\nrelatedConversations:\n  - conversations/2026-10-01-gone.md\n---\n",
+    );
+    const report = await checkData();
+    expect(report.errors.map((e) => e.path)).not.toContain("tests/2026-10-01-broken.md");
+    expect(report.warnings).toEqual([{ path: "tests/2026-10-01-broken.md", warning: "relatedConversations: conversations/2026-10-01-gone.md isn't in founder-data" }]);
+  });
 });

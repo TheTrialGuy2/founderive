@@ -40,6 +40,22 @@ export type Cofounders = (typeof COFOUNDERS)[number];
 export const CANVAS_STATUSES = ["untested", "some-evidence", "tested"] as const;
 export type CanvasStatus = (typeof CANVAS_STATUSES)[number];
 
+export const AREAS = ["customer", "problem", "solution", "channel", "revenue", "cost", "feasibility"] as const;
+export const CONVERSATION_TYPES = ["customer", "prospect", "mentor", "partner", "investor", "other"] as const;
+export const TEST_STATUSES = ["planned", "running", "complete", "abandoned"] as const;
+export const TEST_RESULTS = ["supported", "contradicted", "inconclusive"] as const;
+export const TEST_DECISIONS = ["continue", "revise", "pause", "stop"] as const;
+export const EVIDENCE_STRENGTHS = ["none", "weak", "moderate", "strong"] as const;
+export type Area = (typeof AREAS)[number];
+export type ConversationType = (typeof CONVERSATION_TYPES)[number];
+export type TestStatus = (typeof TEST_STATUSES)[number];
+export type TestResult = (typeof TEST_RESULTS)[number];
+export type TestDecision = (typeof TEST_DECISIONS)[number];
+export type EvidenceStrength = (typeof EVIDENCE_STRENGTHS)[number];
+
+/** Conversations with people who might buy are customer evidence; the other types are advice (amendment §5.3). */
+export const CUSTOMER_TYPES: readonly ConversationType[] = ["customer", "prospect"];
+
 export const founderSchema = z.strictObject({
   ...meta,
   name: z.string().default(""),
@@ -159,6 +175,104 @@ export const canvasBlockSchema = z.strictObject({
   history: z.array(z.strictObject({ date: isoDate, text: z.string() })).default([]),
 });
 
+// Links are founder-data paths. They aren't validated here: a broken link is a warning from check-data and a note on
+// the record's page, never a reason to drop the record (amendment §13).
+const links = z.array(z.string().min(1)).default([]);
+
+/**
+ * `<dir>/YYYY-MM-DD-<slug>.md`: a real calendar date (so 2026-99-99 is refused) and a lowercase slug of letters,
+ * digits and single hyphens. It has the same `test()` as a RegExp, so the rest of the store uses it unchanged.
+ */
+const datedFile = (dir: string) => {
+  const re = new RegExp(`^${dir}/(\\d{4}-\\d{2}-\\d{2})-[a-z0-9]+(?:-[a-z0-9]+)*\\.md$`);
+  return {
+    test: (rel: string) => {
+      const m = re.exec(rel);
+      return !!m && isCalendarDate(m[1]);
+    },
+  };
+};
+
+const followUpSchema = z.strictObject({
+  id: z.string(),
+  text: z.string().min(1),
+  due: isoDate.nullish(),
+  status: z.enum(["open", "done"]).default("open"),
+});
+
+/** A conversation (amendment §5.3). The body holds the notes. */
+export const conversationSchema = z
+  .strictObject({
+    ...meta,
+    type: z.enum(CONVERSATION_TYPES),
+    person: z.string().min(1),
+    org: z.string().nullish(),
+    date: isoDate.nullish(), // unknown when imported from a chat that didn't say when
+    segment: z.string().nullish(),
+    context: z.string().nullish(),
+    questionsAsked: z.string().nullish(),
+    observedBehavior: z.string().nullish(),
+    quotes: z.array(z.string().min(1)).default([]),
+    numbers: z.array(z.string().min(1)).default([]),
+    alternatives: z.string().nullish(),
+    urgency: z.string().nullish(),
+    buyingProcess: z.string().nullish(),
+    followUps: z.array(followUpSchema).default([]),
+    relatedTests: links,
+    areas: z.array(z.enum(AREAS)).default([]),
+    whatChanges: z.string().nullish(),
+    whatChangesConfirmed: z.boolean().default(false),
+  })
+  .refine((c) => !c.whatChangesConfirmed || !!c.whatChanges?.trim(), { message: "say what changes before confirming it", path: ["whatChangesConfirmed"] });
+
+/** A venture test (amendment §5.4) with the adopted split: `result` is what the evidence showed, `decision` is what the founder chose. */
+export const testSchema = z
+  .strictObject({
+    ...meta,
+    title: z.string().min(1),
+    area: z.enum(AREAS),
+    status: z.enum(TEST_STATUSES).default("planned"),
+    belief: z.string().min(1),
+    risk: z.string().nullish(),
+    test: z.string().min(1),
+    successCriteria: z.string().min(1),
+    failureCriteria: z.string().min(1),
+    due: isoDate.nullish(),
+    startedOn: isoDate.nullish(),
+    closedOn: isoDate.nullish(),
+    relatedConversations: links,
+    relatedFiles: links,
+    evidenceStrength: z.enum(EVIDENCE_STRENGTHS).default("none"),
+    result: z.enum(TEST_RESULTS).nullish(),
+    decision: z.enum(TEST_DECISIONS).nullish(),
+    nextCommitment: z.string().nullish(),
+    nextCommitmentDue: isoDate.nullish(),
+    abandonReason: z.string().nullish(),
+  })
+  .superRefine((t, ctx) => {
+    const complete = t.status === "complete";
+    if (complete && !t.result) ctx.addIssue({ code: "custom", path: ["result"], message: "a complete test needs a result" });
+    if (complete && !t.decision) ctx.addIssue({ code: "custom", path: ["decision"], message: "a complete test needs a decision" });
+    if (!complete && t.result) ctx.addIssue({ code: "custom", path: ["result"], message: "only a complete test has a result" });
+    if (!complete && t.decision) ctx.addIssue({ code: "custom", path: ["decision"], message: "only a complete test has a decision" });
+    if (t.status === "abandoned" && !t.abandonReason?.trim()) ctx.addIssue({ code: "custom", path: ["abandonReason"], message: "say why the test was stopped" });
+  });
+
+/** A decision made outside a venture test (spec §0, decision log). A test's own decision stays on the test. */
+export const decisionSchema = z.strictObject({
+  ...meta,
+  title: z.string().min(1),
+  date: isoDate,
+  area: z.enum(AREAS).nullish(),
+  beliefBefore: z.string().nullish(),
+  evidence: links,
+  alternatives: z.array(z.string().min(1)).default([]),
+  decision: z.string().min(1),
+  why: z.string().min(1),
+  reversible: z.boolean(),
+  relatedTest: z.string().nullish(),
+});
+
 /** Every file kind in founder-data: where it lives and what shape it must have. Later steps add kinds here. */
 export const KINDS = {
   founder: { pattern: /^founder\.md$/, schema: founderSchema },
@@ -166,6 +280,9 @@ export const KINDS = {
   checkin: { pattern: /^checkins\/\d{4}-W\d{2}\.md$/, schema: checkinSchema },
   canvasConfig: { pattern: /^canvas\/blocks\.md$/, schema: canvasConfigSchema },
   canvasBlock: { pattern: /^canvas\/(?!blocks\.md$)[a-z0-9]+(?:-[a-z0-9]+)*\.md$/, schema: canvasBlockSchema },
+  conversation: { pattern: datedFile("conversations"), schema: conversationSchema },
+  test: { pattern: datedFile("tests"), schema: testSchema },
+  decision: { pattern: datedFile("decisions"), schema: decisionSchema },
 } as const;
 
 export type Kind = keyof typeof KINDS;
