@@ -1,6 +1,22 @@
 import { z } from "zod";
+import { isoWeekId } from "../core/week";
 
-export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "use YYYY-MM-DD");
+/** True when YYYY-MM-DD names a real calendar day (so 2026-02-30 and 2026-13-45 are rejected). */
+function isCalendarDate(s: string): boolean {
+  const [y, m, d] = s.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}
+
+/** True for YYYY-Www with a week this ISO year actually has (W53 only in long years). */
+function isRealIsoWeek(s: string): boolean {
+  const year = s.slice(0, 4);
+  const week = Number(s.slice(6));
+  if (week < 1 || week > 53) return false;
+  return week < 53 || isoWeekId(`${year}-12-28`) === `${year}-W53`;
+}
+
+export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "use YYYY-MM-DD").refine(isCalendarDate, "not a real date");
 
 // Metadata any record may carry. Any other custom data belongs under `extensions`, so typos in core fields are caught.
 const meta = {
@@ -31,7 +47,7 @@ export const founderSchema = z.strictObject({
   cofounders: z.enum(COFOUNDERS).nullish(),
   website: z.string().nullish(),
   industry: z.string().nullish(),
-  startedOn: z.string().regex(/^\d{4}-\d{2}$/, "use YYYY-MM").nullish(),
+  startedOn: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "use YYYY-MM").nullish(),
   problem: z.string().nullish(),
   oneLiner: z.string().nullish(), // null means "still working on it"
   stage: z.enum(STAGES).nullish(),
@@ -101,7 +117,7 @@ const nextStepChoiceSchema = z.strictObject({
 
 export const checkinSchema = z.strictObject({
   ...meta,
-  week: z.string().regex(/^\d{4}-W\d{2}$/, "use YYYY-Www"),
+  week: z.string().regex(/^\d{4}-W\d{2}$/, "use YYYY-Www").refine(isRealIsoWeek, "that year has no such week"),
   outcome: z.string().nullish(),
   commitments: z.array(commitmentSchema).default([]),
   blocker: z.string().nullish(),
