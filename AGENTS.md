@@ -2,6 +2,10 @@
 
 Founderive is a local app (`web/`) that shows a founder's record kept as Markdown files in `founder-data/`.
 
+## Starting Founderive for a founder
+
+If the founder asks to get set up, start Founderive or open the app, run `node start.mjs` from the repo root. It keeps running and opens the browser to setup (first run) or Today. Don't ask them to edit founder-data by hand to get started; setup in the app does it.
+
 ## Rules for founder-data
 
 - One Markdown file per entry. Structured fields go in YAML frontmatter, and free writing goes in the body.
