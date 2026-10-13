@@ -29,7 +29,7 @@ export async function saveSetupStepAction(_prev: ActionState, fd: FormData): Pro
   try {
     await saveSetupStep(step, parsed.patch);
   } catch (error) {
-    return { status: "error", message: error instanceof Error ? error.message : "Couldn't save this step.", values: parsed.values };
+    return { status: "error", message: error instanceof Error ? error.message : "Couldn't save this step. Try again.", values: parsed.values };
   }
   redirect(step >= LAST_STEP ? "/today" : `/setup?step=${step + 1}`);
 }
@@ -57,7 +57,7 @@ export async function saveHomeworkStatus(_prev: ActionState, fd: FormData): Prom
 }
 
 export async function addGuideStep(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  return run(() => addCommitment(field(fd, "week"), { text: field(fd, "text"), link: `guide:${field(fd, "guideId")}` }));
+  return run(() => addCommitment(field(fd, "week"), { text: field(fd, "text"), link: `guide:${field(fd, "guideId")}` }), { text: field(fd, "text") });
 }
 
 export async function chooseNotNow(_prev: ActionState, fd: FormData): Promise<ActionState> {

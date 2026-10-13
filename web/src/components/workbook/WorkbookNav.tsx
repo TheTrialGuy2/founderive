@@ -38,7 +38,7 @@ export function WorkbookNav() {
         ))}
       </div>
       <div className="hidden px-5 py-5 md:block">
-        <Link href="/setup" className="text-xs font-medium text-teal-dark hover:text-navy">
+        <Link href="/setup" className="block text-xs font-medium text-teal-dark hover:text-navy">
           Venture setup
         </Link>
         <Link href="/demo/founder/today" className="block text-xs font-medium text-teal-dark hover:text-navy">

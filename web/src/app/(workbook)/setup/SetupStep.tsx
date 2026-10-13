@@ -105,7 +105,7 @@ export function SetupStep({ step, initial }: { step: number; initial: Record<str
           {text("website", "Website", "e.g. lantern.app", { optional: true })}
           {text("industry", "Industry", "e.g. Home healthcare")}
           <Field id="businessModel" label="Business type" error={err.businessModel}>
-            <select id="businessModel" name="businessModel" defaultValue={v.businessModel} className={inputClass} aria-invalid={!!err.businessModel}>
+            <select id="businessModel" name="businessModel" defaultValue={v.businessModel} className={inputClass} aria-invalid={!!err.businessModel} aria-describedby={err.businessModel ? "businessModel-error" : undefined}>
               <option value="">Choose one</option>
               {MODELS.map(([value, label]) => (
                 <option key={value} value={value}>
