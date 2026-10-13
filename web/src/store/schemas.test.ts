@@ -57,3 +57,12 @@ describe("checkin.week", () => {
     expect(ok(checkinSchema, checkin("2027-W53"))).toBe(false);
   });
 });
+
+describe("founder.bringWhatYouHave", () => {
+  it("is imported, dismissed or absent", () => {
+    expect(ok(founderSchema, founder({ bringWhatYouHave: "dismissed" }))).toBe(true);
+    expect(ok(founderSchema, founder({ bringWhatYouHave: "imported" }))).toBe(true);
+    expect(ok(founderSchema, founder({}))).toBe(true);
+    expect(ok(founderSchema, founder({ bringWhatYouHave: "later" }))).toBe(false);
+  });
+});

@@ -8,6 +8,7 @@ import { CompleteTestForm } from "@/components/tests/CompleteTestForm";
 import { EvidenceNotesForm } from "@/components/tests/EvidenceNotesForm";
 import { StrengthForm } from "@/components/tests/StrengthForm";
 import { ActionButton } from "@/components/today/ActionButton";
+import { SeededNote } from "@/components/workbook/SeededNote";
 import { BrokenLinks } from "@/components/workbook/BrokenLinks";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { unlinkEvidenceAction } from "@/app/(workbook)/evidence-actions";
@@ -82,6 +83,7 @@ async function TestContent({ slug }: { slug: string }) {
         </div>
       )}
       {view.broken.length > 0 && <BrokenLinks links={view.broken} />}
+      {t.seeded && <SeededNote path={view.path} source={t.source} />}
 
       <div className="space-y-4">
         <section aria-labelledby="belief-heading" className="rounded-xl border border-line bg-sand/50 p-5">

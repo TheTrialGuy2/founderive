@@ -77,6 +77,7 @@ export const founderSchema = z.strictObject({
   outcome30: z.string().nullish(),
   hoursPerWeek: z.number().min(0).max(168).nullish(),
   setupComplete: z.boolean().default(false),
+  bringWhatYouHave: z.enum(["imported", "dismissed"]).nullish(), // hides Today's "Bring what you have" card
   // A program is optional: all three are set together, or none.
   programTitle: z.string().nullish(),
   programStart: isoDate.nullish(),

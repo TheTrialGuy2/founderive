@@ -7,6 +7,7 @@ import { FollowUps } from "@/components/conversations/FollowUps";
 import { WhatChangesForm } from "@/components/conversations/WhatChangesForm";
 import { LinkForm } from "@/components/loop/LinkForm";
 import { ActionButton } from "@/components/today/ActionButton";
+import { SeededNote } from "@/components/workbook/SeededNote";
 import { BrokenLinks } from "@/components/workbook/BrokenLinks";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { unlinkEvidenceAction } from "@/app/(workbook)/evidence-actions";
@@ -64,6 +65,7 @@ async function ConversationContent({ slug }: { slug: string }) {
         {c.segment && <span className="text-sm text-muted">{c.segment}</span>}
       </p>
       {view.broken.length > 0 && <BrokenLinks links={view.broken} />}
+      {c.seeded && <SeededNote path={view.path} source={c.source} />}
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="What this changes" className="md:col-span-2">

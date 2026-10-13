@@ -4,10 +4,12 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Card, formatDate, PageHeader } from "@/components/ui";
 import { BlockerForm } from "@/components/today/BlockerForm";
+import { BringWhatYouHave } from "@/components/today/BringWhatYouHave";
 import { CommitmentList } from "@/components/today/CommitmentList";
 import { CurrentTestCard } from "@/components/today/CurrentTestCard";
 import { NextActionCard } from "@/components/today/NextActionCard";
 import { OutcomeForm } from "@/components/today/OutcomeForm";
+import { WeekPaste } from "@/components/today/WeekPaste";
 import { CopyPrompt } from "@/components/workbook/CopyPrompt";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { loadPromptContext, loadToday } from "@/commands/today";
@@ -65,12 +67,8 @@ async function TodayContent() {
           <p className="text-sm text-muted">Nothing is waiting. Add a commitment that moves this week&apos;s outcome forward.</p>
         </Card>
       )}
-      {ending && (
-        <CopyPrompt
-          title="Prefer to talk it through? Ask your AI"
-          prompts={{ fileChat: fileChatPrompt(ending, promptVars), pasteBridge: weekPrompt({ ...promptVars, ...weekPromptVars(checkin) }) }}
-        />
-      )}
+      {/* The browser-chat version of this prompt lives in "Update your week from a browser chat" below, with its paste box. */}
+      {ending && <CopyPrompt title="Prefer to talk it through? Ask your AI" prompts={{ fileChat: fileChatPrompt(ending, promptVars) }} />}
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <CurrentTestCard test={currentTest} plannedCount={plannedTests} today={today} />
         <Card title="Commitments and follow-ups">
@@ -102,6 +100,19 @@ async function TodayContent() {
           </Card>
         </div>
       </div>
+      {!f.bringWhatYouHave && (
+        <div className="mt-6">
+          <BringWhatYouHave />
+        </div>
+      )}
+      {/* Collapsed by default; open in the first-run states, where it's the browser-chat way to set the week. */}
+      <details className="mt-6 rounded-xl border border-line bg-paper p-5" open={!!ending}>
+        <summary className="cursor-pointer font-semibold text-navy">Update your week from a browser chat</summary>
+        <CopyPrompt title="1. Copy this into your chat and answer its questions" prompts={{ pasteBridge: weekPrompt({ ...promptVars, ...weekPromptVars(checkin) }) }} />
+        <div className="mt-4">
+          <WeekPaste weekId={weekId} open={(checkin?.commitments ?? []).filter((c) => c.status === "open").map((c) => ({ id: c.id, text: c.text }))} />
+        </div>
+      </details>
       {report.errors.length > 0 && (
         <Card title={`Files to fix · ${report.errors.length}`} className="mt-6">
           <ul className="space-y-2">

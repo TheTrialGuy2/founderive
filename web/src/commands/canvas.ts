@@ -3,6 +3,8 @@ import { slugOf } from "../core/slug";
 import { listEntries, readEntry, type Entry } from "../store/read";
 import { AREAS, CANVAS_STATUSES, type ConversationType, type KindData, type TestStatus } from "../store/schemas";
 import { updateEntry } from "../store/update";
+import { createEntryIfAbsent } from "../store/write";
+import type { RecordMeta } from "./create";
 import { oneOf, required } from "./form";
 
 export type CanvasBlock = KindData<"canvasBlock">;
@@ -90,4 +92,40 @@ export async function confirmImported(id: string): Promise<void> {
     if (!data) throw new Error(`founder-data/${blockPath(id)} isn't there anymore. Reload the page.`);
     return { data: confirmImport(data), body };
   });
+}
+
+class AlreadyWritten extends Error {}
+
+/**
+ * Brings in a block's text from an import, as a draft marked seeded. Never overwrites: a block that already has text
+ * is left exactly as it is (the file isn't rewritten) and its current source is handed back so the caller can tell
+ * its own earlier import from the founder's writing. A block file with no text yet is filled through the same save
+ * as the founder's edit (status and history kept), then marked seeded. An unreadable block file is refused.
+ */
+export async function importCanvasBlock(id: string, text: string, meta: RecordMeta, today: string): Promise<{ status: "created" } | { status: "exists"; source: string | null }> {
+  const { defs } = await loadCanvasDefs();
+  if (!defs.some((d) => d.id === id)) throw new Error(`"${id}" isn't a block in your canvas.`);
+  const belief = required(text, "The imported block has no text.");
+  const rel = blockPath(id);
+  const exists = async () => {
+    const e = await readEntry("canvasBlock", rel);
+    return { status: "exists" as const, source: e?.ok ? (e.data.source ?? null) : null };
+  };
+  const entry = await readEntry("canvasBlock", rel);
+  if (entry && !entry.ok) throw new Error(`Fix founder-data/${rel} first: ${entry.error}`);
+  if (entry?.ok && entry.data.text.trim()) return exists();
+  if (!entry) {
+    const data = { ...applyBlockSave(null, id, { text: belief, status: "untested" }, today), ...meta };
+    return (await createEntryIfAbsent("canvasBlock", rel, data)) ? { status: "created" } : exists();
+  }
+  try {
+    await updateEntry("canvasBlock", rel, (data, body) => {
+      if (!data || data.text.trim()) throw new AlreadyWritten();
+      return { data: { ...applyBlockSave(data, id, { text: belief, status: data.status }, today), ...meta }, body };
+    });
+    return { status: "created" };
+  } catch (error) {
+    if (error instanceof AlreadyWritten) return exists();
+    throw error;
+  }
 }

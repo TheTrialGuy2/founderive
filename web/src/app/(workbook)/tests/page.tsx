@@ -77,6 +77,7 @@ function TestSection({ id, title, rows, empty }: { id: string; title: string; ro
                   <span className="font-semibold text-navy">{r.data.title}</span>
                   <Badge tone={r.data.status === "running" ? "info" : "neutral"}>{STATUS_LABELS[r.data.status]}</Badge>
                   <Badge>{AREA_LABELS[r.data.area]}</Badge>
+                  {r.data.seeded && <Badge tone="warn">Imported — confirm</Badge>}
                 </span>
                 <span className="mt-1 block text-sm text-muted">{summary(r)}</span>
               </Link>

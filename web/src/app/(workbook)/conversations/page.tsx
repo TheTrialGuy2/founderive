@@ -90,6 +90,7 @@ function ConversationList({ rows, kind }: { rows: ConversationRow[]; kind: "evid
                   {r.data.org ? ` · ${r.data.org}` : ""}
                 </span>
                 <Badge tone={kind === "evidence" ? "good" : "neutral"}>{TYPE_LABELS[r.data.type]}</Badge>
+                {r.data.seeded && <Badge tone="warn">Imported — confirm</Badge>}
               </span>
               <span className="mt-1 block text-sm text-muted">{facts.join(" · ")}</span>
             </Link>
