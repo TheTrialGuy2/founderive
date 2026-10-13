@@ -92,11 +92,13 @@ export async function createTest(input: TestInput, today: string): Promise<strin
 }
 
 export async function startTest(rel: string, today: string): Promise<void> {
-  await updateEntry("test", rel, (data, body) => {
-    if (!data) throw missing(rel);
-    if (data.status !== "planned") throw new Error("Only a planned test can be started.");
-    return { data: { ...data, status: "running", startedOn: today }, body };
-  });
+  await serializedTest(rel, () =>
+    updateEntry("test", rel, (data, body) => {
+      if (!data) throw missing(rel);
+      if (data.status !== "planned") throw new Error("Only a planned test can be started.");
+      return { data: { ...data, status: "running", startedOn: today }, body };
+    }),
+  );
 }
 
 async function requireReadable<K extends "test" | "conversation">(kind: K, rel: string): Promise<KindData<K>> {
@@ -106,23 +108,23 @@ async function requireReadable<K extends "test" | "conversation">(kind: K, rel: 
   return e.data;
 }
 
-const pairQueues = new Map<string, Promise<unknown>>();
+const testQueues = new Map<string, Promise<unknown>>();
 
 /**
- * Runs `work` after every earlier link or unlink of the same test and conversation has finished (an in-process mutex
- * per pair, the same pattern as the store's per-file one), so a link and an unlink can't interleave their two writes
- * and leave the records disagreeing.
+ * Runs `work` after every earlier mutation of the same test has finished (an in-process mutex per test, the same
+ * pattern as the store's per-file one). Every command that changes a test or its evidence links goes through it, so a
+ * link or unlink (two writes) and a completion that reads those links can't interleave. `work` must not call another
+ * command that takes the same test's turn, or it would wait on itself.
  */
-async function serializedPair<T>(testRel: string, conversationRel: string, work: () => Promise<T>): Promise<T> {
-  const key = `${testRel}\n${conversationRel}`;
-  const previous = pairQueues.get(key) ?? Promise.resolve();
+async function serializedTest<T>(testRel: string, work: () => Promise<T>): Promise<T> {
+  const previous = testQueues.get(testRel) ?? Promise.resolve();
   const run = previous.then(work, work);
   const tail = run.catch(() => undefined);
-  pairQueues.set(key, tail);
+  testQueues.set(testRel, tail);
   try {
     return await run;
   } finally {
-    if (pairQueues.get(key) === tail) pairQueues.delete(key);
+    if (testQueues.get(testRel) === tail) testQueues.delete(testRel);
   }
 }
 
@@ -138,12 +140,12 @@ async function setConversationLink(conversationRel: string, testRel: string, on:
   return result.changed;
 }
 
-/** Adds or removes one link on a test. Returns whether the file's list actually changed. */
-async function setTestLink(testRel: string, conversationRel: string, on: boolean): Promise<boolean> {
+/** Adds or removes one link on a test. Returns whether the file's list actually changed. Refuses a closed test unless `allowClosed`. */
+async function setTestLink(testRel: string, conversationRel: string, on: boolean, allowClosed = false): Promise<boolean> {
   const result = { changed: false };
   await updateEntry("test", testRel, (data, body) => {
     if (!data) throw missing(testRel);
-    refuseClosed(data);
+    if (!allowClosed) refuseClosed(data);
     const next = toggle(data.relatedConversations, conversationRel, on);
     result.changed = next.length !== data.relatedConversations.length;
     return { data: { ...data, relatedConversations: next }, body };
@@ -162,7 +164,7 @@ export type LinkHooks = { beforeSecondWrite?: () => void | Promise<void>; before
  */
 export async function linkEvidence(testRel: string, conversationRel: string, hooks: LinkHooks = {}): Promise<void> {
   if (!KINDS.test.pattern.test(testRel) || !KINDS.conversation.pattern.test(conversationRel)) throw new Error("Pick a test and a conversation to link.");
-  return serializedPair(testRel, conversationRel, () => linkBoth(testRel, conversationRel, hooks));
+  return serializedTest(testRel, () => linkBoth(testRel, conversationRel, hooks));
 }
 
 async function linkBoth(testRel: string, conversationRel: string, hooks: LinkHooks): Promise<void> {
@@ -186,16 +188,31 @@ async function linkBoth(testRel: string, conversationRel: string, hooks: LinkHoo
 }
 
 /**
- * Removes the link from both records. A side whose file is gone or misnamed (a broken link) is skipped. A closed test
- * is frozen, so its links stay.
+ * Removes the link from both records. A side whose file is gone, misnamed or unreadable (a broken link) is skipped.
+ * A closed test is frozen, so its links stay, except that a broken link (the conversation is gone or can't be read)
+ * can still be cleaned off it. If the test's write fails, the conversation's link is put back and the original error
+ * is reported.
  */
-export async function unlinkEvidence(testRel: string, conversationRel: string): Promise<void> {
-  return serializedPair(testRel, conversationRel, async () => {
+export async function unlinkEvidence(testRel: string, conversationRel: string, hooks: LinkHooks = {}): Promise<void> {
+  return serializedTest(testRel, async () => {
     const test = KINDS.test.pattern.test(testRel) ? await readEntry("test", testRel) : null;
-    if (test?.ok) refuseClosed(test.data);
-    const present = async (kind: "test" | "conversation", rel: string) => KINDS[kind].pattern.test(rel) && (await readEntry(kind, rel)) !== null;
-    if (await present("conversation", conversationRel)) await setConversationLink(conversationRel, testRel, false);
-    if (test) await setTestLink(testRel, conversationRel, false);
+    const conversation = KINDS.conversation.pattern.test(conversationRel) ? await readEntry("conversation", conversationRel) : null;
+    const brokenLink = !conversation?.ok;
+    if (test?.ok && !brokenLink) refuseClosed(test.data);
+    const removedFromConversation = brokenLink ? false : await setConversationLink(conversationRel, testRel, false);
+    try {
+      await hooks.beforeSecondWrite?.();
+      if (test) await setTestLink(testRel, conversationRel, false, brokenLink);
+    } catch (error) {
+      if (removedFromConversation) {
+        try {
+          await setConversationLink(conversationRel, testRel, true);
+        } catch {
+          // Keep the original error. The link is one-sided now; linking again repairs it, and check-data reports it.
+        }
+      }
+      throw error;
+    }
   });
 }
 
@@ -203,20 +220,24 @@ export async function unlinkEvidence(testRel: string, conversationRel: string): 
 export async function setEvidenceStrength(rel: string, strength: string): Promise<void> {
   if (!oneOf(EVIDENCE_STRENGTHS, strength)) throw new Error("Pick how strong the evidence is.");
   const s = strength;
-  await updateEntry("test", rel, (data, body) => {
-    if (!data) throw missing(rel);
-    if (isClosed(data)) throw new Error("This test is closed. Its evidence strength was set when it closed.");
-    return { data: { ...data, evidenceStrength: s }, body };
-  });
+  await serializedTest(rel, () =>
+    updateEntry("test", rel, (data, body) => {
+      if (!data) throw missing(rel);
+      if (isClosed(data)) throw new Error("This test is closed. Its evidence strength was set when it closed.");
+      return { data: { ...data, evidenceStrength: s }, body };
+    }),
+  );
 }
 
 /** Writes the founder's summary of the evidence, and where it came from, under "## Evidence". Not on a closed test. */
 export async function saveEvidenceNotes(rel: string, notes: string): Promise<void> {
-  await updateEntry("test", rel, (data, body) => {
-    if (!data) throw missing(rel);
-    refuseClosed(data);
-    return { data, body: setSection(body, "Evidence", notes) };
-  });
+  await serializedTest(rel, () =>
+    updateEntry("test", rel, (data, body) => {
+      if (!data) throw missing(rel);
+      refuseClosed(data);
+      return { data, body: setSection(body, "Evidence", notes) };
+    }),
+  );
 }
 
 /**
@@ -245,14 +266,15 @@ async function ensureNextCommitment(rel: string, test: VentureTest, today: strin
 }
 
 /**
- * Whether a test has evidence that can carry a clear result (spec §3.1): a linked customer or prospect conversation
- * that exists and reads, or the founder's own description of the evidence under "## Evidence". Advice never counts.
+ * Whether a test has evidence that can carry a clear result (spec §3.1): a customer or prospect conversation that
+ * exists, reads and links back to the test (a one-sided link doesn't count), or the founder's own description of the
+ * evidence under "## Evidence". Advice never counts.
  */
-async function hasRealEvidence(test: VentureTest, body: string): Promise<boolean> {
+async function hasRealEvidence(rel: string, test: VentureTest, body: string): Promise<boolean> {
   if (getSection(body, "Evidence").trim()) return true;
   for (const p of test.relatedConversations) {
     const e = KINDS.conversation.pattern.test(p) ? await readEntry("conversation", p) : null;
-    if (e?.ok && isCustomerEvidence(e.data.type)) return true;
+    if (e?.ok && isCustomerEvidence(e.data.type) && e.data.relatedTests.includes(rel)) return true;
   }
   return false;
 }
@@ -261,9 +283,14 @@ async function hasRealEvidence(test: VentureTest, body: string): Promise<boolean
  * Closes a test with the founder's result and decision (kept separate), writes the learning and the reason into the
  * body, and adds the next commitment (if any) to this week's check-in, linked to the test. A supported or contradicted
  * result needs real evidence; inconclusive is always allowed. Safe to repeat: on a test that's already complete it
- * changes nothing but a next commitment that a failed earlier attempt left out, and says `alreadyComplete`.
+ * changes nothing but a next commitment that a failed earlier attempt left out, and says `alreadyComplete`. That
+ * includes a completion that waited its turn behind another one of the same test.
  */
 export async function completeTest(rel: string, form: CompletionForm, today: string): Promise<{ commitmentId: string | null; alreadyComplete?: true }> {
+  return serializedTest(rel, () => completeInTurn(rel, form, today));
+}
+
+async function completeInTurn(rel: string, form: CompletionForm, today: string): Promise<{ commitmentId: string | null; alreadyComplete?: true }> {
   const current = await readEntry("test", rel);
   if (current?.ok && current.data.status === "complete") return { ...(await ensureNextCommitment(rel, current.data, today)), alreadyComplete: true };
   const checked = checkCompletion(form);
@@ -272,7 +299,7 @@ export async function completeTest(rel: string, form: CompletionForm, today: str
   const { data: closed } = await updateEntry("test", rel, async (data, body) => {
     if (!data) throw missing(rel);
     if (isClosed(data)) throw new Error("This test is already closed.");
-    if (c.result !== "inconclusive" && !(await hasRealEvidence(data, body)))
+    if (c.result !== "inconclusive" && !(await hasRealEvidence(rel, data, body)))
       throw new Error(`Link a customer or prospect conversation, or describe the evidence and where it came from, before marking it ${c.result}.`);
     const withLearning = setSection(body, "What we learned", c.learning);
     return {
@@ -295,11 +322,13 @@ export async function completeTest(rel: string, form: CompletionForm, today: str
 
 export async function abandonTest(rel: string, reason: string, today: string): Promise<void> {
   const why = required(reason, "Say why you're stopping this test. “The assumption no longer matters” is a fine reason.");
-  await updateEntry("test", rel, (data, body) => {
-    if (!data) throw missing(rel);
-    if (isClosed(data)) throw new Error("This test is already closed.");
-    return { data: { ...data, status: "abandoned", abandonReason: why, closedOn: today }, body };
-  });
+  await serializedTest(rel, () =>
+    updateEntry("test", rel, (data, body) => {
+      if (!data) throw missing(rel);
+      if (isClosed(data)) throw new Error("This test is already closed.");
+      return { data: { ...data, status: "abandoned", abandonReason: why, closedOn: today }, body };
+    }),
+  );
 }
 
 /** Every test: running, planned, then complete and stopped early. Unreadable files are listed, never dropped. */

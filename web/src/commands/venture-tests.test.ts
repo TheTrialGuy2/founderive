@@ -344,3 +344,99 @@ describe("link and unlink never leave the two sides disagreeing", () => {
     }
   });
 });
+
+describe("completion and unlinking of one test never interleave", () => {
+  const CLEAR = /Link a customer or prospect conversation/;
+  const sides = async (t: string, c: string) => {
+    const conv = await readEntry("conversation", c);
+    return { onTest: (await testData(t)).data.relatedConversations.includes(c), onConversation: !!(conv?.ok && conv.data.relatedTests.includes(t)) };
+  };
+  it("a completion that arrives while an unlink is between its writes leaves the pair consistent", async () => {
+    const t = await createTest(PILOT, TODAY);
+    const c = await createConversation(DANA);
+    await linkEvidence(t, c);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let reachedMidway!: () => void;
+    const midway = new Promise<void>((r) => (reachedMidway = r));
+    const unlinking = unlinkEvidence(t, c, {
+      beforeSecondWrite: () => {
+        reachedMidway();
+        return gate;
+      },
+    });
+    await midway;
+    const completing = completeTest(t, complete(), TODAY);
+    await new Promise((r) => setTimeout(r, 30));
+    release();
+    const [u, done] = await Promise.allSettled([unlinking, completing]);
+    const s = await sides(t, c);
+    expect(s.onConversation).toBe(s.onTest);
+    if (done.status === "fulfilled") {
+      // Completion ran first: the unlink is refused and both sides stay linked.
+      expect(u.status).toBe("rejected");
+      expect(s).toEqual({ onTest: true, onConversation: true });
+    } else {
+      // Completion waited for the unlink: its only evidence is gone, so it's refused.
+      expect(String(done.reason)).toMatch(CLEAR);
+      expect(u.status).toBe("fulfilled");
+      expect(s).toEqual({ onTest: false, onConversation: false });
+      expect((await testData(t)).data.status).toBe("running");
+    }
+  });
+  it("puts the conversation side back when the unlink's second write fails, keeping the original error", async () => {
+    const t = await createTest(PILOT, TODAY);
+    const c = await createConversation(DANA);
+    await linkEvidence(t, c);
+    await expect(unlinkEvidence(t, c, { beforeSecondWrite: () => { throw new Error("disk full"); } })).rejects.toThrow(/disk full/);
+    expect(await sides(t, c)).toEqual({ onTest: true, onConversation: true });
+  });
+  it("doesn't count a conversation that doesn't link back to the test as evidence", async () => {
+    const t = await createTest(PILOT, TODAY);
+    const c = await createConversation(DANA);
+    await updateEntry("test", t, (data, body) => ({ data: { ...data!, relatedConversations: [c] }, body }));
+    await expect(completeTest(t, complete(), TODAY)).rejects.toThrow(CLEAR);
+  });
+  it("two completions at the same moment both resolve, one saying it was already complete, with one commitment", async () => {
+    const t = await createTest(PILOT, TODAY);
+    await withNotes(t);
+    const results = await Promise.all([completeTest(t, complete(), TODAY), completeTest(t, complete(), TODAY)]);
+    expect(results.filter((r) => r.alreadyComplete)).toHaveLength(1);
+    expect(results[0].commitmentId).toBe(results[1].commitmentId);
+    const week = await readEntry("checkin", "checkins/2026-W42.md");
+    expect(week?.ok && week.data.commitments.filter((x) => x.link === t)).toHaveLength(1);
+  });
+  it("still refuses to complete an abandoned test", async () => {
+    const t = await createTest(PILOT, TODAY);
+    await abandonTest(t, "Pricing changed", TODAY);
+    await expect(Promise.all([completeTest(t, complete(), TODAY), completeTest(t, complete(), TODAY)])).rejects.toThrow(/already closed/);
+  });
+});
+
+describe("cleaning up a broken link on a closed test", () => {
+  it("removes a link to a conversation that's gone", async () => {
+    const t = await createTest(PILOT, TODAY);
+    await withNotes(t);
+    await updateEntry("test", t, (data, body) => ({ data: { ...data!, relatedConversations: [GONE] }, body }));
+    await completeTest(t, complete(), TODAY);
+    await unlinkEvidence(t, GONE);
+    expect((await testData(t)).data.relatedConversations).toEqual([]);
+  });
+  it("removes a link to a conversation that can't be read", async () => {
+    const t = await createTest(PILOT, TODAY);
+    const c = await createConversation(DANA);
+    await linkEvidence(t, c);
+    await completeTest(t, complete(), TODAY);
+    await writeFile(path.join(env.dir, c), "---\ntype: nope\n---\n");
+    await unlinkEvidence(t, c);
+    expect((await testData(t)).data.relatedConversations).toEqual([]);
+  });
+  it("still refuses when the conversation reads fine", async () => {
+    const t = await createTest(PILOT, TODAY);
+    const c = await createConversation(DANA);
+    await linkEvidence(t, c);
+    await completeTest(t, complete(), TODAY);
+    await expect(unlinkEvidence(t, c)).rejects.toThrow(/This test is closed/);
+    expect((await testData(t)).data.relatedConversations).toEqual([c]);
+  });
+});
