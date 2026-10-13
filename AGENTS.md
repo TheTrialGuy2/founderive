@@ -8,6 +8,7 @@ If the founder asks to get set up, start Founderive or open the app, run `node s
 
 ## Rules for founder-data
 
+- The data folder may live outside this repo. Find it via `founderive.local.json` at the repo root (`{ "dataDir": "<path>" }`) or the `FOUNDER_DATA_DIR` env var; absent both, it defaults to `founder-data/` here. `pnpm check-data` prints the resolved folder it checked.
 - One Markdown file per entry. Structured fields go in YAML frontmatter, and free writing goes in the body.
 - Dates are `YYYY-MM-DD`.
 - Never overwrite a version. A new pitch version or canvas entry is a new dated file.

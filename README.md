@@ -19,6 +19,22 @@ Using Claude Code or Codex? Open the folder and say "set me up". It will run the
 
 Your data lives in `founder-data/`. It is ignored by this repo's git, so pulling Founderive updates never touches it.
 
+## Keep your data somewhere else (optional)
+
+By default your data lives in `founder-data/` inside this repo. To keep it somewhere else instead — for example so it can have its own git history, or live in a synced folder — copy `founderive.local.example.json` to `founderive.local.json` at the repo root and set `dataDir` to the folder you want:
+
+```bash
+cp founderive.local.example.json founderive.local.json
+```
+
+```json
+{
+  "dataDir": "~/Founderive/MyVenture"
+}
+```
+
+`founderive.local.json` is gitignored, so this choice stays local to your computer. `node start.mjs` prints where your data lives each time it starts.
+
 ## Useful commands (from `web/`)
 
 | Command | What it does |

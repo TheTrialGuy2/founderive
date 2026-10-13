@@ -2,6 +2,8 @@
 // One command for founders: checks Node, installs what's needed, starts Founderive on this computer and opens the browser.
 // Set FOUNDERIVE_NO_OPEN=1 to start it without opening a browser (it still prints the address).
 import { spawn, spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -48,7 +50,8 @@ dev.stdout.on("data", (chunk) => {
   if (!local || !/Ready/i.test(output)) return;
   announced = true;
   const url = local[1].replace(/\/$/, "").replace("//localhost", "//127.0.0.1"); // the server binds IPv4 only
-  console.log(`\nFounderive is running at ${url}. Keep this window open while you use it; press Ctrl+C to stop.\n`);
+  console.log(`\nFounderive is running at ${url}. Keep this window open while you use it; press Ctrl+C to stop.`);
+  console.log(`Your data: ${resolveDataDir()}\n`);
   if (!noOpen) openBrowser(url);
 });
 dev.on("exit", (code) => process.exit(code ?? 0));
@@ -81,4 +84,33 @@ function openBrowser(url) {
 
 function stripAnsi(text) {
   return text.replace(/\u001b\[[0-9;]*m/g, "");
+}
+
+// Tiny duplicate of web/src/store/paths.ts's dataDir() resolution, kept in plain JS here since this
+// script runs before (and without) the TS store. Order: env FOUNDER_DATA_DIR, then founderive.local.json
+// at the repo root (supports "~/" and relative paths), then the default <repo root>/founder-data.
+// Unlike the store, this is just for a friendly status line, so a bad config file quietly falls back
+// to the default instead of throwing; the app itself reports a bad founderive.local.json in detail.
+function resolveDataDir() {
+  if (process.env.FOUNDER_DATA_DIR) return path.resolve(process.env.FOUNDER_DATA_DIR);
+
+  const configPath = process.env.FOUNDERIVE_LOCAL_CONFIG ?? path.join(root, "founderive.local.json");
+  const configured = readConfiguredDataDir(configPath);
+  if (configured) {
+    const expanded =
+      configured === "~" ? os.homedir() : configured.startsWith("~/") ? path.join(os.homedir(), configured.slice(2)) : configured;
+    return path.resolve(path.isAbsolute(expanded) ? expanded : path.join(root, expanded));
+  }
+
+  return path.resolve(path.join(root, "founder-data"));
+}
+
+function readConfiguredDataDir(configPath) {
+  if (!fs.existsSync(configPath)) return null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    return typeof parsed?.dataDir === "string" ? parsed.dataDir : null;
+  } catch {
+    return null;
+  }
 }

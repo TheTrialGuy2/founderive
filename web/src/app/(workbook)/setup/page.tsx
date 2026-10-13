@@ -3,18 +3,14 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/ui";
 import { firstIncompleteStep, LAST_STEP } from "@/commands/setup";
 import { readEntry } from "@/store/read";
+import { dataDir } from "@/store/paths";
 import { SetupStep } from "./SetupStep";
 
 export default function SetupPage({ searchParams }: PageProps<"/setup">) {
   return (
-    <>
-      <PageHeader eyebrow="About five minutes" title="Set up your venture">
-        Your answers stay in founder-data on this computer.
-      </PageHeader>
-      <Suspense fallback={null}>
-        <SetupContent searchParams={searchParams} />
-      </Suspense>
-    </>
+    <Suspense fallback={null}>
+      <SetupContent searchParams={searchParams} />
+    </Suspense>
   );
 }
 
@@ -53,5 +49,12 @@ async function SetupContent({ searchParams }: { searchParams: PageProps<"/setup"
     programStart: s(f?.programStart),
     programWeeks: s(f?.programWeeks),
   };
-  return <SetupStep key={step} step={step} initial={initial} canJump={canJump} />;
+  return (
+    <>
+      <PageHeader eyebrow="About five minutes" title="Set up your venture">
+        Your answers are saved in {dataDir()} on this computer.
+      </PageHeader>
+      <SetupStep key={step} step={step} initial={initial} canJump={canJump} />
+    </>
+  );
 }
