@@ -15,13 +15,27 @@ if (await exists(path.join(target, "founder.md"))) {
 // Never overwrites: files already in the folder (e.g. private reference notes) are kept.
 await cp(starter, target, { recursive: true, force: false, errorOnExist: false });
 
+const run = (args: string[]) => execFileSync("git", args, { cwd: target, stdio: ["ignore", "pipe", "pipe"] });
+
 if (!(await exists(path.join(target, ".git")))) {
+  let gitReady = true;
   try {
-    execFileSync("git", ["init", "-q"], { cwd: target });
-    execFileSync("git", ["add", "-A"], { cwd: target });
-    execFileSync("git", ["commit", "-q", "-m", "Start founder-data from the Founderive starter"], { cwd: target });
+    run(["init", "-q"]);
   } catch {
+    gitReady = false;
     console.log("Git isn't available, so founder-data has no history yet.");
+  }
+  if (gitReady) {
+    try {
+      run(["add", "-A"]);
+      run(["commit", "-q", "-m", "Start founder-data from the Founderive starter"]);
+    } catch (error) {
+      const stderr = (error as { stderr?: Buffer }).stderr?.toString() ?? "";
+      const firstLine = stderr.split("\n")[0] ?? "";
+      console.log(
+        `Created founder-data, but the first commit failed: ${firstLine}. Set git user.name/user.email, then run: git -C ${target} add -A && git -C ${target} commit -m 'Start founder-data'`,
+      );
+    }
   }
 }
 console.log(`Created ${target}\nNext: pnpm dev, then open http://localhost:3000`);

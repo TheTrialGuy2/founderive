@@ -48,6 +48,8 @@ Demo state (approved conversations, check-ins, opt-ins, builder edits) lives in 
 | `src/data/repo.ts` | The only data source pages import; becomes Supabase queries later |
 | `src/core/` | Deterministic, tested rules: metrics, visibility, engagement, readiness, simulated agent |
 | `src/state/` | Demo store (React context) and the values derived from it |
-| `src/app/founder`, `src/app/operator`, `src/app/onboarding` | Screens |
-| `src/app/design-system` (`/design-system`) | Handoff reference: rules, color, type, icons, every component state |
+| `src/app/demo/founder`, `src/app/demo/operator`, `src/app/demo/onboarding` | Screens |
+| `src/app/demo/design-system` (`/demo/design-system`) | Handoff reference: rules, color, type, icons, every component state |
 | `src/components/icons.tsx` | The one icon registry (Lucide SVGs) |
+
+The workbook routes (the founder's own record, reading `founder-data/`) live in `src/app/(workbook)/`.
