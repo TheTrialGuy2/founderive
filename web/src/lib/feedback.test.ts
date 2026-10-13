@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FEEDBACK_EMAIL, feedbackLinks, feedbackText } from "./feedback";
+import { FEEDBACK_EMAIL, feedbackLinks, feedbackText, routePattern } from "./feedback";
 
 const input = { whatHappened: "Saving a test showed an error", page: "/tests/new", expected: "The test to save" };
 
@@ -22,5 +22,27 @@ describe("feedback links", () => {
   });
   it("shortens a long issue title", () => {
     expect(new URL(feedbackLinks({ ...input, whatHappened: "x".repeat(80) }, "0.1.0").issue).searchParams.get("title")).toHaveLength(58);
+  });
+});
+
+describe("routePattern (feedback never carries a record's name)", () => {
+  it.each([
+    ["/conversations/2026-10-08-dana-ortiz", "/conversations/…"],
+    ["/tests/2026-10-06-paid-pilot", "/tests/…"],
+    ["/canvas/customer", "/canvas/…"],
+    ["/tests/2026-10-06-paid-pilot?tab=evidence#x", "/tests/…"],
+    ["/conversations/a/b", "/conversations/…/…"],
+    ["/some-unknown-page", "/…"],
+  ])("%s becomes %s", (path, pattern) => expect(routePattern(path)).toBe(pattern));
+  it.each(["/today", "/tests", "/tests/new", "/conversations/new", "/import/folder", "/setup", "/feedback", "/decisions", "/"])("keeps the static route %s", (path) =>
+    expect(routePattern(path)).toBe(path));
+  it("never lets a dynamic segment reach the email, the issue or the text", () => {
+    const leaky = { ...input, page: "/conversations/2026-10-08-dana-ortiz" };
+    const links = feedbackLinks(leaky, "0.1.0");
+    for (const s of [decodeURIComponent(links.mailto), decodeURIComponent(links.issue), feedbackText(leaky, "0.1.0")]) {
+      expect(s).not.toContain("dana");
+      expect(s).not.toContain("2026-10-08");
+    }
+    expect(feedbackText(leaky, "0.1.0")).toContain("Page: /conversations/…");
   });
 });

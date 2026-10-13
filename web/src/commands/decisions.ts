@@ -1,3 +1,4 @@
+import { isCustomerEvidence } from "../core/conversations";
 import { brokenLinks, linksOf, type BrokenLink } from "../core/links";
 import { existingPaths, listEntries } from "../store/read";
 import { AREAS, kindOf, type Area, type KindData } from "../store/schemas";
@@ -75,7 +76,10 @@ export async function loadDecisions(): Promise<{
     .sort((a, b) => b.data.date.localeCompare(a.data.date) || a.path.localeCompare(b.path));
   const testOptions = tests.flatMap((t) => (t.ok ? [{ path: t.path, title: t.data.title }] : []));
   const evidenceOptions = [
-    ...conversations.flatMap((c) => (c.ok ? [{ path: c.path, label: `Conversation · ${c.data.person} · ${c.data.date ?? "date unknown"}` }] : [])),
+    // Advice is never evidence (amendment §5.3), so each conversation says which it is.
+    ...conversations.flatMap((c) =>
+      c.ok ? [{ path: c.path, label: `Conversation · ${c.data.person} · ${c.data.date ?? "date unknown"} · ${isCustomerEvidence(c.data.type) ? "customer evidence" : "advice"}` }] : [],
+    ),
     ...testOptions.map((t) => ({ path: t.path, label: `Test · ${t.title}` })),
   ];
   return { rows, flagged: entries.flatMap((e) => (e.ok ? [] : [{ path: e.path, error: e.error }])), evidenceOptions, tests: testOptions };

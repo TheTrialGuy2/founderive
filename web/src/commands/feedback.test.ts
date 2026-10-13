@@ -27,4 +27,11 @@ describe("feedback", () => {
     const e = await readEntry("feedback", rel);
     expect(e?.ok && e.data).toMatchObject({ date: "2026-10-13", page: "/tests/new", whatHappened: "Saving a test showed an error", appVersion: "0.1.0" });
   });
+  it("reduces a pasted app path to its route pattern before anything is sent or saved", () => {
+    const fd = new FormData();
+    fd.set("whatHappened", "The page broke");
+    fd.set("page", "/tests/2026-10-06-paid-pilot");
+    const r = parseFeedbackForm(fd);
+    expect(r.ok && r.input.page).toBe("/tests/…");
+  });
 });

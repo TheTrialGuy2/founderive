@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { Badge, Card, formatDate, PageHeader } from "@/components/ui";
 import { DecisionForm } from "@/components/decisions/DecisionForm";
 import { BrokenLinks } from "@/components/workbook/BrokenLinks";
+import { SeededNote } from "@/components/workbook/SeededNote";
 import { CopyPrompt } from "@/components/workbook/CopyPrompt";
 import { EmptyState } from "@/components/workbook/EmptyState";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
@@ -80,6 +81,12 @@ function DecisionCard({ row, labels }: { row: DecisionRow; labels: Map<string, s
         {d.area && <Badge>{AREA_LABELS[d.area]}</Badge>}
         <Badge tone={d.reversible ? "neutral" : "warn"}>{d.reversible ? "Easy to undo" : "Hard to undo"}</Badge>
       </div>
+      {/* An imported decision is a draft until the founder confirms it as theirs (amendment §3.4). */}
+      {d.seeded && (
+        <div className="mt-3">
+          <SeededNote path={row.path} source={d.source} />
+        </div>
+      )}
       {row.broken.length > 0 && (
         <div className="mt-3">
           <BrokenLinks links={row.broken} hint="Fix the path in the decision file. The decision itself is unaffected." />

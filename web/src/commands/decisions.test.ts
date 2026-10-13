@@ -5,7 +5,8 @@ import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
 import { createConversation } from "./conversations";
 import { createDecision, loadDecisions, parseDecisionForm } from "./decisions";
-import { DANA } from "./test-inputs";
+import { confirmImportedRecord } from "./import";
+import { DANA, MENTOR } from "./test-inputs";
 
 let env: Awaited<ReturnType<typeof useTempData>>;
 beforeEach(async () => {
@@ -66,5 +67,19 @@ describe("decision log", () => {
     const v = await loadDecisions();
     expect(v.rows.map((r) => r.data.title)).toEqual(["New", "Old"]);
     expect(v.rows[1].broken).toHaveLength(1);
+  });
+  it("labels each conversation it can cite as customer evidence or advice", async () => {
+    const dana = await createConversation(DANA);
+    const mentor = await createConversation(MENTOR);
+    const labels = Object.fromEntries((await loadDecisions()).evidenceOptions.map((o) => [o.path, o.label]));
+    expect(labels[dana]).toBe("Conversation · Dana Ortiz · 2026-10-08 · customer evidence");
+    expect(labels[mentor]).toBe("Conversation · Chris Lee · 2026-10-08 · advice");
+  });
+  it("an imported decision shows as seeded until the founder confirms it", async () => {
+    await mkdir(path.join(env.dir, "decisions"), { recursive: true });
+    await writeFile(path.join(env.dir, "decisions/2026-10-05-imp.md"), "---\nseeded: true\nsource: folder import 2026-10-13 #abc\ntitle: Imp\ndate: 2026-10-05\ndecision: C\nwhy: D\nreversible: true\n---\n");
+    expect((await loadDecisions()).rows[0].data.seeded).toBe(true);
+    await confirmImportedRecord("decisions/2026-10-05-imp.md");
+    expect((await loadDecisions()).rows[0].data.seeded).toBeUndefined();
   });
 });

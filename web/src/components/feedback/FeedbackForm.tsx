@@ -7,7 +7,7 @@ import { buttonPrimary, buttonQuiet, inputClass } from "@/components/workbook/fo
 import { IDLE } from "@/lib/action-state";
 import { FEEDBACK_EMAIL } from "@/lib/feedback";
 
-const PAGE_HINT = "Filled in from the page you came from. Change it if it's wrong.";
+const PAGE_HINT = "The kind of page you came from, like /tests/…. Record names are left out. Change it if it's wrong.";
 
 export function FeedbackForm({ page }: { page: string }) {
   const [state, formAction, pending] = useActionState(sendFeedbackAction, IDLE);
@@ -48,7 +48,9 @@ export function FeedbackForm({ page }: { page: string }) {
       <Field id="expected" label="What you expected (optional)">
         <textarea id="expected" name="expected" rows={2} defaultValue={v.expected} className={inputClass} />
       </Field>
-      <p className="text-xs text-muted">Only what you type here, the page and the app version are sent. Nothing from founder-data is included unless you paste it.</p>
+      <p className="text-xs text-muted">
+        Nothing is sent until you choose email or GitHub. The message holds only what you type here, the kind of page (record names left out) and the app version. A copy is saved in your data folder.
+      </p>
       <button type="submit" disabled={pending} className={state.status === "error" && links ? buttonQuiet : buttonPrimary}>
         {pending ? "Saving…" : "Send feedback"}
       </button>

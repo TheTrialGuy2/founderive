@@ -29,7 +29,7 @@ Every part of the app either moves this loop forward or keeps a useful record of
 | Decision | `decisions/YYYY-MM-DD-name.md` | Decisions made outside a test: belief before, evidence, alternatives, the decision, why, and whether it's reversible |
 | Program week (optional) | `program/week-NN.md` | Assignments, each done or skipped with a reason |
 
-Customer and prospect conversations are evidence. Mentor, investor and partner conversations are advice: they can be linked to a test, but they're labeled as advice and never count as customer evidence.
+Customer and prospect conversations are evidence when the founder has confirmed them and they record something: notes, what the person does today, a quote or a number. Mentor, investor and partner conversations are advice: they can be linked to a test, but they're labeled as advice and never count as customer evidence. A conversation counts on a test only when both records list each other; a link only one side makes shows as needing repair.
 
 ## The next action
 
@@ -40,17 +40,19 @@ Today shows one recommended action with a one-line reason. It's computed by one 
 3. A running venture test
 4. An overdue commitment
 5. A follow-up that is due
-6. Any other open commitment for this week that isn't overdue, earliest due first: do what you said you'd do before taking on a new guide step
+6. Any other open commitment that isn't overdue, earliest due first: do what you said you'd do before taking on a new guide step
 7. A commitment made for a guide step or chosen when completing a test (while not overdue)
 8. The next guide step, unless a guide commitment is open. It completes from logged evidence rather than a checkbox
 9. Program work
 10. Fixing a file Founderive can't read
 
+Open commitments from earlier weeks carry into Today, labelled with their week, and rank exactly as this week's do. They stay in the check-in they were written in; marking one done or dropped updates that file.
+
 The founder can skip a recommendation for the week, defer it to a date, or replace it with something else. Each choice needs a reason and is kept in that week's check-in. Events and journal entries never outrank these.
 
 ## Capacity
 
-Each open commitment counts as about three hours. When the week's open commitments clearly exceed the founder's stated hours, Today says so in one plain line and favors finishing over adding.
+Each open commitment counts as about three hours. When the week's open commitments clearly exceed the founder's stated hours, Today asks whether this week's load fits; the founder decides.
 
 ## Progress
 

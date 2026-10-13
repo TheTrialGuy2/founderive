@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandWordmark } from "@/components/BrandWordmark";
+import { routePattern } from "@/lib/feedback";
 import { isActive, NAV_GROUPS } from "@/lib/workbook-nav";
 
 export function WorkbookNav() {
   const pathname = usePathname();
-  const feedbackHref = `/feedback?from=${encodeURIComponent(pathname)}`;
+  // The route pattern only (/tests/…), never the record's slug, so feedback can't carry a name or title.
+  const feedbackHref = `/feedback?from=${encodeURIComponent(routePattern(pathname))}`;
   return (
     <nav className="sticky top-0 z-30 border-b border-line bg-paper/95 backdrop-blur md:h-screen md:w-60 md:shrink-0 md:border-r md:border-b-0" aria-label="Workbook">
       <div className="flex items-center justify-between px-4 py-3 md:block md:px-5 md:pt-6 md:pb-4">
