@@ -7,17 +7,17 @@ import { Icon } from "@/components/icons";
 import { FOUNDER_NAV, FOUNDER_TABS, OPERATOR_NAV } from "@/lib/nav";
 import { useDemo } from "@/state/DemoStore";
 
-const isFounderArea = (path: string) => path.startsWith("/founder");
+const isFounderArea = (path: string) => path.startsWith("/demo/founder");
 
 export function PersonaSwitch() {
-  const isOperator = usePathname().startsWith("/operator");
+  const isOperator = usePathname().startsWith("/demo/operator");
   const tab = (active: boolean) => `whitespace-nowrap rounded-full px-3 py-1 ${active ? "bg-lime text-navy" : "text-white/80 hover:text-white"}`;
   return (
     <div className="flex rounded-full bg-white/10 p-0.5" aria-label="Switch persona">
-      <Link href="/founder/today" className={tab(!isOperator)}>
+      <Link href="/demo/founder/today" className={tab(!isOperator)}>
         Founder
       </Link>
-      <Link href="/operator/overview" className={tab(isOperator)}>
+      <Link href="/demo/operator/overview" className={tab(isOperator)}>
         <span className="hidden sm:inline">Program </span>team
       </Link>
     </div>
@@ -27,8 +27,8 @@ export function PersonaSwitch() {
 export function SideNav() {
   const pathname = usePathname();
   const { basics } = useDemo();
-  if (pathname.startsWith("/onboarding")) return null;
-  const isOperator = pathname.startsWith("/operator");
+  if (pathname.startsWith("/demo/onboarding")) return null;
+  const isOperator = pathname.startsWith("/demo/operator");
   const nav = isOperator ? OPERATOR_NAV : FOUNDER_NAV;
 
   return (
@@ -88,10 +88,10 @@ export function FounderTabBar() {
 /** Desktop quick-log button, always one click from logging a conversation. */
 export function QuickLog() {
   const pathname = usePathname();
-  if (!isFounderArea(pathname) || pathname === "/founder/conversations/new") return null;
+  if (!isFounderArea(pathname) || pathname === "/demo/founder/conversations/new") return null;
   return (
     <Link
-      href="/founder/conversations/new"
+      href="/demo/founder/conversations/new"
       className="fixed right-8 bottom-8 z-20 hidden h-14 w-14 items-center justify-center rounded-full bg-navy text-lime shadow-lg hover:bg-navy-light md:flex"
       aria-label="Log a conversation"
       title="Log a conversation"

@@ -136,7 +136,7 @@ export function nextAction(state: { conversations: Conversation[]; programs: Pro
       title: "Talk to one more agency owner",
       effort: "30 min",
       why: `Session ${session.n} homework is at ${interviews.evidenceIds.length} of ${interviews.required}, and it keeps your streak going.`,
-      href: "/founder/conversations/new",
+      href: "/demo/founder/conversations/new",
     };
   }
   const halfway = session.homework.find((h) => open(h) && h.builds.startsWith("Milestones"));
@@ -145,7 +145,7 @@ export function nextAction(state: { conversations: Conversation[]; programs: Pro
       title: "Do your halfway check",
       effort: "10 min",
       why: `Due before Session ${session.n}. It unlocks pitch night.`,
-      href: `/founder/programs/esc/sessions/${session.n}`,
+      href: `/demo/founder/programs/esc/sessions/${session.n}`,
     };
   }
   const supported = supportedCount(state.conversations);
@@ -155,13 +155,13 @@ export function nextAction(state: { conversations: Conversation[]; programs: Pro
       title: "Share your readiness profile",
       effort: "2 min",
       why: `You now meet ${shareable.name}'s bar (${shareable.minSupported} of 7 criteria).`,
-      href: "/founder/capital",
+      href: "/demo/founder/capital",
     };
   }
   return {
     title: "Prep your mentor agenda",
     effort: "10 min",
     why: "It's pre-filled from your record. Review it and share it before the meeting.",
-    href: "/founder/mentors",
+    href: "/demo/founder/mentors",
   };
 }

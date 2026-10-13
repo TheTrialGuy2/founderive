@@ -28,7 +28,7 @@ describe("nextAction", () => {
   it("starts with the open interview homework", () => {
     const a = nextAction(base());
     expect(a.title).toMatch(/agency owner/i);
-    expect(a.href).toBe("/founder/conversations/new");
+    expect(a.href).toBe("/demo/founder/conversations/new");
   });
 
   it("moves to the halfway check once interviews are done", () => {

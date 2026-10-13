@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   // The dev badge covers the mobile tab bar during demos.
   devIndicators: false,
   async redirects() {
-    return [{ source: "/", destination: "/founder/today", permanent: false }];
+    return [{ source: "/", destination: "/today", permanent: false }];
   },
   partialPrefetching: true,
   turbopack: {
