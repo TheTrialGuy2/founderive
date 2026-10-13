@@ -17,7 +17,7 @@ That record gives founders continuity across programs, mentors, and funders. It 
 - A free, local-first, founder-owned workbook for people starting from scratch.
 - A ten-week guided track works both inside and outside an entrepreneurship program.
 - Plain Markdown is the durable data layer; the app and an AI coding assistant can work on the same record.
-- A solo founder is the first user, peers in a founder program are the first adoption test, and program operators are a later buyer—not the v1 customer.
+- Founders themselves are the first users; peers in a founder cohort are the first adoption test, and program operators are a later buyer—not the v1 customer.
 
 ### Likely scalable model
 

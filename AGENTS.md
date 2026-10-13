@@ -49,4 +49,3 @@ Rules:
   - Filtered keeps the filter and offers to clear it.
 - An error says what happened, what it affects and what to do now, and keeps the user's input.
 - Meaning never relies on color, an icon or a tooltip alone. Heading, visual and focus order match.
-- Full rules: spec §5a (`docs/superpowers/specs/`).
