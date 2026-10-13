@@ -2,6 +2,7 @@ import { weekFile } from "../core/program";
 import { initData } from "../store/init";
 import { readEntry } from "../store/read";
 import { BUSINESS_MODELS, COFOUNDERS, COMMITMENTS, EVIDENCE_LEVELS, STAGES, type KindData } from "../store/schemas";
+import { updateEntry } from "../store/update";
 import { saveEntry } from "../store/write";
 
 export type FounderData = KindData<"founder">;
@@ -95,11 +96,10 @@ export function firstIncompleteStep(f: FounderData | null): number | null {
 /** Saves one setup step. The first save creates founder-data; the last marks setup complete and creates blank program weeks (never overwriting). */
 export async function saveSetupStep(step: number, patch: StepPatch): Promise<void> {
   await initData();
-  const existing = await readEntry("founder", "founder.md");
-  if (existing && !existing.ok) throw new Error(`Fix founder-data/founder.md first: ${existing.error}`);
-  const previous: FounderData = existing?.ok ? existing.data : { name: "", venture: "", setupComplete: false };
-  const data: FounderData = { ...previous, ...patch, setupComplete: previous.setupComplete || step === LAST_STEP };
-  await saveEntry("founder", "founder.md", data, existing?.ok ? existing.body : "");
+  const { data } = await updateEntry("founder", "founder.md", (existing, body) => {
+    const previous: FounderData = existing ?? { name: "", venture: "", setupComplete: false };
+    return { data: { ...previous, ...patch, setupComplete: previous.setupComplete || step === LAST_STEP }, body };
+  });
 
   if (step === LAST_STEP && data.programTitle && data.programWeeks) {
     for (let n = 1; n <= data.programWeeks; n++) {

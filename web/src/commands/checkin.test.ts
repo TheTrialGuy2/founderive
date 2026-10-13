@@ -37,6 +37,12 @@ describe("check-in commands", () => {
     expect(data.nextStepLog[0]).toMatchObject({ actionId: "guide:x", choice: "replaced", date: "2026-10-13" });
     expect(data.commitments.some((c) => c.text === "Visit two agencies")).toBe(true);
   });
+  it("keeps both of two commitments added at the same moment", async () => {
+    const [a, b] = await Promise.all([addCommitment("2026-W42", { text: "Call Dana" }), addCommitment("2026-W42", { text: "Call Lee" })]);
+    const ids = (await loadCheckin("2026-W42")).data.commitments.map((c) => c.id);
+    expect(ids).toEqual(expect.arrayContaining(["c-1", "c-2", a, b]));
+    expect(ids).toHaveLength(4);
+  });
   it("refuses to save over an invalid check-in file", async () => {
     await mkdir(path.join(env.dir, "checkins"), { recursive: true });
     await writeFile(path.join(env.dir, "checkins/2026-W44.md"), "---\nweek: nope\n---\n");

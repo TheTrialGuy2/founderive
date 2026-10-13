@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { readEntry } from "../store/read";
 import type { KindData } from "../store/schemas";
-import { saveEntry } from "../store/write";
+import { updateEntry } from "../store/update";
 
 export type Checkin = KindData<"checkin">;
 type ChoiceInput = { actionId: string; label: string; choice: "dismissed" | "deferred" | "replaced"; reason: string; until?: string | null; replacement?: string | null };
@@ -23,10 +23,13 @@ export async function loadCheckin(weekId: string): Promise<{ data: Checkin; body
   return { data: entry.data, body: entry.body };
 }
 
+/** Changes this week's check-in without losing a save made at the same moment. `change` may run more than once. */
 async function update(weekId: string, change: (c: Checkin) => void): Promise<void> {
-  const { data, body } = await loadCheckin(weekId);
-  change(data);
-  await saveEntry("checkin", checkinPath(weekId), data, body);
+  await updateEntry("checkin", checkinPath(weekId), (data, body) => {
+    const c: Checkin = data ?? { week: weekId, commitments: [], nextStepLog: [] };
+    change(c);
+    return { data: c, body };
+  });
 }
 
 export async function setOutcome(weekId: string, outcome: string): Promise<void> {
@@ -73,8 +76,9 @@ export async function recordChoice(weekId: string, today: string, input: ChoiceI
     if (until <= today) throw new Error("Pick a later date to be reminded.");
   }
   if (input.choice === "replaced") replacement = required(input.replacement, "Say what you'll do instead.");
+  const replacementId = newId("c");
   return update(weekId, (c) => {
     c.nextStepLog.push({ date: today, actionId: input.actionId, label: input.label, choice: input.choice, reason, until, replacement });
-    if (replacement) c.commitments.push({ id: newId("c"), text: replacement, due: null, status: "open", reason: null, link: null });
+    if (replacement) c.commitments.push({ id: replacementId, text: replacement, due: null, status: "open", reason: null, link: null });
   });
 }
