@@ -1,0 +1,82 @@
+import { brokenLinks, linksOf, type BrokenLink } from "../core/links";
+import { existingPaths, listEntries } from "../store/read";
+import { AREAS, kindOf, type Area, type KindData } from "../store/schemas";
+import { createDated } from "./create";
+import { all, isRealDate, lines, oneOf, orNull, text, type Parsed } from "./form";
+
+export type Decision = KindData<"decision">;
+export type DecisionRow = { path: string; data: Decision; broken: BrokenLink[] };
+export const DECISIONS_DIR = "decisions";
+
+export type DecisionInput = {
+  title: string;
+  date: string;
+  area: Area | null;
+  beliefBefore: string | null;
+  evidence: string[];
+  alternatives: string[];
+  decision: string;
+  why: string;
+  reversible: boolean;
+  relatedTest: string | null;
+};
+
+export function parseDecisionForm(fd: FormData): Parsed<DecisionInput> {
+  const values: Record<string, string> = {};
+  for (const k of ["title", "date", "area", "beliefBefore", "alternatives", "decision", "why", "reversible", "relatedTest"]) values[k] = text(fd, k);
+  const evidence = all(fd, "evidence").filter(Boolean);
+  values.evidence = evidence.join(",");
+  const errors: Record<string, string> = {};
+  if (!values.title) errors.title = "Name the decision in a few words.";
+  if (!isRealDate(values.date)) errors.date = "Add the date you decided.";
+  if (values.area && !oneOf(AREAS, values.area)) errors.area = "Pick an area from the list, or none.";
+  if (!values.decision) errors.decision = "Say what you decided.";
+  if (!values.why) errors.why = "Say why. Future you will want to know.";
+  if (values.reversible !== "yes" && values.reversible !== "no") errors.reversible = "Say whether this is easy to undo.";
+  if (Object.keys(errors).length > 0) return { ok: false, errors, values };
+  return {
+    ok: true,
+    values,
+    input: {
+      title: values.title,
+      date: values.date,
+      area: values.area ? (values.area as Area) : null,
+      beliefBefore: orNull(values.beliefBefore),
+      evidence,
+      alternatives: lines(values.alternatives),
+      decision: values.decision,
+      why: values.why,
+      reversible: values.reversible === "yes",
+      relatedTest: orNull(values.relatedTest),
+    },
+  };
+}
+
+/** Logs a decision made outside a venture test. Evidence and the related test must be records that exist. */
+export async function createDecision(input: DecisionInput): Promise<string> {
+  if (input.relatedTest && kindOf(input.relatedTest) !== "test") throw new Error("Pick the related test from the list.");
+  const present = await existingPaths();
+  const unknown = [...input.evidence, ...(input.relatedTest ? [input.relatedTest] : [])].find((p) => !present.has(p));
+  if (unknown) throw new Error(`founder-data/${unknown} isn't there anymore. Reload the page and pick the evidence again.`);
+  const data: Decision = { ...input };
+  return createDated("decision", DECISIONS_DIR, input.date, input.title, data);
+}
+
+/** Decisions newest first with their broken links, plus the records a new decision can cite. */
+export async function loadDecisions(): Promise<{
+  rows: DecisionRow[];
+  flagged: { path: string; error: string }[];
+  evidenceOptions: { path: string; label: string }[];
+  tests: { path: string; title: string }[];
+}> {
+  const [entries, conversations, tests, present] = await Promise.all([listEntries("decision"), listEntries("conversation"), listEntries("test"), existingPaths()]);
+  const rows = entries
+    .flatMap((e) => (e.ok ? [{ path: e.path, data: e.data, broken: brokenLinks(linksOf("decision", e.data), (r) => present.has(r)) }] : []))
+    .sort((a, b) => b.data.date.localeCompare(a.data.date) || a.path.localeCompare(b.path));
+  const testOptions = tests.flatMap((t) => (t.ok ? [{ path: t.path, title: t.data.title }] : []));
+  const evidenceOptions = [
+    ...conversations.flatMap((c) => (c.ok ? [{ path: c.path, label: `Conversation · ${c.data.person} · ${c.data.date ?? "date unknown"}` }] : [])),
+    ...testOptions.map((t) => ({ path: t.path, label: `Test · ${t.title}` })),
+  ];
+  return { rows, flagged: entries.flatMap((e) => (e.ok ? [] : [{ path: e.path, error: e.error }])), evidenceOptions, tests: testOptions };
+}
