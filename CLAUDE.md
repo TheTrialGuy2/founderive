@@ -21,5 +21,5 @@ Founderive is a local app (`web/`) that shows a founder's record kept as Markdow
 
 ## Code
 
-- `web/src/store/` is the only code that touches the filesystem.
+- `web/src/store/` is the only code that reads or writes founder-data. (`web/src/app/api/data-events/route.ts` only watches it for changes.)
 - Pages that read data `await connection()` inside `<Suspense>` (Next 16 Cache Components). Read `web/AGENTS.md` before using Next APIs.
