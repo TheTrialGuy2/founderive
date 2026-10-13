@@ -14,6 +14,7 @@ export function CopyPrompt({ prompts, title = "Or ask your AI" }: { prompts: { f
   const families = (Object.keys(LABELS) as Family[]).filter((f) => !!prompts[f]);
   const [family, setFamily] = useState<Family | undefined>(families[0]);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const id = useId();
   if (!family) return null;
   const text = prompts[family] ?? "";
@@ -33,6 +34,7 @@ export function CopyPrompt({ prompts, title = "Or ask your AI" }: { prompts: { f
                 onChange={() => {
                   setFamily(f);
                   setCopied(false);
+                  setCopyFailed(false);
                 }}
               />{" "}
               {LABELS[f]}
@@ -51,15 +53,17 @@ export function CopyPrompt({ prompts, title = "Or ask your AI" }: { prompts: { f
           try {
             await navigator.clipboard.writeText(text);
             setCopied(true);
+            setCopyFailed(false);
           } catch {
             setCopied(false);
+            setCopyFailed(true);
           }
         }}
       >
         Copy
       </button>
       <span aria-live="polite" className="ml-2 text-xs text-muted">
-        {copied ? "Copied" : ""}
+        {copied ? "Copied" : copyFailed ? "Couldn't copy. Select the text above and copy it." : ""}
       </span>
     </div>
   );

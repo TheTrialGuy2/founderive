@@ -1,8 +1,14 @@
 import type { TodayView } from "./today";
 
-type Status = "open" | "done" | "dropped";
-const openFirst = (a: { status: Status; due?: string | null }, b: { status: Status; due?: string | null }) =>
-  (a.status === "open" ? 0 : 1) - (b.status === "open" ? 0 : 1) || (a.due ?? "9999-12-31").localeCompare(b.due ?? "9999-12-31");
+const byDue = (a: { due?: string | null }, b: { due?: string | null }) => (a.due ?? "9999-12-31").localeCompare(b.due ?? "9999-12-31");
+
+/** The due marker for an open commitment: today, overdue (with its date) or a future date. */
+const dueMarker = (due: string | null | undefined, today: string): string => {
+  if (!due) return "";
+  if (due === today) return " · due today";
+  if (due < today) return ` · due ${due} (overdue)`;
+  return ` · due ${due}`;
+};
 
 /** Today as plain text, in the app's order (amendment §5.2), with the ids an agent needs to write back. */
 export function formatToday(view: TodayView): string {
@@ -11,14 +17,23 @@ export function formatToday(view: TodayView): string {
   const out: string[] = [];
   out.push(`Today: ${view.today} (week ${view.weekId}, starts ${view.weekStartsOn})`);
   out.push(`Outcome: ${view.checkin?.outcome ?? "not set"}`);
+  if (view.founder.outcome30) out.push(`30-day outcome: ${view.founder.outcome30}`);
   if (view.next) out.push(`Next action: ${view.next.label}`, `  Why: ${view.next.reason}`, `  id: ${view.next.id}`);
   else out.push("Next action: nothing is waiting");
-  const commitments = [...(view.checkin?.commitments ?? [])].sort(openFirst);
+  const commitments = view.checkin?.commitments ?? [];
+  const open = [...commitments.filter((c) => c.status === "open")].sort(byDue);
+  const done = commitments.filter((c) => c.status === "done");
+  const dropped = commitments.filter((c) => c.status === "dropped");
   out.push("Commitments:");
-  if (commitments.length === 0) out.push("  none");
-  for (const c of commitments) {
-    const overdue = c.status === "open" && c.due && c.due < view.today ? " (overdue)" : "";
-    out.push(`  [${c.status}] ${c.text}${c.due ? ` · due ${c.due}${overdue}` : ""} (id ${c.id})`);
+  if (open.length === 0) out.push("  none");
+  for (const c of open) out.push(`  ${c.text}${dueMarker(c.due, view.today)} (id ${c.id})`);
+  if (done.length > 0) {
+    out.push("Done this week:");
+    for (const c of done) out.push(`  ${c.text} (id ${c.id})`);
+  }
+  if (dropped.length > 0) {
+    out.push("Dropped this week:");
+    for (const c of dropped) out.push(`  ${c.text} — ${c.reason} (id ${c.id})`);
   }
   const homework = view.homework.filter((h) => h.status === "open");
   if (homework.length > 0) {

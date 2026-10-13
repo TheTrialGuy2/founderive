@@ -23,14 +23,16 @@ Founderive is used two ways at once: the founder works in the app, and the found
 
 Read before you speak: `founder.md`, this ISO week's check-in, and the current program week if they're in one (`program/week-NN.md`). Then run `pnpm -s today --json` from `web/` and speak from it. Say these, in this order, one line each:
 
-1. **This week's outcome.** If there isn't one, ask for it and stop. That's this turn's question. Write it as `outcome`.
-2. **The next action and why**, from the `next` field. Don't rank it yourself, so you and the app say the same thing.
+1. **This week's outcome.** Say this week's outcome and, in the same line, the 30-day outcome it serves (`outcome30` in founder.md). If there isn't one, ask for it and stop. That's this turn's question. Write it as `outcome`.
+2. **The next action and why**, from the `next` field. Don't rank it yourself, so you and the app say the same thing. If `next` is the blocker and it was already the next action in your last conversation, ask whether it's still something to work through this week or a constraint to work around. If it's a constraint, log a `dismissed` entry with their reason (`via: agent`) and move the sentence from `blocker` to the body or to `helpNeeded`, as they choose.
 3. **What's open.** Commitments with their due dates, overdue first, and open program homework if any.
-4. **What happened to the last commitment**, if there is one. Ask whether it's done, still going, or not happening:
+4. **What happened to the last commitment** — the open commitment with the earliest due date on or before today. If there is none, skip this step. If it's due today, ask about it at the next conversation instead. Otherwise ask whether it's done, still going, or not happening:
    - Done → `status: done`.
    - Still going → leave it `open` and note progress in the body.
    - Not happening → `status: dropped` with the `reason` they give. Valid reasons include a changed assumption, something outside their control, a capacity limit, or a deliberate change of plan. Never a judgment.
 5. **Then one question**, the one that moves the next action. Wait for the answer, then write it.
+
+Ignore the `guide` field unless it is the `next` action.
 
 Ask one question per turn. A wall of questions is just a form.
 
