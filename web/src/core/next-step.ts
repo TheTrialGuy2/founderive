@@ -36,6 +36,12 @@ const isTestLink = (link: string | null | undefined) => !!link?.startsWith("test
 const byDue = (a: { due?: string | null }, b: { due?: string | null }) => (a.due ?? LAST).localeCompare(b.due ?? LAST);
 
 /**
+ * A commitment's action id, namespaced by the check-in week it lives in (`commitment:<week>:<id>`), so the same local id
+ * in two weeks is two actions. Without a week (callers that don't say) it's the old `commitment:<id>`.
+ */
+export const commitmentActionId = (id: string, week: string | undefined): string => (week ? `commitment:${week}:${id}` : `commitment:${id}`);
+
+/**
  * Every eligible action, in order: 1 risk, 2 missing outcome or blocker, 3 running test, 4 overdue commitment,
  * 5 due follow-up, 6 open commitment (not overdue), 7 guide or test commitment, 8 guide step, 9 program work, 10 upkeep.
  * Within a tier: earliest due first, undated after dated, then file order (the sort is stable).
@@ -51,7 +57,7 @@ export function rankCandidates(input: NextStepInput): Candidate[] {
     out.push({ id: `test:${t.path}`, tier: 3, kind: "test", label: `Continue: ${t.title}`, reason: "A test is running. Finishing it produces the learning.", href: t.href, due: t.due });
   }
   for (const c of input.commitments.filter((c) => c.status === "open" && c.due && c.due < input.today).sort(byDue)) {
-    out.push({ id: `commitment:${c.id}`, tier: 4, kind: "commitment", label: c.text, reason: `Overdue since ${c.due}.`, ref: c.id, due: c.due, week: c.week });
+    out.push({ id: commitmentActionId(c.id, c.week ?? input.weekId), tier: 4, kind: "commitment", label: c.text, reason: `Overdue since ${c.due}.`, ref: c.id, due: c.due, week: c.week ?? input.weekId });
   }
   for (const f of input.followUps.filter((f) => !f.due || f.due <= input.today).sort(byDue)) {
     out.push({ id: `followup:${f.id}`, tier: 5, kind: "followup", label: f.text, reason: "Someone is waiting on you.", ref: f.id, href: f.href, due: f.due });
@@ -61,16 +67,16 @@ export function rankCandidates(input: NextStepInput): Candidate[] {
   for (const c of input.commitments.filter((c) => c.status === "open" && notOverdue(c) && !isGuideLink(c.link) && !isTestLink(c.link)).sort(byDue)) {
     const carried = !!c.week && !!input.weekId && c.week !== input.weekId;
     const reason = carried ? `You committed to this in week ${c.week}, and it's still open.` : "You committed to this for this week.";
-    out.push({ id: `commitment:${c.id}`, tier: 6, kind: "commitment", label: c.text, reason, ref: c.id, due: c.due, week: c.week });
+    out.push({ id: commitmentActionId(c.id, c.week ?? input.weekId), tier: 6, kind: "commitment", label: c.text, reason, ref: c.id, due: c.due, week: c.week ?? input.weekId });
   }
   // An open guide commitment is this week's guide work, so no new guide step is proposed alongside it.
   const guideCommitments = input.commitments.filter((c) => c.status === "open" && isGuideLink(c.link));
   for (const c of guideCommitments.filter(notOverdue).sort(byDue)) {
-    out.push({ id: `commitment:${c.id}`, tier: 7, kind: "commitment", label: c.text, reason: "You committed to this step this week.", ref: c.id, due: c.due, week: c.week });
+    out.push({ id: commitmentActionId(c.id, c.week ?? input.weekId), tier: 7, kind: "commitment", label: c.text, reason: "You committed to this step this week.", ref: c.id, due: c.due, week: c.week ?? input.weekId });
   }
   // The next commitment chosen when completing a test is the loop's next step (amendment §1), so it ranks with guide commitments.
   for (const c of input.commitments.filter((c) => c.status === "open" && isTestLink(c.link) && notOverdue(c)).sort(byDue)) {
-    out.push({ id: `commitment:${c.id}`, tier: 7, kind: "commitment", label: c.text, reason: "You chose this as the next step after a test.", ref: c.id, due: c.due, week: c.week });
+    out.push({ id: commitmentActionId(c.id, c.week ?? input.weekId), tier: 7, kind: "commitment", label: c.text, reason: "You chose this as the next step after a test.", ref: c.id, due: c.due, week: c.week ?? input.weekId });
   }
   if (input.guideStep && guideCommitments.length === 0)
     out.push({ id: `guide:${input.guideStep.id}`, tier: 8, kind: "guide", label: input.guideStep.title, reason: input.guideStep.why, ref: input.guideStep.id, detail: input.guideStep.progress ?? undefined });
@@ -97,12 +103,20 @@ export function activeChoices(checkins: CheckinChoices[], weekId: string, today:
 
 /**
  * Whether an action is hidden by a choice. The caller scopes `choices` (see activeChoices): any dismissed or
- * replaced choice passed in hides the action; a deferred one hides it until its date.
+ * replaced choice passed in hides the action; a deferred one hides it until its date. `legacyId` is an older id the
+ * same action was logged under (see nextStep).
  */
-export function isSuppressed(id: string, choices: NextStepInput["choices"], today: string): boolean {
-  return choices.some((c) => c.actionId === id && (c.choice !== "deferred" || !c.until || c.until > today));
+export function isSuppressed(id: string, choices: NextStepInput["choices"], today: string, legacyId?: string): boolean {
+  return choices.some((c) => (c.actionId === id || (!!legacyId && c.actionId === legacyId)) && (c.choice !== "deferred" || !c.until || c.until > today));
 }
 
+/**
+ * Choices logged before commitment ids carried their week (`commitment:<id>`) still apply, to this week's commitment
+ * only: a carried commitment from an earlier week never matches an old-format id.
+ */
+const legacyIdOf = (c: Candidate, weekId: string | undefined): string | undefined =>
+  c.kind === "commitment" && c.ref && (!weekId || c.week === weekId) ? `commitment:${c.ref}` : undefined;
+
 export function nextStep(input: NextStepInput): Candidate | null {
-  return rankCandidates(input).find((c) => !isSuppressed(c.id, input.choices, input.today)) ?? null;
+  return rankCandidates(input).find((c) => !isSuppressed(c.id, input.choices, input.today, legacyIdOf(c, input.weekId))) ?? null;
 }

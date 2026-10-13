@@ -199,10 +199,32 @@ describe("commitments carried from an earlier week", () => {
       ],
     });
     expect(ranked.map((c) => [c.id, c.tier, c.week])).toEqual([
-      ["commitment:a", 4, "2026-W42"],
-      ["commitment:b", 6, "2026-W42"],
-      ["commitment:c", 7, "2026-W42"],
+      ["commitment:2026-W42:a", 4, "2026-W42"],
+      ["commitment:2026-W42:b", 6, "2026-W42"],
+      ["commitment:2026-W42:c", 7, "2026-W42"],
     ]);
     expect(ranked[1].reason).toBe("You committed to this in week 2026-W42, and it's still open.");
+  });
+});
+
+describe("commitment action ids across weeks", () => {
+  const base = { today: "2026-10-19", weekId: "2026-W43", outcome: "Ship", blocker: null, risks: [], currentTests: [], followUps: [], guideStep: null, programWork: [], flagged: [] };
+  const commitments = [
+    { id: "c-9", text: "Forty-two", due: "2026-10-12", status: "open" as const, week: "2026-W42" },
+    { id: "c-9", text: "Forty-three", due: "2026-10-12", status: "open" as const, week: "2026-W43" },
+  ];
+  it("namespaces the id by week, keeping ref the local id", () =>
+    expect(rankCandidates({ ...base, choices: [], commitments }).map((c) => [c.id, c.ref, c.week])).toEqual([
+      ["commitment:2026-W42:c-9", "c-9", "2026-W42"],
+      ["commitment:2026-W43:c-9", "c-9", "2026-W43"],
+    ]));
+  it("still honors a choice recorded with an old-format id, for this week's commitment only", () => {
+    const choices = [{ actionId: "commitment:c-9", choice: "dismissed" as const, date: "2026-10-19" }];
+    expect(nextStep({ ...base, choices, commitments })?.id).toBe("commitment:2026-W42:c-9");
+    expect(nextStep({ ...base, choices, commitments: [commitments[1]] })).toBeNull();
+  });
+  it("a new-format choice hides only that week's commitment", () => {
+    const choices = [{ actionId: "commitment:2026-W42:c-9", choice: "dismissed" as const, date: "2026-10-19" }];
+    expect(nextStep({ ...base, choices, commitments })?.id).toBe("commitment:2026-W43:c-9");
   });
 });

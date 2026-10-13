@@ -32,7 +32,7 @@ describe("loadToday", () => {
     await clearLoopRecords(env.dir);
     const view = await loadToday();
     expect(view).toMatchObject({ status: "ready", today: "2026-10-13", tomorrow: "2026-10-14", weekId: "2026-W42", weekStartsOn: "2026-10-12" });
-    expect(view.status === "ready" && view.next?.id).toBe("commitment:c-1");
+    expect(view.status === "ready" && view.next?.id).toBe("commitment:2026-W42:c-1");
   });
   it("flags an impossible pinned today instead of crashing", async () => {
     await pinToday("2026-13-45");
@@ -167,7 +167,7 @@ describe("open commitments carry across weeks", () => {
     expect(view.weekId).toBe("2026-W43");
     expect(view.carried).toEqual([expect.objectContaining({ id: "c-1", week: "2026-W42", status: "open" })]);
     // c-1 was due 2026-10-12, so it's overdue: tier 4, like an overdue commitment made this week.
-    expect(view.next).toMatchObject({ id: "commitment:c-1", tier: 4, week: "2026-W42" });
+    expect(view.next).toMatchObject({ id: "commitment:2026-W42:c-1", ref: "c-1", tier: 4, week: "2026-W42" });
   });
   it("ranks a carried commitment that isn't overdue at tier 6, and a test's next commitment at tier 7", async () => {
     await addCommitment("2026-W42", { text: "Call the meetup host", due: "2026-10-23" });
@@ -187,7 +187,7 @@ describe("open commitments carry across weeks", () => {
     await pinToday("2026-10-19"); // Monday of 2026-W43
     await setOutcome("2026-W43", "Onboard pilots");
     const monday = await ready();
-    expect(monday.next).toMatchObject({ id: `commitment:${commitmentId}`, tier: 7, week: "2026-W42", label: "Onboard the two pilots" });
+    expect(monday.next).toMatchObject({ id: `commitment:2026-W42:${commitmentId}`, tier: 7, week: "2026-W42", label: "Onboard the two pilots" });
     // Repeating the completion on Monday finds it in the closing week instead of copying it into this one.
     expect(await completeTest(t, form, "2026-10-19")).toEqual({ commitmentId, alreadyComplete: true });
     expect((await readEntry("checkin", "checkins/2026-W43.md"))?.ok && (await ready()).checkin?.commitments).toEqual([]);
@@ -198,7 +198,43 @@ describe("open commitments carry across weeks", () => {
     expect(w42?.ok && w42.data.commitments.find((c) => c.id === commitmentId)?.status).toBe("done");
     const after = await ready();
     expect(after.carried).toEqual([]);
-    expect(after.next?.id).not.toBe(`commitment:${commitmentId}`);
+    expect(after.next?.id).not.toBe(`commitment:2026-W42:${commitmentId}`);
+  });
+  it("writes to the file a carried commitment lives in, even with duplicate ids across weeks and a mismatched week field", async () => {
+    await setCommitmentStatus("2026-W42", "c-1", "done");
+    await pinToday("2026-10-19");
+    await setOutcome("2026-W43", "Book three demos");
+    const dir = path.join(env.dir, "checkins");
+    // Same local id in two weeks; the W41 file's week field wrongly says W40.
+    await writeFile(path.join(dir, "2026-W40.md"), "---\nweek: 2026-W40\ncommitments:\n  - id: c-9\n    text: Forty\n    due: 2026-10-01\n    status: open\n---\n");
+    await writeFile(path.join(dir, "2026-W41.md"), "---\nweek: 2026-W40\ncommitments:\n  - id: c-9\n    text: Forty-one\n    due: 2026-10-08\n    status: open\n---\n");
+    const view = await ready();
+    expect(view.carried.map((c) => [c.text, c.week])).toEqual([
+      ["Forty", "2026-W40"],
+      ["Forty-one", "2026-W41"],
+    ]);
+    const fortyOne = view.carried.find((c) => c.text === "Forty-one")!;
+    await setCommitmentStatus(fortyOne.week, fortyOne.id, "done");
+    const w40 = await readEntry("checkin", "checkins/2026-W40.md");
+    const w41 = await readEntry("checkin", "checkins/2026-W41.md");
+    expect(w40?.ok && w40.data.commitments[0].status).toBe("open");
+    expect(w41?.ok && w41.data.commitments[0].status).toBe("done");
+  });
+  it("keeps identical ids in two carried weeks apart, each with its own Not now choice", async () => {
+    await setCommitmentStatus("2026-W42", "c-1", "done");
+    await pinToday("2026-10-19");
+    await setOutcome("2026-W43", "Book three demos");
+    const dir = path.join(env.dir, "checkins");
+    await writeFile(path.join(dir, "2026-W40.md"), "---\nweek: 2026-W40\ncommitments:\n  - id: c-9\n    text: Forty\n    due: 2026-10-01\n    status: open\n---\n");
+    await writeFile(path.join(dir, "2026-W41.md"), "---\nweek: 2026-W41\ncommitments:\n  - id: c-9\n    text: Forty-one\n    due: 2026-10-08\n    status: open\n---\n");
+    const first = await ready();
+    expect(first.next).toMatchObject({ id: "commitment:2026-W40:c-9", ref: "c-9", week: "2026-W40", label: "Forty" });
+    await recordChoice("2026-W43", "2026-10-19", { actionId: first.next!.id, label: "Forty", choice: "dismissed", reason: "Not this week" });
+    // Only W40's c-9 is hidden; W41's c-9 is a different action.
+    const second = await ready();
+    expect(second.next).toMatchObject({ id: "commitment:2026-W41:c-9", week: "2026-W41", label: "Forty-one" });
+    await recordChoice("2026-W43", "2026-10-19", { actionId: second.next!.id, label: "Forty-one", choice: "deferred", reason: "Later", until: "2026-10-21" });
+    expect((await ready()).next?.id).not.toMatch(/^commitment:2026-W4[01]:c-9$/);
   });
   it("never carries a commitment forward from a later week, or a done or dropped one", async () => {
     await addCommitment("2026-W43", { text: "Next week's thing" });

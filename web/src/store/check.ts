@@ -51,6 +51,16 @@ export async function checkData(): Promise<CheckReport> {
       errors.push({ path: rel, error: entry.error });
       continue;
     }
+    // The schema can't see the file name, so a check-in's week field is compared with it here. Founderive goes by the
+    // file name; a field that disagrees is an error to fix by hand.
+    if (kind === "checkin") {
+      const fileWeek = rel.slice("checkins/".length, -".md".length);
+      const week = (entry.data as KindData<"checkin">).week;
+      if (week !== fileWeek) {
+        errors.push({ path: rel, error: `week: says ${week}, but the file name says ${fileWeek}. Make them match.` });
+        continue;
+      }
+    }
     // A broken link is a warning; the record itself is still valid and still shown (amendment §13).
     for (const b of brokenLinks(linksOf(kind, entry.data), (r) => present.has(r))) warnings.push({ path: rel, warning: describeBrokenLink(b) });
     if (kind === "test") testLinks.set(rel, (entry.data as KindData<"test">).relatedConversations);

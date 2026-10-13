@@ -11,7 +11,7 @@ import { checkData, type CheckReport } from "../store/check";
 import { dataDir } from "../store/paths";
 import { listEntries, readEntry, type Entry } from "../store/read";
 import type { KindData } from "../store/schemas";
-import { checkinPath } from "./checkin";
+import { checkinPath, weekOfCheckinPath } from "./checkin";
 import { loadGuideFacts, loadLoopRecords } from "./loop";
 
 export type TodayView =
@@ -39,7 +39,8 @@ export type TodayView =
       capacity: string | null;
     };
 
-export type CarriedCommitment = KindData<"checkin">["commitments"][number] & { week: string };
+/** `week` is the week in the check-in's file name, so a status change writes to `path`. */
+export type CarriedCommitment = KindData<"checkin">["commitments"][number] & { week: string; path: string };
 
 /** Everything Today shows, read from founder-data at request time. An invalid founder.md comes back flagged, never thrown. */
 export async function loadToday(): Promise<TodayView> {
@@ -53,12 +54,14 @@ export async function loadToday(): Promise<TodayView> {
   const checkinEntry = await readEntry("checkin", checkinPath(weekId));
   const checkin = checkinEntry?.ok ? checkinEntry.data : null;
   // Deferrals can run past the week they were made in, so every readable check-in is consulted.
-  const checkins = (await listEntries("checkin")).flatMap((e) => (e.ok ? [e.data] : []));
+  // The week each check-in belongs to comes from its FILE NAME, never its `week` field: actions write by file name, so
+  // a hand-edited field can't send a write to another week's file (check-data flags the mismatch).
+  const checkins = (await listEntries("checkin")).flatMap((e) => (e.ok ? [{ ...e.data, week: weekOfCheckinPath(e.path), path: e.path }] : []));
   // Open commitments carry lazily: read from the earlier week's file, never moved or copied (done/dropped write back there).
   const carried: CarriedCommitment[] = checkins
     .filter((c) => c.week < weekId)
     .sort((a, b) => a.week.localeCompare(b.week))
-    .flatMap((c) => c.commitments.filter((x) => x.status === "open").map((x) => ({ ...x, week: c.week })));
+    .flatMap((c) => c.commitments.filter((x) => x.status === "open").map((x) => ({ ...x, week: c.week, path: c.path })));
 
   const inProgram = !!(f.programTitle && f.programStart && f.programWeeks);
   const programWeek = inProgram ? currentWeek({ programStart: f.programStart, today, totalWeeks: f.programWeeks ?? 1, override: f.currentWeek }) : null;

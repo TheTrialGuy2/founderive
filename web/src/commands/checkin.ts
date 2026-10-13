@@ -7,6 +7,8 @@ export type Checkin = KindData<"checkin">;
 type ChoiceInput = { actionId: string; label: string; choice: "dismissed" | "deferred" | "replaced"; reason: string; until?: string | null; replacement?: string | null };
 
 export const checkinPath = (weekId: string) => `checkins/${weekId}.md`;
+/** The week a check-in file is for, from its name (checkins/YYYY-Www.md). The inverse of checkinPath. */
+export const weekOfCheckinPath = (rel: string) => rel.slice("checkins/".length, -".md".length);
 export const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${randomBytes(2).toString("hex")}`;
 
 function required(value: string | null | undefined, message: string): string {

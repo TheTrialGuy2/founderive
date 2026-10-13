@@ -18,6 +18,11 @@ describe("checkData", () => {
     expect(report.misnamed).toEqual([]);
   });
 
+  it("flags a check-in whose week field doesn't match its file name", async () => {
+    await writeFile(path.join(env.dir, "checkins/2026-W41.md"), "---\nweek: 2026-W40\n---\n");
+    const report = await checkData();
+    expect(report.errors).toContainEqual({ path: "checkins/2026-W41.md", error: "week: says 2026-W40, but the file name says 2026-W41. Make them match." });
+  });
   it("warns about a misnamed file in a known folder instead of calling it valid", async () => {
     await writeFile(path.join(env.dir, "checkins/week-42.md"), "---\nweek: 2026-W42\n---\n");
     await mkdir(path.join(env.dir, "canvas"), { recursive: true });

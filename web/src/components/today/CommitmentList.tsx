@@ -23,7 +23,7 @@ export function CommitmentList({ weekId, today, commitments, carried, programWee
       {open.length === 0 && openHomework.length === 0 && <p className="text-sm text-muted">No open commitments this week.</p>}
       <ul className="space-y-2">
         {open.map((c) => (
-          <li key={c.id} className="rounded-lg border border-line p-3">
+          <li key={`${c.week ?? weekId}:${c.id}`} className="rounded-lg border border-line p-3">
             {c.week && c.week !== weekId && <p className="text-xs font-medium text-teal-dark">From week {c.week}</p>}
             <p className="text-sm text-ink">{c.text}</p>
             {dueText(c.due, today) && <p className="text-xs text-muted">{dueText(c.due, today)}</p>}
@@ -51,7 +51,7 @@ export function CommitmentList({ weekId, today, commitments, carried, programWee
           <summary className="cursor-pointer text-muted">Done or dropped · {closed.length}</summary>
           <ul className="mt-2 space-y-1">
             {closed.map((c) => (
-              <li key={c.id} className="text-muted">
+              <li key={`${c.week ?? weekId}:${c.id}`} className="text-muted">
                 {c.status === "done" ? "Done: " : "Dropped: "}
                 {c.text}
                 {c.reason ? ` (${c.reason})` : ""}

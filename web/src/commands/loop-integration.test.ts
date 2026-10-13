@@ -38,7 +38,7 @@ async function runLoop() {
 describe("the core loop", () => {
   it("create a test, link a confirmed customer conversation with content, complete it: Today's next is the test's next commitment", async () => {
     const { t, commitmentId, after } = await runLoop();
-    expect(after.next).toMatchObject({ id: `commitment:${commitmentId}`, kind: "commitment", tier: 7, label: FORM.nextCommitment, week: "2026-W42" });
+    expect(after.next).toMatchObject({ id: `commitment:2026-W42:${commitmentId}`, ref: commitmentId, kind: "commitment", tier: 7, label: FORM.nextCommitment, week: "2026-W42" });
     expect(after.checkin?.commitments.find((c) => c.id === commitmentId)).toMatchObject({ link: t, due: "2026-10-16", status: "open" });
     expect(after.currentTest).toBeNull();
   });
@@ -50,7 +50,7 @@ describe("the core loop", () => {
     expect(after.founder.programTitle ?? null).toBeNull();
     expect(after.programWeek).toBeNull();
     expect(after.homework).toEqual([]);
-    expect(after.next).toMatchObject({ id: `commitment:${commitmentId}`, tier: 7 });
+    expect(after.next).toMatchObject({ id: `commitment:2026-W42:${commitmentId}`, tier: 7 });
     const text = formatToday(after);
     expect(text).not.toMatch(/Program week/);
     expect(text).toContain(`Next action: ${FORM.nextCommitment}`);

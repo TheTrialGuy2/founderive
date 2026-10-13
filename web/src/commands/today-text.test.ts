@@ -25,7 +25,7 @@ describe("formatToday", () => {
       "30-day outcome: Three agencies agree to a paid pilot",
       "Next action: Email the two agencies from the meetup",
       "  Why: Overdue since 2026-10-12.",
-      "  id: commitment:c-1",
+      "  id: commitment:2026-W42:c-1",
     ]);
     expect(text).toContain("  Email the two agencies from the meetup · due 2026-10-12 (overdue) (id c-1)");
     expect(text).toContain("Done this week:");
