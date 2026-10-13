@@ -287,6 +287,60 @@ describe("a clear result needs real evidence", () => {
   });
 });
 
+describe("evidence must record something, and both records must link", () => {
+  const EMPTY = { ...DANA, observedBehavior: null, quotes: [], numbers: [], followUps: [], notes: "" };
+  it("a reciprocal, confirmed, content-free customer conversation doesn't count toward completion", async () => {
+    const t = await createTest(PILOT, TODAY);
+    const c = await createConversation(EMPTY);
+    await linkEvidence(t, c);
+    await expect(completeTest(t, complete(), TODAY)).rejects.toThrow(/Link a customer or prospect conversation/);
+    const view = await loadTest(slugOf(t));
+    expect(view.status === "ready" && view.linked.map((x) => [x.path, x.state])).toEqual([[c, "no-content"]]);
+  });
+  it("needs evidence notes of at least 20 non-space characters", async () => {
+    const t = await createTest(PILOT, TODAY);
+    await saveEvidenceNotes(t, "  yes   it   worked  ");
+    await expect(completeTest(t, complete(), TODAY)).rejects.toThrow("Describe the evidence and where it came from.");
+    expect((await testData(t)).data.status).toBe("running");
+    await saveEvidenceNotes(t, "Two owners signed by email");
+    await completeTest(t, complete(), TODAY);
+    expect((await testData(t)).data.status).toBe("complete");
+  });
+  it("shows a one-sided link from either side as needing repair, never as evidence", async () => {
+    const t = await createTest(PILOT, TODAY);
+    const onlyTest = await createConversation({ ...DANA, person: "Lee Park", org: null });
+    const onlyConversation = await createConversation({ ...DANA, person: "Ana Ruiz", org: null });
+    // Partial writes: each pair has only one side saved.
+    await updateEntry("test", t, (data, body) => ({ data: { ...data!, relatedConversations: [onlyTest] }, body }));
+    await updateEntry("conversation", onlyConversation, (data, body) => ({ data: { ...data!, relatedTests: [t] }, body }));
+    const view = await loadTest(slugOf(t));
+    if (view.status !== "ready") throw new Error(view.status);
+    expect(Object.fromEntries(view.linked.map((x) => [x.path, x.state]))).toEqual({ [onlyTest]: "needs-repair", [onlyConversation]: "needs-repair" });
+    await expect(completeTest(t, complete(), TODAY)).rejects.toThrow(/Link a customer or prospect conversation/);
+    // Linking again repairs it; then it counts.
+    await linkEvidence(t, onlyConversation);
+    const repaired = await loadTest(slugOf(t));
+    expect(repaired.status === "ready" && repaired.linked.find((x) => x.path === onlyConversation)?.state).toBe("evidence");
+  });
+});
+
+describe("an imported test needs the founder's confirmation", () => {
+  const seed = (rel: string) => updateEntry("test", rel, (data, body) => ({ data: { ...data!, seeded: true, source: "folder import 2026-10-13 #abc" }, body }));
+  it("refuses to start or complete an imported test until its criteria are confirmed", async () => {
+    const planned = await createTest({ ...PILOT, startNow: false }, TODAY);
+    await seed(planned);
+    await expect(startTest(planned, TODAY)).rejects.toThrow("Confirm this test's criteria first.");
+    const running = await createTest({ ...PILOT, title: "Another" }, TODAY);
+    await withNotes(running);
+    await seed(running);
+    await expect(completeTest(running, complete(), TODAY)).rejects.toThrow("Confirm this test's criteria first.");
+    expect((await testData(running)).data.status).toBe("running");
+    await confirmImportedRecord(planned);
+    await startTest(planned, TODAY);
+    expect((await testData(planned)).data.status).toBe("running");
+  });
+});
+
 describe("a repeat completion", () => {
   it("says the test was already complete and keeps the result and decision it closed with", async () => {
     const t = await createTest(PILOT, TODAY);

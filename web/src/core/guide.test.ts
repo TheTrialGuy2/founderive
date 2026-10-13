@@ -58,13 +58,20 @@ describe("evidence on guide steps", () => {
   it("counts customer and prospect conversations only, and tests not stopped early", () => {
     expect(
       factsFromRecords({
-        conversations: [{ type: "customer" }, { type: "prospect" }, { type: "mentor" }, { type: "investor" }],
+        conversations: [{ type: "customer", notes: "n" }, { type: "prospect", notes: "n" }, { type: "mentor", notes: "n" }, { type: "investor", notes: "n" }],
         tests: [{ status: "running" }, { status: "complete" }, { status: "abandoned" }],
       }),
     ).toEqual({ customerConversations: 2, tests: 2, completedTests: 1 });
   });
   it("doesn't count an imported conversation until the founder confirms it", () =>
-    expect(factsFromRecords({ conversations: [{ type: "customer", seeded: true }, { type: "prospect", seeded: false }, { type: "customer" }], tests: [] }).customerConversations).toBe(2));
+    expect(factsFromRecords({ conversations: [{ type: "customer", seeded: true, notes: "n" }, { type: "prospect", seeded: false, notes: "n" }, { type: "customer", notes: "n" }], tests: [] }).customerConversations).toBe(2));
+  it("doesn't count a customer conversation that records nothing", () =>
+    expect(factsFromRecords({ conversations: [{ type: "customer", notes: "" }, { type: "customer", notes: "", quotes: ["It hurts"] }], tests: [] }).customerConversations).toBe(1));
+  it("leaves an imported test the founder hasn't confirmed out of the test counts and the guide's progress", () => {
+    const facts = factsFromRecords({ conversations: [], tests: [{ status: "running", seeded: true }, { status: "complete", seeded: true }] });
+    expect(facts).toMatchObject({ tests: 0, completedTests: 0 });
+    expect(guideProgress({ id: "finish-test" }, facts)).toBe("0 tests designed, none completed yet");
+  });
   it("merges setup facts with record facts, keeping the stronger", () => {
     expect(mergeFacts({ hasTargetCustomer: true, offersMade: 1 }, { customerConversations: 3, offersMade: 0 })).toEqual({ hasTargetCustomer: true, offersMade: 1, customerConversations: 3 });
   });

@@ -13,7 +13,8 @@ import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { unlinkEvidenceAction } from "@/app/(workbook)/evidence-actions";
 import { loadConversation, type Conversation } from "@/commands/conversations";
 import { loadFounderToday } from "@/commands/today";
-import { countsAsEvidence, isCustomerEvidence } from "@/core/conversations";
+import { isCustomerEvidence, isEvidenceEligible } from "@/core/conversations";
+import { canUnlink, linkableTests } from "@/core/venture-tests";
 import { AREA_LABELS, STATUS_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
 
 export default function ConversationPage({ params }: PageProps<"/conversations/[slug]">) {
@@ -52,17 +53,25 @@ async function ConversationContent({ slug }: { slug: string }) {
   }
 
   const c = view.data;
-  const evidence = countsAsEvidence(c);
+  const evidence = isEvidenceEligible(c, view.notes);
   const evidenceOnceConfirmed = isCustomerEvidence(c.type) && !!c.seeded;
+  const needsContent = isCustomerEvidence(c.type) && !c.seeded && !evidence;
   const testsByPath = new Map(view.tests.map((t) => [t.path, t]));
-  const linkable = view.tests.filter((t) => !c.relatedTests.includes(t.path) && t.status !== "abandoned");
+  // Only an open test takes new evidence; a closed one is frozen.
+  const linkable = linkableTests(view.tests, c.relatedTests);
   const confirmed = c.whatChangesConfirmed && !!c.whatChanges;
 
   return (
     <>
       <PageHeader eyebrow={`${TYPE_LABELS[c.type]} · ${c.date ? formatDate(c.date) : "date unknown"}`} title={c.org ? `${c.person} · ${c.org}` : c.person} />
       <p className="-mt-4 mb-6 flex flex-wrap items-center gap-2">
-        <Badge tone={evidence ? "good" : "neutral"}>{evidence ? "Customer evidence" : evidenceOnceConfirmed ? "Customer evidence once you confirm it" : "Advice, not customer evidence"}</Badge>
+        <Badge tone={evidence ? "good" : "neutral"}>{evidence
+            ? "Customer evidence"
+            : evidenceOnceConfirmed
+              ? "Customer evidence once you confirm it"
+              : needsContent
+                ? "Customer conversation · add notes, a quote or a number to count it as evidence"
+                : "Advice, not customer evidence"}</Badge>
         {c.segment && <span className="text-sm text-muted">{c.segment}</span>}
       </p>
       {view.broken.length > 0 && <BrokenLinks links={view.broken} />}
@@ -137,7 +146,10 @@ async function ConversationContent({ slug }: { slug: string }) {
                     ) : (
                       <span className="font-mono text-xs text-[#8a2d1c]">{p} (can&apos;t be found)</span>
                     )}
-                    <ActionButton action={unlinkEvidenceAction} fields={{ test: p, conversation: view.path }} label="Unlink" ariaLabel={`Unlink ${t?.title ?? p}`} variant="quiet" />
+                    {/* Unlink an open test's link, or clean up a broken one. A closed test's links are frozen. */}
+                    {canUnlink(t) && (
+                      <ActionButton action={unlinkEvidenceAction} fields={{ test: p, conversation: view.path }} label="Unlink" ariaLabel={`Unlink ${t?.title ?? p}`} variant="quiet" />
+                    )}
                   </li>
                 );
               })}

@@ -11,10 +11,9 @@ import { ActionButton } from "@/components/today/ActionButton";
 import { SeededNote } from "@/components/workbook/SeededNote";
 import { BrokenLinks } from "@/components/workbook/BrokenLinks";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
-import { unlinkEvidenceAction } from "@/app/(workbook)/evidence-actions";
+import { linkEvidenceAction, unlinkEvidenceAction } from "@/app/(workbook)/evidence-actions";
 import { startTestAction } from "@/app/(workbook)/tests/actions";
-import { loadTest } from "@/commands/venture-tests";
-import { countsAsEvidence, isCustomerEvidence } from "@/core/conversations";
+import { loadTest, type LinkedConversation } from "@/commands/venture-tests";
 import { whyFrom } from "@/core/venture-tests";
 import { AREA_LABELS, DECISION_LABELS, RESULT_LABELS, STATUS_LABELS, STRENGTH_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
 
@@ -57,9 +56,10 @@ async function TestContent({ slug }: { slug: string }) {
 
   const t = view.data;
   const open = t.status === "planned" || t.status === "running";
-  const linkable = view.conversations.filter((c) => !t.relatedConversations.includes(c.path));
-  // An imported conversation the founder hasn't confirmed isn't evidence yet.
-  const customerEvidenceCount = view.linked.filter(countsAsEvidence).length;
+  const linkable = view.conversations.filter((c) => !view.linked.some((l) => l.path === c.path));
+  // One rule (core/conversations testLinks): only reciprocal links to confirmed customer conversations that record something.
+  const customerEvidenceCount = view.linked.filter((c) => c.state === "evidence").length;
+  const linkedCount = view.linked.filter((c) => c.state !== "needs-repair").length;
 
   return (
     <>
@@ -84,7 +84,7 @@ async function TestContent({ slug }: { slug: string }) {
         </div>
       )}
       {view.broken.length > 0 && <BrokenLinks links={view.broken} />}
-      {t.seeded && <SeededNote path={view.path} source={t.source} />}
+      {t.seeded && <SeededNote path={view.path} source={t.source} note="Confirm its belief and criteria before you start or finish it." />}
 
       <div className="space-y-4">
         <section aria-labelledby="belief-heading" className="rounded-xl border border-line bg-sand/50 p-5">
@@ -128,9 +128,9 @@ async function TestContent({ slug }: { slug: string }) {
             <span className="font-medium">Strength (your rating): </span>
             {STRENGTH_LABELS[t.evidenceStrength]}
           </p>
-          {(view.linked.length > 0 || customerEvidenceCount > 0) && (
+          {view.linked.length > 0 && (
             <p className="mt-1 text-sm text-muted">
-              {view.linked.length} linked · {customerEvidenceCount} customer evidence
+              {linkedCount} linked · {customerEvidenceCount} customer evidence
             </p>
           )}
           {view.linked.length === 0 ? (
@@ -144,11 +144,16 @@ async function TestContent({ slug }: { slug: string }) {
                       {c.label}
                     </Link>
                     <span className="text-muted">{c.date ? formatDate(c.date) : "date unknown"}</span>
-                    <Badge tone={countsAsEvidence(c) ? "good" : "neutral"}>
-                      {!isCustomerEvidence(c.type) ? `${TYPE_LABELS[c.type]} · advice` : c.seeded ? `${TYPE_LABELS[c.type]} · imported, not yet confirmed` : `${TYPE_LABELS[c.type]} · evidence`}
-                    </Badge>
+                    <Badge tone={c.state === "evidence" ? "good" : c.state === "needs-repair" ? "warn" : "neutral"}>{linkBadge(c)}</Badge>
                   </span>
-                  {open && <ActionButton action={unlinkEvidenceAction} fields={{ test: view.path, conversation: c.path }} label="Unlink" ariaLabel={`Unlink ${c.label}`} variant="quiet" />}
+                  {open && (
+                    <span className="flex flex-wrap items-center gap-2">
+                      {c.state === "needs-repair" && (
+                        <ActionButton action={linkEvidenceAction} fields={{ test: view.path, conversation: c.path }} label="Repair link" ariaLabel={`Repair the link to ${c.label}`} variant="quiet" />
+                      )}
+                      <ActionButton action={unlinkEvidenceAction} fields={{ test: view.path, conversation: c.path }} label="Unlink" ariaLabel={`Unlink ${c.label}`} variant="quiet" />
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -213,12 +218,12 @@ async function TestContent({ slug }: { slug: string }) {
           </>
         )}
 
-        {t.status === "running" && (
+        {t.status === "running" && !t.seeded && (
           <Card title="Finish the test">
             <CompleteTestForm path={view.path} strength={t.evidenceStrength} />
           </Card>
         )}
-        {t.status === "planned" && (
+        {t.status === "planned" && !t.seeded && (
           <Card title="Ready to start?">
             <p className="mb-3 text-sm text-muted">Starting it makes it your current test on Today.</p>
             <ActionButton action={startTestAction} fields={{ path: view.path }} label="Start this test" />
@@ -228,4 +233,21 @@ async function TestContent({ slug }: { slug: string }) {
       </div>
     </>
   );
+}
+
+/** What a linked conversation is on this test, in words (meaning never relies on the badge's color). */
+function linkBadge(c: LinkedConversation): string {
+  const type = TYPE_LABELS[c.type];
+  switch (c.state) {
+    case "needs-repair":
+      return "Link needs repair";
+    case "advice":
+      return `${type} · advice`;
+    case "unconfirmed":
+      return `${type} · imported, not yet confirmed`;
+    case "no-content":
+      return `${type} · records nothing yet, so not evidence`;
+    case "evidence":
+      return `${type} · evidence`;
+  }
 }

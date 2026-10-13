@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TestStatus } from "../store/schemas";
-import { checkCompletion, currentTest, groupTests, whyFrom, type CompletionForm } from "./venture-tests";
+import { canUnlink, checkCompletion, currentTest, groupTests, linkableTests, whyFrom, type CompletionForm } from "./venture-tests";
 
 const done: CompletionForm = {
   result: "supported",
@@ -57,15 +57,36 @@ describe("groupTests and currentTest", () => {
     expect(g.running.map((r) => r.path)).toEqual(["tests/b.md", "tests/a.md"]);
     expect(g.planned.map((r) => r.path)).toEqual(["tests/c.md"]);
     expect(g.closed.map((r) => r.path)).toEqual(["tests/e.md", "tests/d.md"]);
-    expect(currentTest(rows, () => true)).toMatchObject({ path: "tests/b.md", slug: "b", due: "2026-10-20", evidenceCount: 0 });
+    expect(currentTest(rows, [])).toMatchObject({ path: "tests/b.md", slug: "b", due: "2026-10-20", evidenceCount: 0 });
   });
-  it("has no current test when none is running", () => expect(currentTest([row("tests/c.md", "planned")], () => true)).toBeNull());
-  it("counts only customer evidence on the current test, never advice", () => {
-    const rows = [{ path: "tests/a.md", data: { title: "A", status: "running" as const, relatedConversations: ["conversations/c.md", "conversations/m.md"], evidenceStrength: "weak" as const } }];
-    expect(currentTest(rows, (p) => p === "conversations/c.md")).toMatchObject({ linkedCount: 2, evidenceCount: 1 });
-    // The caller must say which links are customer evidence; there's no default that would count advice.
-    // @ts-expect-error the evidence predicate is required
+  it("has no current test when none is running", () => expect(currentTest([row("tests/c.md", "planned")], [])).toBeNull());
+  const conv = (path: string, type: "customer" | "mentor", relatedTests: string[], notes = "Notes") => ({ path, data: { type, observedBehavior: null, quotes: [], numbers: [], relatedTests }, notes });
+  it("counts only reciprocal customer evidence on the current test, never advice or a one-sided link", () => {
+    const rows = [{ path: "tests/a.md", data: { title: "A", status: "running" as const, relatedConversations: ["conversations/c.md", "conversations/m.md", "conversations/half.md"], evidenceStrength: "weak" as const } }];
+    const conversations = [conv("conversations/c.md", "customer", ["tests/a.md"]), conv("conversations/m.md", "mentor", ["tests/a.md"]), conv("conversations/half.md", "customer", [])];
+    expect(currentTest(rows, conversations)).toMatchObject({ linkedCount: 2, evidenceCount: 1 });
+    // The caller must pass the conversations; there's no default that would count a link by omission.
+    // @ts-expect-error the conversations are required
     expect(() => currentTest(rows)).toThrow();
   });
+  it("never makes an imported test the founder hasn't confirmed the current test", () => {
+    const rows = [{ path: "tests/a.md", data: { title: "A", status: "running" as const, seeded: true, relatedConversations: [], evidenceStrength: "none" as const } }];
+    expect(currentTest(rows, [])).toBeNull();
+  });
   it("reads the why back without the decision label", () => expect(whyFrom("**Revise.** The price didn't hold")).toBe("The price didn't hold"));
+});
+
+describe("linking from a conversation", () => {
+  const tests = [
+    { path: "tests/p.md", status: "planned" as const },
+    { path: "tests/r.md", status: "running" as const },
+    { path: "tests/c.md", status: "complete" as const },
+    { path: "tests/a.md", status: "abandoned" as const },
+    { path: "tests/linked.md", status: "running" as const },
+  ];
+  it("offers only planned and running tests it isn't linked to yet", () =>
+    expect(linkableTests(tests, ["tests/linked.md"]).map((t) => t.path)).toEqual(["tests/p.md", "tests/r.md"]));
+  it("offers Unlink only for an open test or a broken link", () => {
+    expect([...tests.map((t) => canUnlink(t)), canUnlink(undefined)]).toEqual([true, true, false, false, true, true]);
+  });
 });

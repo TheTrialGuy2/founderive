@@ -1,5 +1,5 @@
 import type { ConversationType, EvidenceLevel, Stage, TestStatus } from "../store/schemas";
-import { countsAsEvidence } from "./conversations";
+import { isEvidenceEligible } from "./conversations";
 
 export type GuideFacts = {
   hasTargetCustomer: boolean;
@@ -81,15 +81,19 @@ export function guideStepForWeek(stage: Stage | null | undefined, facts: Partial
   return guideStepFor(stage, facts, done);
 }
 
+type FactConversation = { type: ConversationType; seeded?: boolean; observedBehavior?: string | null; quotes?: string[]; numbers?: string[]; notes: string };
+
 /**
- * What the records prove: customer and prospect conversations logged (advice and unconfirmed imports don't count),
- * tests designed (not ones stopped early) and tests completed.
+ * What the records prove: customer and prospect conversations logged that record something (advice, unconfirmed
+ * imports and empty records don't count), tests designed (not ones stopped early) and tests completed. An imported
+ * test the founder hasn't confirmed counts for neither.
  */
-export function factsFromRecords(records: { conversations: { type: ConversationType; seeded?: boolean }[]; tests: { status: TestStatus }[] }): Partial<GuideFacts> {
+export function factsFromRecords(records: { conversations: FactConversation[]; tests: { status: TestStatus; seeded?: boolean }[] }): Partial<GuideFacts> {
+  const tests = records.tests.filter((t) => !t.seeded);
   return {
-    customerConversations: records.conversations.filter(countsAsEvidence).length,
-    tests: records.tests.filter((t) => t.status !== "abandoned").length,
-    completedTests: records.tests.filter((t) => t.status === "complete").length,
+    customerConversations: records.conversations.filter((c) => isEvidenceEligible(c, c.notes)).length,
+    tests: tests.filter((t) => t.status !== "abandoned").length,
+    completedTests: tests.filter((t) => t.status === "complete").length,
   };
 }
 

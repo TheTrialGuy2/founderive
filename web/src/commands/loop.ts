@@ -3,7 +3,7 @@ import { listEntries } from "../store/read";
 import type { KindData } from "../store/schemas";
 
 export type LoopRecords = {
-  conversations: { path: string; data: KindData<"conversation"> }[];
+  conversations: { path: string; data: KindData<"conversation">; notes: string }[];
   tests: { path: string; data: KindData<"test"> }[];
 };
 
@@ -11,7 +11,7 @@ export type LoopRecords = {
 export async function loadLoopRecords(): Promise<LoopRecords> {
   const [conversations, tests] = await Promise.all([listEntries("conversation"), listEntries("test")]);
   return {
-    conversations: conversations.flatMap((e) => (e.ok ? [{ path: e.path, data: e.data }] : [])),
+    conversations: conversations.flatMap((e) => (e.ok ? [{ path: e.path, data: e.data, notes: e.body }] : [])),
     tests: tests.flatMap((e) => (e.ok ? [{ path: e.path, data: e.data }] : [])),
   };
 }
@@ -19,5 +19,5 @@ export async function loadLoopRecords(): Promise<LoopRecords> {
 /** Guide facts: what setup proves, merged with what the records prove (a guide step completes from attached evidence). */
 export async function loadGuideFacts(founder: KindData<"founder">, records?: LoopRecords): Promise<Partial<GuideFacts>> {
   const r = records ?? (await loadLoopRecords());
-  return mergeFacts(factsFromFounder(founder), factsFromRecords({ conversations: r.conversations.map((c) => c.data), tests: r.tests.map((t) => t.data) }));
+  return mergeFacts(factsFromFounder(founder), factsFromRecords({ conversations: r.conversations.map((c) => ({ ...c.data, notes: c.notes })), tests: r.tests.map((t) => t.data) }));
 }

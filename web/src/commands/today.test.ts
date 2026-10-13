@@ -3,6 +3,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { slugOf } from "../core/slug";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
+import { updateEntry } from "../store/update";
 import { addCommitment, recordChoice, setCommitmentStatus, setOutcome } from "./checkin";
 import { createConversation } from "./conversations";
 import { confirmImportedRecord } from "./import";
@@ -115,6 +116,29 @@ describe("loadToday with the loop", () => {
     expect((await ready()).currentTest).toMatchObject({ linkedCount: 1, evidenceCount: 0 });
     await confirmImportedRecord(imported);
     expect((await ready()).currentTest).toMatchObject({ linkedCount: 1, evidenceCount: 1 });
+  });
+  it("never resumes an imported test the founder hasn't confirmed (not tier 3), and leaves it out of the guide's test count", async () => {
+    await setCommitmentStatus("2026-W42", "c-1", "done");
+    const testRel = await createTest(PILOT, "2026-10-13");
+    await updateEntry("test", testRel, (data, body) => ({ data: { ...data!, seeded: true, source: "folder import 2026-10-13 #abc" }, body }));
+    const view = await ready();
+    expect(view.next?.tier).not.toBe(3);
+    expect(view.currentTest).toBeNull();
+    await confirmImportedRecord(testRel);
+    expect((await ready()).next).toMatchObject({ tier: 3, id: `test:${testRel}` });
+  });
+  it("counts a content-free customer conversation on neither the current test nor the guide step", async () => {
+    await setCommitmentStatus("2026-W42", "c-1", "done");
+    const testRel = await createTest(PILOT, "2026-10-13");
+    await linkEvidence(testRel, await createConversation({ ...DANA, observedBehavior: null, quotes: [], numbers: [], followUps: [], notes: "" }));
+    const view = await ready();
+    expect(view.currentTest).toMatchObject({ linkedCount: 1, evidenceCount: 0 });
+  });
+  it("doesn't count a one-sided link on the current test", async () => {
+    const testRel = await createTest(PILOT, "2026-10-13");
+    const c = await createConversation({ ...DANA, followUps: [] });
+    await updateEntry("test", testRel, (data, body) => ({ data: { ...data!, relatedConversations: [c] }, body }));
+    expect((await ready()).currentTest).toMatchObject({ linkedCount: 0, evidenceCount: 0 });
   });
   it("counts planned tests separately from the current one", async () => {
     await createTest({ ...PILOT, startNow: false }, "2026-10-13");

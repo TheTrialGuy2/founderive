@@ -1,5 +1,5 @@
 import { capacityWarning } from "../core/capacity";
-import { countsAsEvidence, dueFollowUps } from "../core/conversations";
+import { dueFollowUps } from "../core/conversations";
 import { guideProgress, guideStepForWeek, type GuideStep } from "../core/guide";
 import { activeChoices, nextStep, type Candidate } from "../core/next-step";
 import { currentWeek, weekFile } from "../core/program";
@@ -70,7 +70,8 @@ export async function loadToday(): Promise<TodayView> {
     blocker: checkin?.blocker,
     risks: [],
     currentTests: records.tests
-      .filter((t) => t.data.status === "running")
+      // An imported test the founder hasn't confirmed isn't resumed: its criteria aren't theirs yet.
+      .filter((t) => t.data.status === "running" && !t.data.seeded)
       .map((t) => ({ path: t.path, title: t.data.title, href: `/tests/${slugOf(t.path)}`, due: t.data.due })),
     commitments,
     followUps,
@@ -95,8 +96,8 @@ export async function loadToday(): Promise<TodayView> {
     guide,
     report,
     next,
-    // Advice links, and imports the founder hasn't confirmed, never count as evidence on the current test.
-    currentTest: currentTest(records.tests, (p) => records.conversations.some((c) => c.path === p && countsAsEvidence(c.data))),
+    // One rule for evidence (core/conversations): reciprocal links to confirmed customer conversations that record something.
+    currentTest: currentTest(records.tests, records.conversations),
     plannedTests: records.tests.filter((t) => t.data.status === "planned").length,
     followUps,
     capacity: capacityWarning(f.hoursPerWeek, f.commitment, openCount),

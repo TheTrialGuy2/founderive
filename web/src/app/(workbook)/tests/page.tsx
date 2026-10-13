@@ -6,6 +6,8 @@ import { CopyPrompt } from "@/components/workbook/CopyPrompt";
 import { EmptyState } from "@/components/workbook/EmptyState";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { buttonPrimary } from "@/components/workbook/form";
+import { ActionButton } from "@/components/today/ActionButton";
+import { confirmImportedRecordAction } from "@/app/(workbook)/import/actions";
 import { loadPromptContext } from "@/commands/today";
 import { loadTests, type TestRow } from "@/commands/venture-tests";
 import { fillPrompt, SKILL_PROMPTS } from "@/lib/prompts";
@@ -71,8 +73,8 @@ function TestSection({ id, title, rows, empty }: { id: string; title: string; ro
       ) : (
         <ul className="mt-3 space-y-2">
           {rows.map((r) => (
-            <li key={r.path}>
-              <Link href={`/tests/${r.slug}`} className="block rounded-lg border border-line bg-paper p-4 hover:border-teal-dark">
+            <li key={r.path} className="rounded-lg border border-line bg-paper hover:border-teal-dark">
+              <Link href={`/tests/${r.slug}`} className="block p-4">
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold text-navy">{r.data.title}</span>
                   <Badge tone={r.data.status === "running" ? "info" : "neutral"}>{STATUS_LABELS[r.data.status]}</Badge>
@@ -81,6 +83,13 @@ function TestSection({ id, title, rows, empty }: { id: string; title: string; ro
                 </span>
                 <span className="mt-1 block text-sm text-muted">{summary(r)}</span>
               </Link>
+              {/* An imported test counts nowhere, and can't be started or finished, until the founder confirms its criteria. */}
+              {r.data.seeded && (
+                <div className="flex flex-wrap items-center gap-3 border-t border-line px-4 py-2 text-sm text-muted">
+                  <span>Check the belief and criteria, then confirm them as yours.</span>
+                  <ActionButton action={confirmImportedRecordAction} fields={{ path: r.path }} label="Confirm" ariaLabel={`Confirm ${r.data.title}`} variant="quiet" />
+                </div>
+              )}
             </li>
           ))}
         </ul>

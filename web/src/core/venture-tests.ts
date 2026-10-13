@@ -1,4 +1,5 @@
 import { EVIDENCE_STRENGTHS, isoDate, TEST_DECISIONS, TEST_RESULTS, type EvidenceStrength, type TestDecision, type TestResult, type TestStatus } from "../store/schemas";
+import { evidenceCount, testLinks, type ConversationRecord } from "./conversations";
 import { slugOf } from "./slug";
 
 export type CompletionForm = { result: string; evidenceStrength: string; learning: string; decision: string; why: string; nextCommitment: string; nextCommitmentDue: string };
@@ -52,7 +53,7 @@ export function checkCompletion(form: CompletionForm): { ok: true; value: Comple
   };
 }
 
-type TestRow = { path: string; data: { title: string; status: TestStatus; due?: string | null; closedOn?: string | null; relatedConversations: string[]; evidenceStrength: EvidenceStrength } };
+type TestRow = { path: string; data: { title: string; status: TestStatus; seeded?: boolean; due?: string | null; closedOn?: string | null; relatedConversations: string[]; evidenceStrength: EvidenceStrength } };
 const LAST = "9999-12-31";
 const byDue = (a: TestRow, b: TestRow) => (a.data.due ?? LAST).localeCompare(b.data.due ?? LAST) || a.path.localeCompare(b.path);
 const newestClosed = (a: TestRow, b: TestRow) => (b.data.closedOn ?? "").localeCompare(a.data.closedOn ?? "") || a.path.localeCompare(b.path);
@@ -69,18 +70,30 @@ export function groupTests<T extends TestRow>(rows: T[]): { running: T[]; planne
 export type CurrentTest = { path: string; slug: string; title: string; due: string | null; linkedCount: number; evidenceCount: number; evidenceStrength: EvidenceStrength };
 
 /**
- * The test Today shows (amendment §5.2 item 3): the running test due soonest. `evidenceCount` counts only linked
- * conversations that are customer evidence; advice links never raise it. The caller says which links are customer
- * evidence; there's no default, so advice can't be counted by omission.
+ * The test Today shows (amendment §5.2 item 3): the running test due soonest that the founder has confirmed (an
+ * imported draft isn't current until they do). Links follow the one reciprocal-link rule (core/conversations
+ * testLinks): `linkedCount` counts links both records make, and `evidenceCount` only those that are evidence, so advice,
+ * unconfirmed imports, content-free conversations and one-sided links never raise it. The conversations are required,
+ * so nothing is counted by omission.
  */
-export function currentTest(rows: TestRow[], isCustomerEvidence: (path: string) => boolean): CurrentTest | null {
-  const t = groupTests(rows).running[0];
+export function currentTest(rows: TestRow[], conversations: ConversationRecord[]): CurrentTest | null {
+  const t = groupTests(rows.filter((r) => !r.data.seeded)).running[0];
   if (!t) return null;
-  const evidenceCount = t.data.relatedConversations.filter(isCustomerEvidence).length;
-  return { path: t.path, slug: slugOf(t.path), title: t.data.title, due: t.data.due ?? null, linkedCount: t.data.relatedConversations.length, evidenceCount, evidenceStrength: t.data.evidenceStrength };
+  const linkedCount = testLinks(t, conversations).filter((l) => l.state !== "needs-repair").length;
+  return { path: t.path, slug: slugOf(t.path), title: t.data.title, due: t.data.due ?? null, linkedCount, evidenceCount: evidenceCount(t, conversations), evidenceStrength: t.data.evidenceStrength };
 }
 
 /** The founder's reason from the "Decision and why" section, without the bold decision label that leads it. */
 export function whyFrom(section: string): string {
   return section.replace(/^\*\*[^*]+\*\*\s*/, "").trim();
 }
+
+/** Planned and running tests take new evidence; complete and stopped-early ones are frozen. */
+export const isOpenTest = (status: TestStatus): boolean => status === "planned" || status === "running";
+
+/** The tests a conversation can be linked to: open ones it isn't linked to yet. */
+export const linkableTests = <T extends { path: string; status: TestStatus }>(tests: T[], relatedTests: string[]): T[] =>
+  tests.filter((t) => isOpenTest(t.status) && !relatedTests.includes(t.path));
+
+/** Unlink is offered for an open test, or for a broken link (the test is gone or can't be read: `undefined`). */
+export const canUnlink = (test: { status: TestStatus } | undefined): boolean => !test || isOpenTest(test.status);

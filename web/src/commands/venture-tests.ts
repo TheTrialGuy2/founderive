@@ -1,4 +1,4 @@
-import { countsAsEvidence } from "../core/conversations";
+import { isEvidenceEligible, testLinks, type LinkState } from "../core/conversations";
 import { brokenLinks, linksOf, type BrokenLink } from "../core/links";
 import { getSection, setSection } from "../core/markdown";
 import { pathForSlug, slugOf } from "../core/slug";
@@ -15,6 +15,8 @@ import { isRealDate, oneOf, orNull, required, text, type Parsed } from "./form";
 export type VentureTest = KindData<"test">;
 export type TestRow = { path: string; slug: string; data: VentureTest };
 export type ConversationOption = { path: string; slug: string; label: string; type: ConversationType; date: string | null; seeded: boolean };
+/** A conversation linked to the test from either side, with how it reads there (core/conversations testLinks). */
+export type LinkedConversation = ConversationOption & { state: LinkState };
 export const TESTS_DIR = "tests";
 export const TEST_BODY = "## Evidence\n\n## What we learned\n\n## Decision and why\n";
 
@@ -65,6 +67,10 @@ const CLOSED = "This test is closed. Add new evidence to the conversation, or st
 const refuseClosed = (t: VentureTest) => {
   if (isClosed(t)) throw new Error(CLOSED);
 };
+/** An imported (agent-drafted) test runs only once the founder has confirmed its criteria (amendment §3.4). */
+const refuseSeeded = (t: VentureTest) => {
+  if (t.seeded) throw new Error("Confirm this test's criteria first.");
+};
 const toggle = (list: string[], item: string, on: boolean) => (on ? (list.includes(item) ? list : [...list, item]) : list.filter((p) => p !== item));
 
 /** Creates a venture test. Success and failure criteria are required up front, before any result exists. */
@@ -95,6 +101,7 @@ export async function startTest(rel: string, today: string): Promise<void> {
   await serializedTest(rel, () =>
     updateEntry("test", rel, (data, body) => {
       if (!data) throw missing(rel);
+      refuseSeeded(data);
       if (data.status !== "planned") throw new Error("Only a planned test can be started.");
       return { data: { ...data, status: "running", startedOn: today }, body };
     }),
@@ -265,18 +272,24 @@ async function ensureNextCommitment(rel: string, test: VentureTest, today: strin
   }
 }
 
+/** The founder's description under "## Evidence" counts only when it says something: at least this many non-space characters. */
+export const MIN_EVIDENCE_NOTES = 20;
+const SHORT_NOTES = "Describe the evidence and where it came from.";
+
 /**
- * Whether a test has evidence that can carry a clear result (spec §3.1): a customer or prospect conversation that
- * exists, reads and links back to the test (a one-sided link doesn't count), or the founder's own description of the
- * evidence under "## Evidence". Advice never counts, and neither does an imported conversation the founder hasn't confirmed.
+ * Whether a test has evidence that can carry a clear result (spec §3.1): a conversation that passes the shared rules
+ * (core/conversations: both records link each other, and it's a confirmed customer or prospect conversation that
+ * records something), or the founder's own description of the evidence under "## Evidence", at least
+ * MIN_EVIDENCE_NOTES non-space characters long. Returns the reason when there's none.
  */
-async function hasRealEvidence(rel: string, test: VentureTest, body: string): Promise<boolean> {
-  if (getSection(body, "Evidence").trim()) return true;
+async function realEvidence(rel: string, test: VentureTest, body: string): Promise<{ ok: true } | { ok: false; shortNotes: boolean }> {
+  const notes = getSection(body, "Evidence").replace(/\s/g, "");
+  if (notes.length >= MIN_EVIDENCE_NOTES) return { ok: true };
   for (const p of test.relatedConversations) {
     const e = KINDS.conversation.pattern.test(p) ? await readEntry("conversation", p) : null;
-    if (e?.ok && countsAsEvidence(e.data) && e.data.relatedTests.includes(rel)) return true;
+    if (e?.ok && e.data.relatedTests.includes(rel) && isEvidenceEligible(e.data, e.body)) return { ok: true };
   }
-  return false;
+  return { ok: false, shortNotes: notes.length > 0 };
 }
 
 /**
@@ -292,15 +305,20 @@ export async function completeTest(rel: string, form: CompletionForm, today: str
 
 async function completeInTurn(rel: string, form: CompletionForm, today: string): Promise<{ commitmentId: string | null; alreadyComplete?: true }> {
   const current = await readEntry("test", rel);
+  if (current?.ok) refuseSeeded(current.data);
   if (current?.ok && current.data.status === "complete") return { ...(await ensureNextCommitment(rel, current.data, today)), alreadyComplete: true };
   const checked = checkCompletion(form);
   if (!checked.ok) throw new Error(Object.values(checked.errors)[0]);
   const c = checked.value;
   const { data: closed } = await updateEntry("test", rel, async (data, body) => {
     if (!data) throw missing(rel);
+    refuseSeeded(data);
     if (isClosed(data)) throw new Error("This test is already closed.");
-    if (c.result !== "inconclusive" && !(await hasRealEvidence(rel, data, body)))
-      throw new Error(`Link a customer or prospect conversation, or describe the evidence and where it came from, before marking it ${c.result}.`);
+    if (c.result !== "inconclusive") {
+      const evidence = await realEvidence(rel, data, body);
+      if (!evidence.ok)
+        throw new Error(evidence.shortNotes ? SHORT_NOTES : `Link a customer or prospect conversation, or describe the evidence and where it came from, before marking it ${c.result}.`);
+    }
     const withLearning = setSection(body, "What we learned", c.learning);
     return {
       data: {
@@ -348,7 +366,7 @@ export type TestView =
       slug: string;
       data: VentureTest;
       sections: { plan: string; evidence: string; learning: string; decisionWhy: string };
-      linked: ConversationOption[];
+      linked: LinkedConversation[];
       conversations: ConversationOption[];
       broken: BrokenLink[];
     };
@@ -359,11 +377,17 @@ export async function loadTest(slug: string): Promise<TestView> {
   if (!entry) return { status: "missing" };
   if (!entry.ok) return { status: "flagged", path: entry.path, error: entry.error };
   const present = await existingPaths();
-  const conversations = (await listEntries("conversation"))
-    .flatMap((c) =>
-      c.ok ? [{ path: c.path, slug: slugOf(c.path), label: c.data.org ? `${c.data.person} · ${c.data.org}` : c.data.person, type: c.data.type, date: c.data.date ?? null, seeded: !!c.data.seeded }] : [],
-    )
-    .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+  const records = (await listEntries("conversation"))
+    .flatMap((c) => (c.ok ? [{ path: c.path, data: c.data, notes: c.body }] : []))
+    .sort((a, b) => (b.data.date ?? "").localeCompare(a.data.date ?? ""));
+  const option = (c: (typeof records)[number]): ConversationOption => ({
+    path: c.path,
+    slug: slugOf(c.path),
+    label: c.data.org ? `${c.data.person} · ${c.data.org}` : c.data.person,
+    type: c.data.type,
+    date: c.data.date ?? null,
+    seeded: !!c.data.seeded,
+  });
   return {
     status: "ready",
     path: entry.path,
@@ -375,8 +399,9 @@ export async function loadTest(slug: string): Promise<TestView> {
       learning: getSection(entry.body, "What we learned"),
       decisionWhy: getSection(entry.body, "Decision and why"),
     },
-    linked: conversations.filter((c) => entry.data.relatedConversations.includes(c.path)),
-    conversations,
+    // Linked from either side; a one-sided link comes back as "needs-repair" and never counts.
+    linked: testLinks({ path: entry.path, data: entry.data }, records).map((l) => ({ ...option(l.conversation), state: l.state })),
+    conversations: records.map(option),
     broken: brokenLinks(linksOf("test", entry.data), (r) => present.has(r)),
   };
 }
