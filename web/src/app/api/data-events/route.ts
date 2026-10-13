@@ -16,7 +16,13 @@ export async function GET(request: Request) {
         watcher = watch(dataDir(), { recursive: true }, (_event, name) => {
           if (name && (name.endsWith(".tmp") || name.split(/[\\/]/).includes(".git"))) return;
           clearTimeout(timer);
-          timer = setTimeout(() => controller.enqueue(encoder.encode("data: change\n\n")), 150);
+          timer = setTimeout(() => {
+            try {
+              controller.enqueue(encoder.encode("data: change\n\n"));
+            } catch {
+              // stream already closed
+            }
+          }, 150);
         });
       } catch {
         controller.enqueue(encoder.encode(": founder-data not found\n\n"));

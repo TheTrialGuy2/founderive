@@ -54,4 +54,20 @@ describe("archiveEntry", () => {
     const second = await archiveEntry("program/week-01.md");
     expect(second).toMatch(/^_archive\/program\/week-01\.\d{4}-.+\.md$/);
   });
+  it("keeps every archived copy across repeated archives", async () => {
+    const targets: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      await writeFile(path.join(env.dir, "program/week-01.md"), `---\nweek: 1\ntitle: v${i}\n---\n`);
+      targets.push(await archiveEntry("program/week-01.md"));
+    }
+    expect(new Set(targets).size).toBe(3);
+    for (const t of targets) expect(await exists(path.join(env.dir, t))).toBe(true);
+  });
+  it("preserves pre-existing archive when archiving again", async () => {
+    await writeFile(path.join(env.dir, "_archive/program/week-01.md"), "OLD");
+    await writeFile(path.join(env.dir, "program/week-01.md"), "---\nweek: 1\ntitle: new\n---\n");
+    await archiveEntry("program/week-01.md");
+    const oldContent = await readFile(path.join(env.dir, "_archive/program/week-01.md"), "utf8");
+    expect(oldContent).toBe("OLD");
+  });
 });

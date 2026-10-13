@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { access, mkdir, rename, writeFile } from "node:fs/promises";
+import { link, mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { stringifyFrontmatter } from "./frontmatter";
 import { resolveInData } from "./paths";
@@ -23,18 +23,27 @@ export async function saveEntry<K extends Kind>(kind: K, rel: string, data: Kind
   await writeFileAtomic(rel, stringifyFrontmatter(result.data as Record<string, unknown>, body));
 }
 
-const exists = (abs: string) => access(abs).then(() => true, () => false);
-
-/** "Deleting" moves the file to _archive/<original path>; a repeat archive gets a timestamp suffix. */
+/** "Deleting" moves the file to _archive/<original path>; a repeat archive gets a timestamp suffix (atomic, no overwrite). */
 export async function archiveEntry(rel: string): Promise<string> {
   const from = resolveInData(rel);
   let target = `_archive/${rel}`;
-  if (await exists(resolveInData(target))) {
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    target = `_archive/${rel.replace(/\.md$/, "")}.${stamp}.md`;
+
+  // Try atomic link first; if target exists, retry with timestamp + random suffix
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const to = resolveInData(target);
+    await mkdir(path.dirname(to), { recursive: true });
+    try {
+      await link(from, to);
+      // Successfully linked; now delete the original
+      await unlink(from);
+      return target;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+      // Generate a new timestamped path for the next attempt
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const suffix = randomBytes(2).toString("hex");
+      target = `_archive/${rel.replace(/\.md$/, "")}.${stamp}-${suffix}.md`;
+    }
   }
-  const to = resolveInData(target);
-  await mkdir(path.dirname(to), { recursive: true });
-  await rename(from, to);
-  return target;
+  throw new Error(`Failed to archive ${rel} after 5 attempts`);
 }
