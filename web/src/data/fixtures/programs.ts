@@ -8,10 +8,10 @@ const laterSession = (n: number, title: string, date: string, builds: [string, s
   date,
   materials: [
     { title: `Session ${n} slides`, kind: "slides" },
-    { title: `Worksheet ${n}.A`, kind: "worksheet" },
+    { title: `Worksheet: ${title}`, kind: "worksheet" },
   ],
   homework: [
-    { id: `esc-${n}-a`, title: `Complete worksheet ${n}.A`, dueAt: date, builds: builds[0], required: 1, evidenceIds: [] },
+    { id: `esc-${n}-a`, title: `Complete the worksheet: ${title}`, dueAt: date, builds: builds[0], required: 1, evidenceIds: [] },
     { id: `esc-${n}-b`, title: `Bring one question for peer feedback`, dueAt: date, builds: builds[1], required: 1, evidenceIds: [] },
   ],
   facilitatorNote: "Materials post the morning after the session.",
@@ -24,7 +24,7 @@ const doneSession = (n: number, title: string, date: string, items: [string, str
   materials: [
     { title: `Session ${n} slides`, kind: "slides" },
     { title: `Session ${n} recording`, kind: "recording" },
-    { title: `Worksheet ${n}.A`, kind: "worksheet" },
+    { title: `Worksheet: ${title}`, kind: "worksheet" },
   ],
   homework: [
     { id: `esc-${n}-a`, title: items[0], dueAt: date, builds: items[1], required: 1, evidenceIds: [`art-${n}-a`] },
@@ -52,7 +52,7 @@ export const programs: Program[] = [
     unlocks: "Mentor Program team, and pitch night in front of capital partners",
     sessions: [
       doneSession(1, "Know yourself", "2026-09-15", [
-        "Write your founder story (worksheet 1.A)", "Founder profile",
+        "Write your founder story (worksheet: founder story)", "Founder profile",
         "Set three milestones with a halfway check", "Milestones",
       ]),
       doneSession(2, "Understand your customer", "2026-09-22", [
@@ -73,7 +73,7 @@ export const programs: Program[] = [
         date: "2026-10-13",
         materials: [
           { title: "Session 5 slides (posted after session)", kind: "slides" },
-          { title: "Worksheet 5.A: pricing hypothesis", kind: "worksheet" },
+          { title: "Worksheet: pricing hypothesis", kind: "worksheet" },
           { title: "Reading: pricing conversations without pitching", kind: "reading" },
         ],
         homework: [
@@ -87,7 +87,7 @@ export const programs: Program[] = [
           },
           {
             id: "esc-5-b",
-            title: "Draft your pricing hypothesis (worksheet 5.A)",
+            title: "Draft your pricing hypothesis (worksheet: pricing hypothesis)",
             dueAt: "2026-10-13",
             builds: "Venture canvas → revenue model",
             required: 1,
