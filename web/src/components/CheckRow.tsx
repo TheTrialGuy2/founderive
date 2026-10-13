@@ -27,12 +27,12 @@ export function CheckRow({
     <span
       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm transition ${
         state === "done"
-          ? "bg-navy text-white"
+          ? "bg-teal-dark text-white"
           : state === "auto"
             ? "bg-lime text-navy"
             : state === "skipped"
               ? "border-2 border-dashed border-line text-muted"
-              : "border-2 border-navy/30 hover:border-navy hover:bg-lime-soft"
+              : "border-2 border-teal/45 hover:border-teal-dark hover:bg-aqua/40"
       }`}
       aria-hidden
     >
@@ -56,7 +56,7 @@ export function CheckRow({
         <p className={`text-sm ${closed ? "text-muted line-through decoration-line" : ""}`}>{title}</p>
         {(meta || state === "auto") && (
           <p className="mt-0.5 text-xs text-muted">
-            {state === "auto" && <span className="mr-1 rounded bg-lime px-1 font-medium text-navy">auto</span>}
+            {state === "auto" && <span className="mr-1 rounded bg-lime px-1 font-semibold text-navy">From evidence</span>}
             {meta}
           </p>
         )}

@@ -7,10 +7,10 @@ export function formatDate(iso: string) {
 
 export function PageHeader({ eyebrow, title, children }: { eyebrow?: string; title: string; children?: ReactNode }) {
   return (
-    <header className="mb-6">
-      {eyebrow && <p className="text-xs font-medium tracking-wide text-muted uppercase">{eyebrow}</p>}
-      <h1 className="mt-1 font-serif text-3xl text-navy">{title}</h1>
-      {children && <div className="mt-2 max-w-3xl text-muted">{children}</div>}
+    <header className="mb-8">
+      {eyebrow && <p className="text-xs font-semibold tracking-[0.12em] text-teal-dark uppercase">{eyebrow}</p>}
+      <h1 className="mt-1 font-serif text-[2rem] leading-[1.15] font-normal tracking-[-0.025em] text-navy md:text-4xl">{title}</h1>
+      {children && <div className="mt-2 max-w-3xl text-[15px] leading-6 text-muted">{children}</div>}
     </header>
   );
 }
@@ -20,7 +20,7 @@ export function Card({ title, action, children, className = "" }: { title?: stri
     <section className={`rounded-xl border border-line bg-paper p-5 ${className}`}>
       {(title || action) && (
         <div className="mb-3 flex items-start justify-between gap-3">
-          {title && <h2 className="font-medium text-navy">{title}</h2>}
+          {title && <h2 className="font-semibold tracking-[-0.01em] text-navy">{title}</h2>}
           {action}
         </div>
       )}
@@ -33,10 +33,10 @@ type Tone = "neutral" | "good" | "warn" | "bad" | "info" | "dark";
 
 const TONES: Record<Tone, string> = {
   neutral: "bg-sand text-ink",
-  good: "bg-lime-soft text-navy ring-1 ring-lime",
+  good: "bg-aqua text-teal-dark ring-1 ring-teal/30",
   warn: "bg-[#fff3d6] text-[#7a5300]",
   bad: "bg-coral-soft text-[#8a2d1c]",
-  info: "bg-aqua/60 text-navy",
+  info: "bg-aqua text-teal-dark",
   dark: "bg-navy text-white",
 };
 
@@ -63,7 +63,7 @@ export const layerWho = (layer: Layer) => LAYER_COPY[layer].who;
 
 export function ProgressBar({ value, max, tone = "lime" }: { value: number; max: number; tone?: "lime" | "coral" | "navy" }) {
   const pct = max === 0 ? 0 : Math.min(100, Math.round((value / max) * 100));
-  const color = tone === "lime" ? "bg-lime" : tone === "coral" ? "bg-coral" : "bg-navy";
+  const color = tone === "lime" ? "bg-lime" : tone === "coral" ? "bg-coral" : "bg-teal-dark";
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-sand" role="progressbar" aria-valuenow={value} aria-valuemax={max}>
       <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
@@ -73,9 +73,9 @@ export function ProgressBar({ value, max, tone = "lime" }: { value: number; max:
 
 export function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-line bg-paper p-4">
-      <p className="text-xs text-muted">{label}</p>
-      <p className="mt-1 font-serif text-3xl text-navy">{value}</p>
+    <div className="rounded-lg border border-line bg-paper p-4">
+      <p className="text-xs font-medium text-muted">{label}</p>
+      <p className="mt-1 font-serif text-3xl font-normal tracking-[-0.025em] text-navy">{value}</p>
       {sub && <p className="mt-1 text-xs text-muted">{sub}</p>}
     </div>
   );
@@ -91,9 +91,9 @@ export function Button({ children, onClick, variant = "primary", type = "button"
   const styles =
     variant === "primary"
       ? "bg-navy text-white hover:bg-navy-light"
-      : "border border-line bg-paper text-navy hover:bg-sand/50";
+      : "border border-line bg-paper text-navy hover:border-teal/50 hover:bg-aqua/35";
   return (
-    <button type={type} onClick={onClick} disabled={disabled} className={`rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 ${styles}`}>
+    <button type={type} onClick={onClick} disabled={disabled} className={`rounded-lg px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${styles}`}>
       {children}
     </button>
   );
@@ -103,7 +103,7 @@ export function Button({ children, onClick, variant = "primary", type = "button"
 export function Builds({ children }: { children: ReactNode }) {
   return (
     <span className="inline-flex items-center gap-1 text-xs text-navy">
-      <span className="rounded bg-lime px-1.5 py-0.5 font-medium">builds</span>
+      <span className="rounded-md bg-aqua px-1.5 py-0.5 font-semibold text-teal-dark">Builds</span>
       {children}
     </span>
   );
@@ -124,13 +124,13 @@ export function Ring({ value, max, label, size = 88 }: { value: number; max: num
           cy={size / 2}
           r={r}
           fill="none"
-          stroke={pct >= 1 ? "var(--color-navy)" : "var(--color-lime)"}
+          stroke={pct >= 1 ? "var(--color-teal-dark)" : "var(--color-lime)"}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={`${c * pct} ${c}`}
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
-        <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" className="fill-navy font-serif" fontSize={size / 4}>
+        <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" className="fill-navy font-serif font-normal" fontSize={size / 4}>
           {value}
           <tspan className="fill-muted font-sans" fontSize={size / 8}>
             /{max}
@@ -152,7 +152,7 @@ export function WeekDots({ weeks, labels }: { weeks: boolean[]; labels?: string[
         return (
           <div key={i} className="flex flex-col items-center gap-1">
             <span
-              className={`block h-4 w-4 rounded-full ${on ? "bg-lime ring-1 ring-navy/20" : isCurrent ? "border-2 border-dashed border-line" : "bg-sand"}`}
+              className={`block h-4 w-4 rounded-full ${on ? "bg-teal ring-1 ring-teal-dark/20" : isCurrent ? "border-2 border-dashed border-teal/60" : "bg-sand"}`}
               title={on ? "Active" : isCurrent ? "This week" : "Missed"}
             />
             {labels && <span className="text-[10px] text-muted">{labels[labels.length - 1 - i]}</span>}
