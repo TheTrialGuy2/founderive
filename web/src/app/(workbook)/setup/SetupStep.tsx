@@ -114,7 +114,7 @@ export function SetupStep({ step, initial }: { step: number; initial: Record<str
               ))}
             </select>
           </Field>
-          {text("startedOn", "Month you started working on it", "", { type: "month" })}
+          {text("startedOn", "Month you started working on it", "YYYY-MM, e.g. 2026-03", { type: "month" })}
         </>
       )}
 

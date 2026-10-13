@@ -5,6 +5,7 @@ A founder's workbook and record that runs on your own computer. Log your program
 ## Start
 
 You need [Node.js 24 or newer](https://nodejs.org) and git.
+If you're on Node 25 or newer and pnpm isn't installed, run `npm install -g pnpm` first.
 
 ```bash
 git clone https://github.com/TheTrialGuy2/founderive.git

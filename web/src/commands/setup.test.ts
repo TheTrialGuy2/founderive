@@ -39,6 +39,21 @@ describe("parseSetupStep", () => {
     expect(!parseSetupStep(2, form({ ...STEP_FORMS[2], startedOn: "March" })).ok).toBe(true);
     expect(!parseSetupStep(4, form({ ...STEP_FORMS[4], hoursPerWeek: "200" })).ok).toBe(true);
   });
+  it("normalizes the start month from common typed forms", () => {
+    const started = (startedOn: string) => {
+      const r = parseSetupStep(2, form({ ...STEP_FORMS[2], startedOn }));
+      return r.ok ? r.patch.startedOn : r.errors.startedOn;
+    };
+    for (const typed of ["2026-03", "2026-3", "03/2026", "3/2026", "March 2026", "Mar 2026", "march 2026", " MARCH 2026 "]) expect(started(typed)).toBe("2026-03");
+    expect(started("12/2025")).toBe("2025-12");
+    expect(started("Sept 2026")).toBe("2026-09");
+  });
+  it("explains an unreadable start month", () => {
+    for (const typed of ["", "March", "2026-13", "13/2026", "0/2026", "Marchh 2026", "2026/03/01"]) {
+      const r = parseSetupStep(2, form({ ...STEP_FORMS[2], startedOn: typed }));
+      expect(!r.ok && r.errors.startedOn).toBe("Pick the month you started (for example 2026-03).");
+    }
+  });
   it("requires program details only when in a program", () => {
     const r = parseSetupStep(4, form({ ...STEP_FORMS[4], inProgram: "on", programTitle: "", programStart: "", programWeeks: "0" }));
     expect(!r.ok && Object.keys(r.errors).sort()).toEqual(["programStart", "programTitle", "programWeeks"]);

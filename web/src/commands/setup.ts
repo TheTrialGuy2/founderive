@@ -22,6 +22,27 @@ export const LAST_STEP = SETUP_STEPS.length;
 
 const oneOf = (list: readonly string[], v: string) => list.includes(v);
 
+const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+
+/**
+ * Reads a start month typed by hand (Safari and Firefox show the month input as a text box) as YYYY-MM.
+ * Accepts 2026-03, 2026-3, 03/2026, 3/2026, and "March 2026" or "Mar 2026" in any case. Null if unreadable.
+ */
+export function parseMonth(input: string): string | null {
+  const v = input.trim().toLowerCase();
+  let year: number;
+  let month: number;
+  let m: RegExpExecArray | null;
+  if ((m = /^(\d{4})-(\d{1,2})$/.exec(v))) [year, month] = [Number(m[1]), Number(m[2])];
+  else if ((m = /^(\d{1,2})\/(\d{4})$/.exec(v))) [year, month] = [Number(m[2]), Number(m[1])];
+  else if ((m = /^([a-z]{3,})\.?\s+(\d{4})$/.exec(v))) {
+    const name = m[1];
+    [year, month] = [Number(m[2]), MONTHS.findIndex((full) => full.startsWith(name)) + 1];
+  } else return null;
+  if (month < 1 || month > 12) return null;
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
 export function parseSetupStep(step: number, fd: FormData): StepParse {
   const spec = SETUP_STEPS.find((s) => s.n === step);
   if (!spec) return { ok: false, errors: { step: "Unknown setup step." }, values: {} };
@@ -49,14 +70,15 @@ export function parseSetupStep(step: number, fd: FormData): StepParse {
     if (!values.stillWorking) need("oneLiner", "Describe it in one sentence, or tick “Still working on it”.");
     need("industry", "Add your industry, in your own words.");
     if (!oneOf(BUSINESS_MODELS, values.businessModel)) errors.businessModel = "Pick the closest business type.";
-    if (!/^\d{4}-\d{2}$/.test(values.startedOn)) errors.startedOn = "Pick the month you started.";
+    const startedOn = parseMonth(values.startedOn);
+    if (!startedOn) errors.startedOn = "Pick the month you started (for example 2026-03).";
     patch = {
       venture: values.venture,
       oneLiner: values.stillWorking ? null : values.oneLiner,
       website: values.website || null,
       industry: values.industry,
       businessModel: values.businessModel as FounderData["businessModel"],
-      startedOn: values.startedOn,
+      startedOn,
     };
   }
   if (step === 3) {

@@ -4,7 +4,7 @@ Founderive is a local app (`web/`) that shows a founder's record kept as Markdow
 
 ## Starting Founderive for a founder
 
-If the founder asks to get set up, start Founderive or open the app, run `node start.mjs` from the repo root. It keeps running and opens the browser to setup (first run) or Today. Don't ask them to edit founder-data by hand to get started; setup in the app does it.
+If the founder asks to get set up, start Founderive or open the app, run `node start.mjs` from the repo root. It keeps running (start it in the background) and opens the founder's browser to setup (first run) or Today. Don't ask them to edit founder-data by hand to get started; setup in the app does it.
 
 ## Rules for founder-data
 
