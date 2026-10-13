@@ -66,6 +66,29 @@ describe("nextStep", () => {
     for (const c of ranked) expect(c.reason.length).toBeGreaterThan(0);
   });
   it("returns null when nothing is left", () => expect(nextStep({ ...base, guideStep: null })).toBeNull());
+  it("ranks a due follow-up (tier 5) above the guide step, carrying its conversation", () => {
+    const n = nextStep({
+      ...base,
+      followUps: [{ id: "conversations/2026-10-08-dana.md#f-1", text: "Follow up with Dana: Send the one-pager", href: "/conversations/2026-10-08-dana", due: "2026-10-12" }],
+    });
+    expect(n).toMatchObject({ tier: 5, kind: "followup", ref: "conversations/2026-10-08-dana.md#f-1", href: "/conversations/2026-10-08-dana" });
+  });
+  it("ranks a commitment chosen after a test at tier 6, before a new guide step", () => {
+    const ranked = rankCandidates({
+      ...base,
+      commitments: [{ id: "n", text: "Offer the pilot to three more owners", due: "2026-10-20", status: "open", link: "tests/2026-10-06-paid-pilot.md" }],
+    });
+    expect(ranked.map((c) => c.id)).toEqual(["commitment:n", "guide:riskiest-assumption"]);
+    expect(ranked[0].reason).toBe("You chose this as the next step after a test.");
+  });
+  it("an overdue test commitment stays at tier 4", () => {
+    const ranked = rankCandidates({ ...base, commitments: [{ id: "n", text: "Offer the pilot", due: "2026-10-10", status: "open", link: "tests/2026-10-06-paid-pilot.md" }] });
+    expect(ranked.filter((c) => c.id === "commitment:n").map((c) => c.tier)).toEqual([4]);
+  });
+  it("carries the guide step's evidence so far", () => {
+    const n = nextStep({ ...base, guideStep: { ...base.guideStep!, progress: "2 of 5 customer conversations logged" } });
+    expect(n?.detail).toBe("2 of 5 customer conversations logged");
+  });
 });
 
 describe("open guide commitments", () => {

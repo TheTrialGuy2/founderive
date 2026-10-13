@@ -20,6 +20,8 @@ export function formatToday(view: TodayView): string {
   if (view.founder.outcome30) out.push(`30-day outcome: ${view.founder.outcome30}`);
   if (view.next) out.push(`Next action: ${view.next.label}`, `  Why: ${view.next.reason}`, `  id: ${view.next.id}`);
   else out.push("Next action: nothing is waiting");
+  const t = view.currentTest;
+  out.push(t ? `Current test: ${t.title}${t.due ? ` · due ${t.due}` : ""} · ${t.linkedCount} linked · ${t.evidenceCount} customer evidence · strength ${t.evidenceStrength} (${t.path})` : `Current test: none running${view.plannedTests ? ` (${view.plannedTests} planned)` : ""}`);
   const commitments = view.checkin?.commitments ?? [];
   const open = [...commitments.filter((c) => c.status === "open")].sort(byDue);
   const done = commitments.filter((c) => c.status === "done");
@@ -35,6 +37,7 @@ export function formatToday(view: TodayView): string {
     out.push("Dropped this week:");
     for (const c of dropped) out.push(`  ${c.text} — ${c.reason} (id ${c.id})`);
   }
+  if (view.capacity) out.push(`Capacity: ${view.capacity}`);
   const homework = view.homework.filter((h) => h.status === "open");
   if (homework.length > 0) {
     out.push(`Program week ${view.programWeek}:`);

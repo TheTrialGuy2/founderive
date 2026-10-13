@@ -2,8 +2,10 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
+import { PILOT } from "./test-inputs";
 import { loadToday } from "./today";
 import { formatToday } from "./today-text";
+import { createTest } from "./venture-tests";
 
 let env: Awaited<ReturnType<typeof useTempData>>;
 beforeEach(async () => {
@@ -99,5 +101,13 @@ describe("formatToday", () => {
     const file = path.join(env.dir, "founder.md");
     await writeFile(file, (await readFile(file, "utf8")).replace("setupComplete: true", "setupComplete: false"));
     expect(formatToday(await loadToday())).toMatch(/^Setup isn't finished/);
+  });
+});
+
+describe("formatToday with the loop", () => {
+  it("shows the current test, or that none is running", async () => {
+    expect(formatToday(await loadToday())).toContain("Current test: none running");
+    const rel = await createTest(PILOT, "2026-10-13");
+    expect(formatToday(await loadToday())).toContain(`Current test: ${PILOT.title} · due 2026-10-20 · 0 linked · 0 customer evidence · strength none (${rel})`);
   });
 });

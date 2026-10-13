@@ -1,4 +1,5 @@
-import type { EvidenceLevel, Stage } from "../store/schemas";
+import type { ConversationType, EvidenceLevel, Stage, TestStatus } from "../store/schemas";
+import { isCustomerEvidence } from "./conversations";
 
 export type GuideFacts = {
   hasTargetCustomer: boolean;
@@ -78,4 +79,38 @@ export function guideStepForWeek(stage: Stage | null | undefined, facts: Partial
   if (linked.some((c) => c.status === "open")) return null;
   const done = new Set(linked.filter((c) => c.status === "done").map((c) => guideId(c)!));
   return guideStepFor(stage, facts, done);
+}
+
+/** What the records prove: customer and prospect conversations logged (advice doesn't count), tests designed (not ones stopped early) and tests completed. */
+export function factsFromRecords(records: { conversations: { type: ConversationType }[]; tests: { status: TestStatus }[] }): Partial<GuideFacts> {
+  return {
+    customerConversations: records.conversations.filter((c) => isCustomerEvidence(c.type)).length,
+    tests: records.tests.filter((t) => t.status !== "abandoned").length,
+    completedTests: records.tests.filter((t) => t.status === "complete").length,
+  };
+}
+
+/** Combines fact sources, keeping the stronger value: the larger count, or true over false. */
+export function mergeFacts(...parts: Partial<GuideFacts>[]): Partial<GuideFacts> {
+  const out: Record<string, number | boolean> = {};
+  for (const part of parts) {
+    for (const [key, value] of Object.entries(part)) {
+      if (value === undefined) continue;
+      const prev = out[key];
+      out[key] = typeof value === "boolean" ? value || prev === true : Math.max(typeof prev === "number" ? prev : 0, value);
+    }
+  }
+  return out as Partial<GuideFacts>;
+}
+
+const PROGRESS: Partial<Record<string, (f: GuideFacts) => string>> = {
+  "problem-conversations": (f) => `${Math.min(f.customerConversations, 5)} of 5 customer conversations logged`,
+  "finish-test": (f) => `${f.tests} test${f.tests === 1 ? "" : "s"} designed, none completed yet`,
+  "ask-to-pay": (f) => `${Math.min(f.offersMade, 3)} of 3 offers made`,
+};
+
+/** How much of a step's evidence exists so far, for steps that complete from a count (evidence on guide steps). */
+export function guideProgress(step: Pick<GuideStep, "id">, facts: Partial<GuideFacts>): string | null {
+  const progressOf = PROGRESS[step.id];
+  return progressOf ? progressOf({ ...NO_FACTS, ...facts }) : null;
 }

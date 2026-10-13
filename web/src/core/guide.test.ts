@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { factsFromFounder, GUIDE_STEPS, guideStepFor, guideStepForWeek } from "./guide";
+import { factsFromFounder, factsFromRecords, GUIDE_STEPS, guideProgress, guideStepFor, guideStepForWeek, mergeFacts } from "./guide";
 
 describe("Founder Guide", () => {
   it("every step declares outcome, why, area, evidence and stages", () => {
@@ -52,4 +52,29 @@ describe("factsFromFounder", () => {
     expect(guideStepFor("validating", factsFromFounder({ evidence: "paying-customers", targetCustomer: "Agency owners" }))?.id).toBe("problem-conversations"));
   it("a validating founder with active users still needs to talk to five people (no conversations proven)", () =>
     expect(guideStepFor("validating", factsFromFounder({ evidence: "active-users", targetCustomer: "Agency owners" }))?.id).toBe("problem-conversations"));
+});
+
+describe("evidence on guide steps", () => {
+  it("counts customer and prospect conversations only, and tests not stopped early", () => {
+    expect(
+      factsFromRecords({
+        conversations: [{ type: "customer" }, { type: "prospect" }, { type: "mentor" }, { type: "investor" }],
+        tests: [{ status: "running" }, { status: "complete" }, { status: "abandoned" }],
+      }),
+    ).toEqual({ customerConversations: 2, tests: 2, completedTests: 1 });
+  });
+  it("merges setup facts with record facts, keeping the stronger", () => {
+    expect(mergeFacts({ hasTargetCustomer: true, offersMade: 1 }, { customerConversations: 3, offersMade: 0 })).toEqual({ hasTargetCustomer: true, offersMade: 1, customerConversations: 3 });
+  });
+  it("a step completes from logged evidence, not a checkbox", () => {
+    expect(guideStepFor("validating", { hasTargetCustomer: true, customerConversations: 4 })?.id).toBe("problem-conversations");
+    expect(guideStepFor("validating", { hasTargetCustomer: true, customerConversations: 5 })?.id).toBe("riskiest-assumption");
+    expect(guideStepFor("validating", { hasTargetCustomer: true, customerConversations: 5, tests: 1 })?.id).toBe("finish-test");
+  });
+  it("says how much evidence a step has so far", () => {
+    const step = (id: string) => GUIDE_STEPS.find((s) => s.id === id)!;
+    expect(guideProgress(step("problem-conversations"), { customerConversations: 2 })).toBe("2 of 5 customer conversations logged");
+    expect(guideProgress(step("finish-test"), { tests: 1 })).toBe("1 test designed, none completed yet");
+    expect(guideProgress(step("customer"), {})).toBeNull();
+  });
 });
