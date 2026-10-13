@@ -35,7 +35,13 @@ export async function archiveEntry(rel: string): Promise<string> {
     try {
       await link(from, to);
       // Successfully linked; now delete the original
-      await unlink(from);
+      try {
+        await unlink(from);
+      } catch (unlinkErr) {
+        // If unlink fails, remove the link we just created and rethrow
+        await unlink(to).catch(() => {});
+        throw unlinkErr;
+      }
       return target;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
