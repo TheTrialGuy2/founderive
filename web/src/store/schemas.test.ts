@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { checkinSchema, founderSchema, isoDate } from "./schemas";
+import { CONTACT_DETAILS_MESSAGE } from "../core/privacy";
+import { CONTACT_SAMPLES } from "../commands/test-inputs";
+import { checkinSchema, conversationSchema, founderSchema, isoDate } from "./schemas";
 
 const ok = (schema: { safeParse: (v: unknown) => { success: boolean } }, v: unknown) => schema.safeParse(v).success;
 const founder = (extra: Record<string, unknown>) => ({ name: "Sam", venture: "Lantern", ...extra });
@@ -65,4 +67,14 @@ describe("founder.bringWhatYouHave", () => {
     expect(ok(founderSchema, founder({}))).toBe(true);
     expect(ok(founderSchema, founder({ bringWhatYouHave: "later" }))).toBe(false);
   });
+});
+
+describe("conversation.person", () => {
+  const conversation = (person: string) => ({ type: "customer", person });
+  it.each(Object.entries(CONTACT_SAMPLES))("refuses contact details (%s) with a clear message", (_kind, person) => {
+    const r = conversationSchema.safeParse(conversation(person));
+    expect(r.success).toBe(false);
+    expect(!r.success && r.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`)).toEqual([`person: ${CONTACT_DETAILS_MESSAGE}`]);
+  });
+  it("accepts a first name or a role", () => expect(ok(conversationSchema, conversation("Dr. Lee"))).toBe(true));
 });

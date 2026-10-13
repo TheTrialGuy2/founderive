@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CONTACT_DETAILS_MESSAGE, looksLikeContactDetails } from "../core/privacy";
 import { isoWeekId } from "../core/week";
 
 /** True when YYYY-MM-DD names a real calendar day (so 2026-02-30 and 2026-13-45 are rejected). */
@@ -207,7 +208,11 @@ export const conversationSchema = z
   .strictObject({
     ...meta,
     type: z.enum(CONVERSATION_TYPES),
-    person: z.string().min(1),
+    // A first name or a role. Contact details never go in a record, whichever path wrote it (hand edits included).
+    person: z
+      .string()
+      .min(1)
+      .refine((v) => !looksLikeContactDetails(v), CONTACT_DETAILS_MESSAGE),
     org: z.string().nullish(),
     date: isoDate.nullish(), // unknown when imported from a chat that didn't say when
     segment: z.string().nullish(),

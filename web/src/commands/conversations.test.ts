@@ -4,7 +4,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
 import { addFollowUp, confirmWhatChanges, createConversation, loadConversation, loadConversations, parseConversationForm, setFollowUpStatus, updateConversation } from "./conversations";
-import { DANA, MENTOR } from "./test-inputs";
+import { CONTACT_DETAILS_MESSAGE } from "../core/privacy";
+import { checkData } from "../store/check";
+import { CONTACT_SAMPLES, DANA, MENTOR } from "./test-inputs";
 
 let env: Awaited<ReturnType<typeof useTempData>>;
 beforeEach(async () => {
@@ -144,5 +146,31 @@ describe("conversation views", () => {
     await writeFile(path.join(env.dir, "conversations/2026-10-02-lee.md"), "---\ntype: prospect\nperson: Lee\ndate: 2026-10-02\nrelatedTests:\n  - tests/2026-10-01-gone.md\n---\n");
     const v = await loadConversation("2026-10-02-lee");
     expect(v.status === "ready" && v.broken).toEqual([{ field: "relatedTests", target: "tests/2026-10-01-gone.md", expect: "test", problem: "missing" }]);
+  });
+});
+
+describe("contact details never reach a conversation's person", () => {
+  const samples = Object.entries(CONTACT_SAMPLES);
+  it.each(samples)("the form refuses %s and keeps what was typed", (_kind, person) => {
+    const r = parseConversationForm(form({ type: "customer", person, date: "2026-10-08" }));
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.errors.person).toBe(CONTACT_DETAILS_MESSAGE);
+    expect(r.values.person).toBe(person);
+  });
+  it.each(samples)("createConversation refuses %s, writing nothing", async (_kind, person) => {
+    await expect(createConversation({ ...DANA, person })).rejects.toThrow(CONTACT_DETAILS_MESSAGE);
+    expect((await loadConversations()).evidence).toEqual([]);
+  });
+  it.each(samples)("updateConversation refuses %s, keeping the file as it was", async (_kind, person) => {
+    const rel = await createConversation(DANA);
+    await expect(updateConversation(rel, { ...DANA, person })).rejects.toThrow(CONTACT_DETAILS_MESSAGE);
+    const e = await readEntry("conversation", rel);
+    expect(e?.ok && e.data.person).toBe("Dana Ortiz");
+  });
+  it.each(samples)("check-data flags a hand-written file with %s", async (_kind, person) => {
+    await mkdir(path.join(env.dir, "conversations"), { recursive: true });
+    await writeFile(path.join(env.dir, "conversations/2026-10-09-hand.md"), `---\ntype: customer\nperson: "${person}"\n---\nNotes\n`);
+    const report = await checkData();
+    expect(report.errors).toContainEqual({ path: "conversations/2026-10-09-hand.md", error: `person: ${CONTACT_DETAILS_MESSAGE}` });
   });
 });

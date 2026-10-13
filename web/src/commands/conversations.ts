@@ -1,4 +1,5 @@
 import { groupConversations } from "../core/conversations";
+import { CONTACT_DETAILS_MESSAGE, looksLikeContactDetails } from "../core/privacy";
 import { brokenLinks, linksOf, type BrokenLink } from "../core/links";
 import { pathForSlug, slugOf } from "../core/slug";
 import { existingPaths, listEntries, readEntry } from "../store/read";
@@ -48,6 +49,7 @@ export function parseConversationForm(fd: FormData): Parsed<ConversationInput> {
   const errors: Record<string, string> = {};
   if (!oneOf(CONVERSATION_TYPES, values.type)) errors.type = "Pick who you talked to.";
   if (!values.person) errors.person = "Add who you talked to. A first name or a role is fine.";
+  else if (looksLikeContactDetails(values.person)) errors.person = CONTACT_DETAILS_MESSAGE;
   if (!isRealDate(values.date)) errors.date = "Add the date of the conversation.";
   if (areas.some((a) => !oneOf(AREAS, a))) errors.areas = "Pick areas from the list.";
   const followUps: ConversationInput["followUps"] = [];
@@ -88,6 +90,10 @@ export function parseConversationForm(fd: FormData): Parsed<ConversationInput> {
 }
 
 const notesBody = (notes: string) => (notes.trim() ? `${notes.trim()}\n` : "");
+/** Every write path checks the person, so contact details never reach a file (the schema checks hand-written ones). */
+const refuseContactDetails = (person: string) => {
+  if (looksLikeContactDetails(person)) throw new Error(CONTACT_DETAILS_MESSAGE);
+};
 const missing = (rel: string) => new Error(`founder-data/${rel} isn't there anymore. Reload the page.`);
 
 /**
@@ -97,6 +103,7 @@ const missing = (rel: string) => new Error(`founder-data/${rel} isn't there anym
  * (seeded, source) and `today`, which names the file when the conversation's own date is unknown.
  */
 export async function createConversation(input: ConversationInput, meta: RecordMeta = {}, today?: string): Promise<string> {
+  refuseContactDetails(input.person);
   const fileDate = input.date ?? today;
   if (!fileDate) throw new Error("Add the date of the conversation.");
   const data: Conversation = {
@@ -125,6 +132,7 @@ export async function createConversation(input: ConversationInput, meta: RecordM
 
 /** Edits a conversation's details and notes. Follow-ups, test links and "what this changes" keep their own actions. */
 export async function updateConversation(rel: string, input: ConversationInput): Promise<void> {
+  refuseContactDetails(input.person);
   await updateEntry("conversation", rel, (data) => {
     if (!data) throw missing(rel);
     return {

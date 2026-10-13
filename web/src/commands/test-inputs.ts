@@ -48,3 +48,11 @@ export const PILOT: TestInput = {
   due: "2026-10-20",
   startNow: true,
 };
+
+/** One of each kind of contact detail a conversation's person must never hold. */
+export const CONTACT_SAMPLES = {
+  email: "Dana dana@bright.example",
+  url: "https://bright.example/team",
+  hostname: "Dana brighthomecare.com",
+  phone: "Dana (704) 555-0182",
+} as const;

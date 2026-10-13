@@ -1,5 +1,6 @@
 // Parsers for blocks pasted back from a browser chat (the owner's PARSER REQUIREMENTS). Pure: no files are touched here,
 // so the same code runs in the live preview and again on the server before anything is written.
+import { looksLikeContactDetails } from "../core/privacy";
 import { NONE_OPEN, NONE_YET } from "../lib/prompts";
 import { CONVERSATION_TYPES, type ConversationType, type KindData } from "../store/schemas";
 import type { ConversationInput } from "./conversations";
@@ -8,23 +9,6 @@ import { isRealDate, oneOf } from "./form";
 const KEY_LINE = /^([A-Za-z][A-Za-z-]*):\s*(.*)$/;
 const TYPES_TEXT = "customer, prospect, mentor, partner, investor or other";
 
-/**
- * An email, a web address or a phone number anywhere in the value. A conversation's person is a first name or a role.
- * Web: "://", "www.", or a host like name.tld (a 2-24 letter tld right after the dot, so "Dr. Lee" and "St. Louis"
- * pass). Phone: a run of digits, spaces, dots, dashes and parentheses (with an optional leading +) holding 7 or more
- * digits; an extension after it doesn't matter.
- */
-export function looksLikeContactDetails(v: string): boolean {
-  if (/\S+@\S+\.\S+/.test(v)) return true;
-  if (/:\/\/|\bwww\./i.test(v)) return true;
-  if (hasHost(v)) return true;
-  return (v.match(/\+?[\d(][\d\s().-]*\d/g) ?? []).some((run) => (run.match(/\d/g)?.length ?? 0) >= 7);
-}
-
-/** A token shaped like name.tld or name.tld/path: no space after the dot, and the tld is 2-24 letters. */
-function hasHost(v: string): boolean {
-  return v.split(/\s+/).some((token) => /^[(<]?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,24}(?:[/:?#][^\s]*)?[)>.,;]?$/i.test(token));
-}
 const APP_FILLS = new Set([NONE_YET, NONE_OPEN]);
 
 /** The text inside ```<lang> … ```, or the whole text when the fence was lost in copying. A lost closing fence reads to the end. */
