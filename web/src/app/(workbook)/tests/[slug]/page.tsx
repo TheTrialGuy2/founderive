@@ -15,7 +15,7 @@ import { linkEvidenceAction, unlinkEvidenceAction } from "@/app/(workbook)/evide
 import { startTestAction } from "@/app/(workbook)/tests/actions";
 import { loadTest, type LinkedConversation } from "@/commands/venture-tests";
 import { whyFrom } from "@/core/venture-tests";
-import { AREA_LABELS, DECISION_LABELS, RESULT_LABELS, STATUS_LABELS, STRENGTH_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
+import { areaLabel, DECISION_LABELS, RESULT_LABELS, STATUS_LABELS, STRENGTH_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
 
 const CLOSED_NOTE = "This test is closed. Add new evidence to the conversation, or start a follow-up test.";
 
@@ -63,7 +63,7 @@ async function TestContent({ slug }: { slug: string }) {
 
   return (
     <>
-      <PageHeader eyebrow={`Venture test · ${AREA_LABELS[t.area]}`} title={t.title} />
+      <PageHeader eyebrow={`Venture test · ${areaLabel(t.area)}`} title={t.title} />
       <p className="-mt-4 mb-6 flex flex-wrap items-center gap-3 text-sm text-muted">
         <Badge tone={t.status === "running" ? "info" : "neutral"}>{STATUS_LABELS[t.status]}</Badge>
         {t.due && <span>Decide by {formatDate(t.due)}</span>}

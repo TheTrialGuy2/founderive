@@ -19,6 +19,9 @@ function isRealIsoWeek(s: string): boolean {
 
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "use YYYY-MM-DD").refine(isCalendarDate, "not a real date");
 
+export const BLOCK_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const blockId = z.string().regex(BLOCK_ID_PATTERN, "use lowercase letters, digits and hyphens");
+
 // Metadata any record may carry. Any other custom data belongs under `extensions`, so typos in core fields are caught.
 const meta = {
   seeded: z.boolean().optional(),
@@ -77,6 +80,7 @@ export const founderSchema = z.strictObject({
   evidence: z.enum(EVIDENCE_LEVELS).nullish(),
   outcome30: z.string().nullish(),
   hoursPerWeek: z.number().min(0).max(168).nullish(),
+  weeklyTalkGoal: z.number().int().min(1).max(50).nullish(), // people to talk to each week; Home uses 3 when absent
   setupComplete: z.boolean().default(false),
   bringWhatYouHave: z.enum(["imported", "dismissed"]).nullish(), // hides Today's "Bring what you have" card
   // A program is optional: all three are set together, or none.
@@ -123,7 +127,7 @@ const commitmentSchema = z
     due: isoDate.nullish(),
     status: z.enum(["open", "done", "dropped"]).default("open"),
     reason: z.string().nullish(),
-    link: z.string().nullish(), // a founder-data path, or "guide:<step id>"
+    link: z.string().nullish(), // a founder-data path, "guide:<step id>", or "step:<canvas block id>" (a planned conversation)
   })
   .refine((c) => c.status !== "dropped" || !!c.reason, { message: "dropped commitments need a reason", path: ["reason"] });
 
@@ -147,9 +151,10 @@ export const checkinSchema = z.strictObject({
   helpNeeded: z.string().nullish(),
   nextStepLog: z.array(nextStepChoiceSchema).default([]),
   appliedUpdates: z.array(z.string()).optional(), // ids of weekly updates pasted from a browser chat, so one is never applied twice
+  talkGoal: z.number().int().min(1).max(50).nullish(), // this week's people-talked-to goal; overrides founder.weeklyTalkGoal
+  outreach: z.strictObject({ reached: z.number().int().min(0), replied: z.number().int().min(0) }).nullish(), // effort, never the headline
+  focus: blockId.nullish(), // the step the founder chose to deepen this week once every step is done
 });
-
-const blockId = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "use lowercase letters, digits and hyphens");
 
 /** canvas/blocks.md: the founder's own list of canvas blocks. Without it, the shipped generic list is used. */
 export const canvasConfigSchema = z
@@ -176,6 +181,8 @@ export const canvasBlockSchema = z.strictObject({
   status: z.enum(CANVAS_STATUSES).default("untested"),
   updated: isoDate.nullish(),
   history: z.array(z.strictObject({ date: isoDate, text: z.string() })).default([]),
+  done: isoDate.nullish(), // the founder marked this path step done; Reopen clears it
+  doneReason: z.string().nullish(), // their optional "ready to move on because…"
 });
 
 // Links are founder-data paths. They aren't validated here: a broken link is a warning from check-data and a note on
@@ -226,7 +233,7 @@ export const conversationSchema = z
     buyingProcess: z.string().nullish(),
     followUps: z.array(followUpSchema).default([]),
     relatedTests: links,
-    areas: z.array(z.enum(AREAS)).default([]),
+    areas: z.array(blockId).default([]), // canvas block ids (path steps); the seven shipped areas are block ids too
     whatChanges: z.string().nullish(),
     whatChangesConfirmed: z.boolean().default(false),
   })
@@ -237,7 +244,7 @@ export const testSchema = z
   .strictObject({
     ...meta,
     title: z.string().min(1),
-    area: z.enum(AREAS),
+    area: blockId, // the canvas block (path step) this tests
     status: z.enum(TEST_STATUSES).default("planned"),
     belief: z.string().min(1),
     risk: z.string().nullish(),

@@ -6,7 +6,7 @@ import { checkCompletion, groupTests, type CompletionForm } from "../core/ventur
 import { isoWeekId } from "../core/week";
 import { DECISION_LABELS } from "../lib/loop-labels";
 import { existingPaths, listEntries, readEntry } from "../store/read";
-import { AREAS, EVIDENCE_STRENGTHS, KINDS, type Area, type ConversationType, type KindData } from "../store/schemas";
+import { BLOCK_ID_PATTERN, EVIDENCE_STRENGTHS, KINDS, type ConversationType, type KindData } from "../store/schemas";
 import { updateEntry } from "../store/update";
 import { appendCommitmentOnce, loadCheckin, newId, type Checkin } from "./checkin";
 import { createDated } from "./create";
@@ -22,7 +22,7 @@ export const TEST_BODY = "## Evidence\n\n## What we learned\n\n## Decision and w
 
 export type TestInput = {
   title: string;
-  area: Area;
+  area: string;
   belief: string;
   risk: string | null;
   test: string;
@@ -37,7 +37,7 @@ export function parseTestForm(fd: FormData): Parsed<TestInput> {
   for (const k of ["title", "area", "belief", "risk", "test", "successCriteria", "failureCriteria", "due", "startNow"]) values[k] = text(fd, k);
   const errors: Record<string, string> = {};
   if (!values.title) errors.title = "Name the test in a few words.";
-  if (!oneOf(AREAS, values.area)) errors.area = "Pick the part of the business this tests.";
+  if (!BLOCK_ID_PATTERN.test(values.area)) errors.area = "Pick the part of the business this tests.";
   if (!values.belief) errors.belief = "Write the belief you're testing.";
   if (!values.test) errors.test = "Say what you'll do to test it.";
   if (!values.successCriteria) errors.successCriteria = "Decide now what counts as success, with a number if you can.";
@@ -49,7 +49,7 @@ export function parseTestForm(fd: FormData): Parsed<TestInput> {
     values,
     input: {
       title: values.title,
-      area: values.area as Area,
+      area: values.area,
       belief: values.belief,
       risk: orNull(values.risk),
       test: values.test,

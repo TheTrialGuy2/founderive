@@ -3,7 +3,7 @@ import { CONTACT_DETAILS_MESSAGE, looksLikeContactDetails } from "../core/privac
 import { brokenLinks, linksOf, type BrokenLink } from "../core/links";
 import { pathForSlug, slugOf } from "../core/slug";
 import { existingPaths, listEntries, readEntry } from "../store/read";
-import { AREAS, CONVERSATION_TYPES, type Area, type ConversationType, type KindData, type TestStatus } from "../store/schemas";
+import { BLOCK_ID_PATTERN, CONVERSATION_TYPES, type ConversationType, type KindData, type TestStatus } from "../store/schemas";
 import { updateEntry } from "../store/update";
 import { newId } from "./checkin";
 import { createDated, type RecordMeta } from "./create";
@@ -28,7 +28,7 @@ export type ConversationInput = {
   alternatives: string | null;
   urgency: string | null;
   buyingProcess: string | null;
-  areas: Area[];
+  areas: string[];
   followUps: { text: string; due: string | null }[];
   whatChanges: string | null;
   /** True only when the founder wrote "what this changes" themselves (their form). Anything else, such as a draft, stays unconfirmed. */
@@ -51,7 +51,7 @@ export function parseConversationForm(fd: FormData): Parsed<ConversationInput> {
   if (!values.person) errors.person = "Add who you talked to. A first name or a role is fine.";
   else if (looksLikeContactDetails(values.person)) errors.person = CONTACT_DETAILS_MESSAGE;
   if (!isRealDate(values.date)) errors.date = "Add the date of the conversation.";
-  if (areas.some((a) => !oneOf(AREAS, a))) errors.areas = "Pick areas from the list.";
+  if (areas.some((a) => !BLOCK_ID_PATTERN.test(a))) errors.areas = "Pick areas from the list.";
   const followUps: ConversationInput["followUps"] = [];
   for (let i = 0; i < Math.max(fuText.length, fuDue.length); i++) {
     const t = fuText[i] ?? "";
@@ -80,7 +80,7 @@ export function parseConversationForm(fd: FormData): Parsed<ConversationInput> {
       alternatives: orNull(values.alternatives),
       urgency: orNull(values.urgency),
       buyingProcess: orNull(values.buyingProcess),
-      areas: areas as Area[],
+      areas,
       followUps,
       whatChanges: orNull(values.whatChanges),
       whatChangesConfirmed: !!values.whatChanges, // typed by the founder on their own form

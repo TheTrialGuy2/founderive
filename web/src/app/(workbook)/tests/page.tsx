@@ -11,7 +11,7 @@ import { confirmImportedRecordAction } from "@/app/(workbook)/import/actions";
 import { loadPromptContext } from "@/commands/today";
 import { loadTests, type TestRow } from "@/commands/venture-tests";
 import { fillPrompt, SKILL_PROMPTS } from "@/lib/prompts";
-import { AREA_LABELS, DECISION_LABELS, RESULT_LABELS, STATUS_LABELS, STRENGTH_LABELS } from "@/lib/loop-labels";
+import { areaLabel, DECISION_LABELS, RESULT_LABELS, STATUS_LABELS, STRENGTH_LABELS } from "@/lib/loop-labels";
 
 export default function TestsPage() {
   return (
@@ -78,7 +78,7 @@ function TestSection({ id, title, rows, empty }: { id: string; title: string; ro
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold text-navy">{r.data.title}</span>
                   <Badge tone={r.data.status === "running" ? "info" : "neutral"}>{STATUS_LABELS[r.data.status]}</Badge>
-                  <Badge>{AREA_LABELS[r.data.area]}</Badge>
+                  <Badge>{areaLabel(r.data.area)}</Badge>
                   {r.data.seeded && <Badge tone="warn">Imported — confirm</Badge>}
                 </span>
                 <span className="mt-1 block text-sm text-muted">{summary(r)}</span>

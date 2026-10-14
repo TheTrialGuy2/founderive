@@ -32,7 +32,7 @@ describe("conversation", () => {
   it("catches a type typo, a misspelled key and an unknown area", () => {
     expect(paths(conversationSchema, conversation({ type: "customr" }))).toEqual(["type"]);
     expect(paths(conversationSchema, conversation({ quote: ["x"] }))).not.toEqual([]);
-    expect(paths(conversationSchema, conversation({ areas: ["pricing"] }))).toEqual(["areas.0"]);
+    expect(paths(conversationSchema, conversation({ areas: ["Not An Id"] }))).toEqual(["areas.0"]);
   });
   it("can't be confirmed without saying what changes", () => {
     expect(paths(conversationSchema, conversation({ whatChangesConfirmed: true }))).toEqual(["whatChangesConfirmed"]);

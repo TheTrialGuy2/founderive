@@ -3,3 +3,4 @@ founder-data/
 founderive.local.json
 .pnpm-store/
 docs/superpowers/
+.superpowers/

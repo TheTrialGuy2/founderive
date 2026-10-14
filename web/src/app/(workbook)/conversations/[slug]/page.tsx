@@ -15,7 +15,7 @@ import { loadConversation, type Conversation } from "@/commands/conversations";
 import { loadFounderToday } from "@/commands/today";
 import { isCustomerEvidence, isEvidenceEligible } from "@/core/conversations";
 import { canUnlink, linkableTests } from "@/core/venture-tests";
-import { AREA_LABELS, STATUS_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
+import { areaLabel, STATUS_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
 
 export default function ConversationPage({ params }: PageProps<"/conversations/[slug]">) {
   return (
@@ -173,7 +173,7 @@ async function ConversationContent({ slug }: { slug: string }) {
               ["Questions asked", c.questionsAsked],
               ["Urgency", c.urgency],
               ["How they would buy", c.buyingProcess],
-              ["Areas", c.areas.map((a) => AREA_LABELS[a]).join(", ")],
+              ["Areas", c.areas.map(areaLabel).join(", ")],
             ]}
           />
         </Card>

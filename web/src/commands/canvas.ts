@@ -1,7 +1,7 @@
 import { applyBlockSave, canvasBlocks, confirmImport, type CanvasBlockDef } from "../core/canvas";
 import { slugOf } from "../core/slug";
 import { listEntries, readEntry, type Entry } from "../store/read";
-import { AREAS, CANVAS_STATUSES, type ConversationType, type KindData, type TestStatus } from "../store/schemas";
+import { CANVAS_STATUSES, type ConversationType, type KindData, type TestStatus } from "../store/schemas";
 import { updateEntry } from "../store/update";
 import { createEntryIfAbsent } from "../store/write";
 import type { RecordMeta } from "./create";
@@ -69,16 +69,14 @@ export type BlockEvidence = {
   conversations: { slug: string; label: string; type: ConversationType; date: string | null }[];
 };
 
-/** Tests and conversations tagged with this block, when the block id is also a business-model area. Null otherwise. */
-export async function loadBlockEvidence(id: string): Promise<BlockEvidence | null> {
-  if (!oneOf(AREAS, id)) return null;
-  const area = id;
+/** Tests and conversations tagged with this block. */
+export async function loadBlockEvidence(id: string): Promise<BlockEvidence> {
   const [tests, conversations] = await Promise.all([listEntries("test"), listEntries("conversation")]);
   return {
-    tests: tests.flatMap((t) => (t.ok && t.data.area === area ? [{ slug: slugOf(t.path), title: t.data.title, status: t.data.status }] : [])),
+    tests: tests.flatMap((t) => (t.ok && t.data.area === id ? [{ slug: slugOf(t.path), title: t.data.title, status: t.data.status }] : [])),
     conversations: conversations
       .flatMap((c) =>
-        c.ok && c.data.areas.includes(area)
+        c.ok && c.data.areas.includes(id)
           ? [{ slug: slugOf(c.path), label: c.data.org ? `${c.data.person} · ${c.data.org}` : c.data.person, type: c.data.type, date: c.data.date ?? null }]
           : [],
       )

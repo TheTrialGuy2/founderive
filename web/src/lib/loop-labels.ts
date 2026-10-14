@@ -39,3 +39,10 @@ export const DECISION_HELP: Record<TestDecision, string> = {
 export const STRENGTH_LABELS: Record<EvidenceStrength, string> = { none: "None yet", weak: "Weak", moderate: "Moderate", strong: "Strong" };
 export const STRENGTH_GUIDE =
   "Paid beats behavior, and behavior beats opinion: money or a signed commitment is strong, something people did is moderate, and what people said is weak. Advice from mentors, investors or partners doesn't count.";
+
+/** A label for any area or path step id: the shipped name when there is one, otherwise the id in words ("startup-needs" → "Startup needs"). */
+export function areaLabel(id: string): string {
+  if (id in AREA_LABELS) return AREA_LABELS[id as Area];
+  const words = id.replace(/-/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}

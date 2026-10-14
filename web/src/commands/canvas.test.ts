@@ -77,8 +77,8 @@ describe("loadBlockEvidence", () => {
     await createConversation({ ...DANA, areas: ["revenue"] });
     await createConversation({ ...DANA, person: "Lee Park", org: null, areas: ["problem"] });
     const ev = await loadBlockEvidence("revenue");
-    expect(ev?.tests.map((t) => t.title)).toEqual([PILOT.title]);
-    expect(ev?.conversations.map((c) => c.label)).toEqual(["Dana Ortiz · Bright Home Care"]);
-    expect(await loadBlockEvidence("advantage")).toBeNull();
+    expect(ev.tests.map((t) => t.title)).toEqual([PILOT.title]);
+    expect(ev.conversations.map((c) => c.label)).toEqual(["Dana Ortiz · Bright Home Care"]);
+    expect(await loadBlockEvidence("advantage")).toEqual({ tests: [], conversations: [] });
   });
 });
