@@ -33,7 +33,16 @@ Customer and prospect conversations are evidence when the founder has confirmed 
 
 ## The next action
 
-Today shows one recommended action with a one-line reason. It's computed by one function, in this order:
+Home's main action comes from `homeAction()` (`web/src/core/home.ts`), in this order:
+
+1. risk
+2. missing outcome
+3. blocker
+4. the earliest item past its date
+5. the current path step
+6. choosing a focus
+
+`next-step.ts` keeps its full ranking as context for the agent, computed by one function, in this order:
 
 1. A cash, legal, safety or delivery risk
 2. A missing weekly outcome, or a blocker on it

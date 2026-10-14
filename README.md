@@ -10,11 +10,10 @@ It works for any kind of early business: a service, a local shop, a physical pro
 
 ## What's in it
 
-- **Today.** This week's outcome, the one recommended next step and its reason, your open commitments, and follow-ups that are due.
-- **Canvas.** Your current belief about each part of the business: customer, problem, solution, channel, revenue and the rest. Every earlier wording is kept.
-- **Conversations.** Notes from customer, prospect, mentor and investor conversations: quotes, numbers, follow-ups, and what each conversation changes.
-- **Venture tests.** The belief you're testing, with success and failure criteria you set before you start. Evidence gets linked from your conversations, then you record a result and a decision.
-- **Decisions.** Choices you make outside a test, with the evidence you used and why you chose as you did.
+- **Home.** This week's outcome, how many people you've talked to against your weekly goal, your outreach, what's due, and your path, with one main action.
+- **Your path.** You, then each part of your business in order (customer, problem, alternatives, solution and the rest). Each step holds your answer, the people who discussed it, and one next move: plan a conversation, or log one.
+- **People.** Everyone you've talked to, with the conversations that gave real feedback first.
+- **Tests and decisions.** When talk isn't enough, a small test with success and failure criteria set in advance. Decisions keep the reasoning. Find them all under Everything logged.
 - **Import.** Bring in a folder of your existing documents as drafts for you to confirm.
 
 The loop behind it is **assumption → test → evidence → learning → decision → next commitment**. See [docs/product/operating-loop.md](docs/product/operating-loop.md).

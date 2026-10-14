@@ -3,6 +3,13 @@ const base = process.env.BASE_URL ?? "http://localhost:3000";
 const routes = [
   "/",
   "/today",
+  "/path/you",
+  "/path/customer",
+  "/path/problem",
+  "/people",
+  "/people?show=all",
+  "/logged",
+  "/logged?type=test",
   "/setup",
   "/canvas",
   "/canvas/customer",
