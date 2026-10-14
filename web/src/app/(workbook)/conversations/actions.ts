@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { addFollowUp, confirmWhatChanges, createConversation, parseConversationForm, setFollowUpStatus, updateConversation } from "@/commands/conversations";
+import { markPlannedConversationDone } from "@/commands/path";
 import { slugOf } from "@/core/slug";
 import type { ActionState } from "@/lib/action-state";
 import { safeReturnTo } from "@/lib/return-to";
@@ -9,13 +10,19 @@ import { field, run } from "../action-utils";
 
 export async function createConversationAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const parsed = parseConversationForm(fd);
-  if (!parsed.ok) return { status: "error", message: "Check the highlighted answers.", errors: parsed.errors, values: parsed.values };
+  // The "Mark … done" checkbox for a planned conversation, kept as the founder left it if the form comes back.
+  const planDone = field(fd, "planDone") === "on";
+  const values = { ...parsed.values, planDone: planDone ? "on" : "" };
+  if (!parsed.ok) return { status: "error", message: "Check the highlighted answers.", errors: parsed.errors, values };
   let rel = "";
   try {
     rel = await createConversation(parsed.input);
   } catch (error) {
-    return { status: "error", message: error instanceof Error ? error.message : "Couldn't save the conversation. Try again.", values: parsed.values };
+    return { status: "error", message: error instanceof Error ? error.message : "Couldn't save the conversation. Try again.", values };
   }
+  // The conversation is saved; closing the plan it came from is a second, smaller write. A plan that's gone or already
+  // closed is ignored, and a failure here mustn't send the founder back to save the conversation twice.
+  if (planDone) await markPlannedConversationDone(field(fd, "plan")).catch(() => undefined);
   // redirect() throws, so it stays outside the try block.
   redirect(safeReturnTo(field(fd, "returnTo")) ?? `/conversations/${slugOf(rel)}`);
 }

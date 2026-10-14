@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { saveCommitmentStatus, saveHomeworkStatus } from "@/app/(workbook)/actions";
+import { setFollowUpStatusAction } from "@/app/(workbook)/conversations/actions";
 import { ActionButton } from "@/components/today/ActionButton";
 import { CommitmentList } from "@/components/today/CommitmentList";
 import { dueWords, type DueItem } from "@/core/due";
@@ -17,6 +19,16 @@ type Props = {
   homework: KindData<"week">["homework"];
 };
 
+/** What Done sends for each kind of item: a commitment to its own week's check-in, homework to its program week, a follow-up to its conversation. */
+function doneAction(i: DueItem, weekId: string, programWeek: number | null): { action: typeof saveCommitmentStatus; fields: Record<string, string> } {
+  if (i.kind === "commitment") return { action: saveCommitmentStatus, fields: commitmentFields({ id: i.id, week: i.week ?? weekId }, weekId, "done") };
+  if (i.kind === "followup") {
+    const at = i.id.lastIndexOf("#");
+    return { action: setFollowUpStatusAction, fields: { path: i.id.slice(0, at), id: i.id.slice(at + 1), status: "done" } };
+  }
+  return { action: saveHomeworkStatus, fields: { programWeek: String(programWeek ?? ""), id: i.id, status: "done" } };
+}
+
 /** Up to three things due, soonest first, with Done. "See all" opens the full list in place, with Drop and Skip. */
 export function DueList({ weekId, today, items, primaryKey, commitments, carried, programWeek, programLabel, homework }: Props) {
   const top = items.slice(0, 3);
@@ -26,22 +38,28 @@ export function DueList({ weekId, today, items, primaryKey, commitments, carried
         Due
       </h2>
       {top.length === 0 ? (
-        <p className="mt-2 text-sm text-muted">Nothing due. Add a commitment under See all.</p>
+        <>
+          <p className="mt-2 text-sm text-muted">Nothing due. Commitments you make show here, and so does program homework.</p>
+          <p className="mt-1 text-sm text-muted">Or tell Claude: &quot;I&apos;ll call two agency owners by Friday.&quot;</p>
+        </>
       ) : (
         <ul className="mt-2 space-y-2">
           {top.map((i) => {
-            const fields =
-              i.kind === "commitment"
-                ? commitmentFields({ id: i.id, week: i.week ?? weekId }, weekId, "done")
-                : { programWeek: String(programWeek ?? ""), id: i.id, status: "done" };
+            const { action, fields } = doneAction(i, weekId, programWeek);
             return (
               <li key={i.key} className="flex items-start justify-between gap-3">
                 <span className="text-sm text-ink">
-                  {i.text}
+                  {i.href ? (
+                    <Link href={i.href} className="hover:text-teal-dark">
+                      {i.text}
+                    </Link>
+                  ) : (
+                    i.text
+                  )}
                   {dueWords(i, today) && <span className="text-muted"> · {dueWords(i, today)}</span>}
                 </span>
                 <ActionButton
-                  action={i.kind === "commitment" ? saveCommitmentStatus : saveHomeworkStatus}
+                  action={action}
                   fields={fields}
                   label="Done"
                   variant={i.key === primaryKey ? "primary" : "quiet"}

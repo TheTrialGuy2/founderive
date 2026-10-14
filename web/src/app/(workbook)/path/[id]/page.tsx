@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { Badge, formatDate, PageHeader } from "@/components/ui";
 import { BlockForm } from "@/components/canvas/BlockForm";
 import { MarkDone } from "@/components/path/MarkDone";
+import { PlannedList } from "@/components/path/PlannedList";
 import { StepAction } from "@/components/path/StepAction";
 import { ActionButton } from "@/components/today/ActionButton";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
@@ -43,7 +44,7 @@ async function StepContent({ id }: { id: string }) {
       </>
     );
   }
-  const { step, index, total, nextStep, weekId, today, people, tests } = view;
+  const { step, index, total, nextStep, weekId, today, people, planned, tests } = view;
   const block = await loadCanvasBlock(id);
   const tomorrow = addDays(today, 1);
   const history = block.status === "ready" ? [...(block.block?.history ?? [])].reverse() : [];
@@ -111,7 +112,9 @@ async function StepContent({ id }: { id: string }) {
             ))}
           </ul>
         )}
-        <StepAction step={step} weekId={weekId} tomorrow={tomorrow} />
+        <p className="mt-2 text-xs text-muted">Customer and prospect conversations with notes, a quote or a number count here.</p>
+        <PlannedList planned={planned} weekId={weekId} today={today} />
+        <StepAction step={step} weekId={weekId} tomorrow={tomorrow} plan={planned[0] ? `${planned[0].week}:${planned[0].id}` : null} />
         <p className="mt-3 text-sm text-muted">Or tell Claude: &quot;I talked to someone about {step.title.toLowerCase()}&quot;, and it logs it here.</p>
       </section>
 

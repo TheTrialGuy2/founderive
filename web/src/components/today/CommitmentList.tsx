@@ -65,7 +65,8 @@ export function CommitmentList({ weekId, today, commitments, carried, programWee
   );
 }
 
-function ReasonForm({ action, fields, summary, submit }: { action: (p: ActionState, fd: FormData) => Promise<ActionState>; fields: Record<string, string>; summary: string; submit: string }) {
+/** A disclosure ("Drop", "Skip") holding a reason field and its submit. */
+export function ReasonForm({ action, fields, summary, submit }: { action: (p: ActionState, fd: FormData) => Promise<ActionState>; fields: Record<string, string>; summary: string; submit: string }) {
   const [state, formAction, pending] = useActionState(action, IDLE);
   return (
     <details>

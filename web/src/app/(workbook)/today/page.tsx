@@ -8,6 +8,7 @@ import { PathList } from "@/components/home/PathList";
 import { OutcomeTile, OutreachTile, TalkedToTile } from "@/components/home/WeekTiles";
 import { BlockerForm } from "@/components/today/BlockerForm";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
+import { buttonPrimary } from "@/components/workbook/form";
 import { loadToday } from "@/commands/today";
 
 export default function HomePage() {
@@ -42,23 +43,31 @@ async function HomeContent() {
         </div>
       )}
       {(action?.kind === "risk" || action?.kind === "blocker") && (
-        <div role="status" className="mb-6 rounded-xl border border-line bg-sand/60 p-4">
-          <p className="font-medium text-ink">{action.label}</p>
+        <section aria-labelledby="first-heading" className="mb-6 rounded-xl border border-line bg-sand/60 p-4">
+          <h2 id="first-heading" className="text-[11px] font-semibold tracking-[0.08em] text-muted uppercase">
+            {action.kind === "risk" ? "Before anything else" : "Your blocker"}
+          </h2>
+          <p className="mt-1 font-medium text-ink">{action.label}</p>
           <p className="text-sm text-muted">{action.reason}</p>
           {action.kind === "risk" ? (
-            <Link href={action.href} className="mt-2 inline-block text-sm font-medium text-teal-dark hover:text-navy">
+            // It navigates, so it stays a link, styled as the page's one main action.
+            <Link href={action.href} className={`${buttonPrimary} mt-3`}>
               Open it
             </Link>
           ) : (
-            <details className="mt-2 text-sm">
-              <summary className="cursor-pointer text-teal-dark">Update the blocker</summary>
-              <BlockerForm weekId={weekId} blocker={checkin?.blocker ?? ""} help={checkin?.helpNeeded ?? ""} />
-            </details>
+            <div className="mt-3">
+              <BlockerForm weekId={weekId} blocker={checkin?.blocker ?? ""} help={checkin?.helpNeeded ?? ""} primary />
+            </div>
           )}
-        </div>
+        </section>
       )}
       <div className="grid gap-4 md:grid-cols-3">
-        <OutcomeTile weekId={weekId} outcome={checkin?.outcome} primary={action?.kind === "outcome"} />
+        <OutcomeTile
+          weekId={weekId}
+          outcome={checkin?.outcome}
+          primary={action?.kind === "outcome"}
+          stuck={action?.kind === "blocker" ? undefined : { blocker: checkin?.blocker ?? "", help: checkin?.helpNeeded ?? "" }}
+        />
         <TalkedToTile weekId={weekId} count={talkedTo.count} goal={talkedTo.goal} lastWeekShort={talkedTo.lastWeekShort} />
         <OutreachTile weekId={weekId} reached={talkedTo.reached} replied={talkedTo.replied} />
       </div>

@@ -2,10 +2,11 @@
 
 import { useActionState } from "react";
 import { saveBlocker } from "@/app/(workbook)/actions";
-import { buttonQuiet, errorText, inputClass } from "@/components/workbook/form";
+import { buttonPrimary, buttonQuiet, errorText, inputClass } from "@/components/workbook/form";
 import { IDLE } from "@/lib/action-state";
 
-export function BlockerForm({ weekId, blocker, help }: { weekId: string; blocker: string; help: string }) {
+/** `primary` when saving the blocker is Home's main action (the blocker banner); quiet everywhere else. */
+export function BlockerForm({ weekId, blocker, help, primary = false }: { weekId: string; blocker: string; help: string; primary?: boolean }) {
   const [state, formAction, pending] = useActionState(saveBlocker, IDLE);
   return (
     <form action={formAction} className="space-y-3">
@@ -18,7 +19,7 @@ export function BlockerForm({ weekId, blocker, help }: { weekId: string; blocker
         Help you&apos;re asking for
         <textarea name="help" rows={2} defaultValue={state.values?.help ?? help} className={`${inputClass} mt-1`} />
       </label>
-      <button type="submit" disabled={pending} className={buttonQuiet}>
+      <button type="submit" disabled={pending} className={primary ? buttonPrimary : buttonQuiet}>
         {pending ? "Saving…" : "Save blocker"}
       </button>
       {state.status === "error" && (

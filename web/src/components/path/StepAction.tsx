@@ -6,9 +6,13 @@ import { InlineForm } from "@/components/home/InlineForm";
 import { buttonPrimary, inputClass } from "@/components/workbook/form";
 import type { PathStep } from "@/core/path";
 
-/** The step page's one main action: plan a conversation, log the one you planned, or log someone you talked to. */
-export function StepAction({ step, weekId, tomorrow }: { step: PathStep; weekId: string; tomorrow: string }) {
+/**
+ * The step page's one main action: plan a conversation, log the one you planned, or log someone you talked to.
+ * `plan` is the earliest-due open planned conversation (`<week>:<commitment id>`), so logging it can close it.
+ */
+export function StepAction({ step, weekId, tomorrow, plan }: { step: PathStep; weekId: string; tomorrow: string; plan: string | null }) {
   const logHref = `/conversations/new?step=${step.id}`;
+  const planHref = plan ? `${logHref}&plan=${encodeURIComponent(plan)}` : logHref;
   if (step.planned === 0 && step.discussed === 0) {
     return (
       <div className="mt-4">
@@ -38,7 +42,7 @@ export function StepAction({ step, weekId, tomorrow }: { step: PathStep; weekId:
     );
   }
   return (
-    <Link href={logHref} className={`${buttonPrimary} mt-4`}>
+    <Link href={step.planned > 0 ? planHref : logHref} className={`${buttonPrimary} mt-4`}>
       {step.planned > 0 ? "Log the conversation" : "Log someone you talked to"}
     </Link>
   );

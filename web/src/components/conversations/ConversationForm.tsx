@@ -14,9 +14,9 @@ const GROUPS = [
 const FOLLOW_UP_ROWS = [0, 1, 2];
 const chip = "flex min-h-10 items-center gap-2 rounded-md border border-line bg-paper px-3 text-sm text-ink has-[:checked]:border-teal-dark has-[:checked]:bg-aqua/40";
 
-type Props = { mode: "create" | "edit"; initial: Record<string, string>; path?: string; areaOptions: [string, string][]; returnTo?: string };
+type Props = { mode: "create" | "edit"; initial: Record<string, string>; path?: string; areaOptions: [string, string][]; returnTo?: string; plan?: { value: string; text: string } };
 
-export function ConversationForm({ mode, initial, path, areaOptions, returnTo }: Props) {
+export function ConversationForm({ mode, initial, path, areaOptions, returnTo, plan }: Props) {
   const [state, formAction, pending] = useActionState(mode === "create" ? createConversationAction : updateConversationAction, IDLE);
   const v: Record<string, string> = { ...initial, ...state.values };
   const err = state.errors ?? {};
@@ -148,6 +148,16 @@ export function ConversationForm({ mode, initial, path, areaOptions, returnTo }:
       )}
 
       {textArea("notes", "Notes", 8, { placeholder: "Paste your notes or a transcript. Claude can tidy them later." })}
+
+      {mode === "create" && plan && (
+        <div>
+          <input type="hidden" name="plan" value={plan.value} />
+          <label className="flex items-start gap-2 text-sm text-ink">
+            <input type="checkbox" name="planDone" defaultChecked={state.values ? state.values.planDone === "on" : true} className="mt-1" />
+            <span>Mark &ldquo;{plan.text}&rdquo; done</span>
+          </label>
+        </div>
+      )}
 
       {/* Editing sits under the record's own actions, so its save is quiet there. */}
       <button type="submit" disabled={pending} className={mode === "create" ? buttonPrimary : buttonQuiet}>

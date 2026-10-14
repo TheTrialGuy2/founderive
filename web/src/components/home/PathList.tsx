@@ -56,7 +56,7 @@ export function PathList({ path, action, weekId }: { path: PathView; action: Hom
                 <span className="block text-sm text-muted">{s.meaning}</span>
               </span>
               {s.id !== "you" && <span className="text-xs text-muted">{s.tested ? "Tested · supported" : people(s.discussed)}</span>}
-              <span className="w-16 text-right text-xs font-semibold text-navy">{s.done ? "Done" : isCurrent ? "Current" : ""}</span>
+              <span className="w-16 text-right text-xs font-semibold text-navy">{isCurrent ? "Current" : s.done ? "Done" : ""}</span>
               {isCurrent && action?.kind === "step" && (
                 <Link href={action.href} className={stepIsMain ? buttonPrimary : buttonQuiet}>
                   {action.label}

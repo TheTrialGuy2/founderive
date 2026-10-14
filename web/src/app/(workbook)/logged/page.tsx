@@ -50,7 +50,10 @@ async function Logged({ type, q }: { type: string; q: string }) {
         )}
       </form>
       {total === 0 ? (
-        <p className="text-sm text-muted">Nothing logged yet. Conversations, tests and decisions you add show here.</p>
+        <>
+          <p className="text-sm text-muted">Nothing logged yet. Conversations, tests and decisions you add show here.</p>
+          <p className="mt-2 text-sm text-muted">Or tell Claude: &quot;Log the conversation I had with Dana today.&quot;</p>
+        </>
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted">
           Nothing matches this filter.{" "}

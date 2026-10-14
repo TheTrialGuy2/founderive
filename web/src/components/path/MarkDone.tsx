@@ -21,7 +21,8 @@ export function MarkDone({ step, nextStep }: { step: PathStep; nextStep: PathSte
     <details>
       <summary className={`${buttonQuiet} cursor-pointer list-none`}>Mark step done{nextStep ? ` → ${nextStep.title}` : ""}</summary>
       <p className="mt-2 text-sm text-muted">You can reopen it anytime; your answer stays.</p>
-      <InlineForm action={markStepDoneAction} fields={{ id: step.id }} submit="Mark done">
+      {/* After saving, the founder lands on the next step (or Home when this is the last one). */}
+      <InlineForm action={markStepDoneAction} fields={nextStep ? { id: step.id, next: nextStep.href } : { id: step.id }} submit="Mark done">
         {(v) => (
           <label className="min-w-64 flex-1 text-sm text-ink">
             Ready to move on because… (optional)

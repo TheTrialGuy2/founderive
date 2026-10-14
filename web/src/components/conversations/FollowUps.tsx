@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { addFollowUpAction, setFollowUpStatusAction } from "@/app/(workbook)/conversations/actions";
 import { ActionButton } from "@/components/today/ActionButton";
 import { buttonQuiet, errorText, inputClass } from "@/components/workbook/form";
+import { dueWords } from "@/core/due";
 import { IDLE } from "@/lib/action-state";
 
 type FollowUp = { id: string; text: string; due?: string | null; status: "open" | "done" };
@@ -20,7 +21,7 @@ export function FollowUps({ path, followUps, today }: { path: string; followUps:
             <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line p-3">
               <div>
                 <p className="text-sm text-ink">{f.text}</p>
-                {f.due && <p className="text-xs text-muted">{f.due < today ? `Overdue · due ${f.due}` : `Due ${f.due}`}</p>}
+                {f.due && <p className="text-xs text-muted">{dueWords({ due: f.due }, today)}</p>}
               </div>
               <ActionButton action={setFollowUpStatusAction} fields={{ path, id: f.id, status: "done" }} label="Done" ariaLabel={`Done: ${f.text}`} variant="quiet" />
             </li>

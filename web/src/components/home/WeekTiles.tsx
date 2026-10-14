@@ -1,6 +1,7 @@
 "use client";
 
 import { ProgressBar } from "@/components/ui";
+import { BlockerForm } from "@/components/today/BlockerForm";
 import { OutcomeForm } from "@/components/today/OutcomeForm";
 import { ActionButton } from "@/components/today/ActionButton";
 import { inputClass } from "@/components/workbook/form";
@@ -10,7 +11,8 @@ import { InlineForm } from "./InlineForm";
 const tile = "rounded-xl border border-line bg-paper p-4";
 const label = "text-[11px] font-semibold tracking-[0.08em] text-muted uppercase";
 
-export function OutcomeTile({ weekId, outcome, primary }: { weekId: string; outcome: string | null | undefined; primary: boolean }) {
+/** `stuck` adds the quiet way in to a blocker; it's left out when the blocker is already Home's main action. */
+export function OutcomeTile({ weekId, outcome, primary, stuck }: { weekId: string; outcome: string | null | undefined; primary: boolean; stuck?: { blocker: string; help: string } }) {
   return (
     <section className={tile} aria-labelledby="outcome-heading">
       <h2 id="outcome-heading" className={label}>
@@ -31,6 +33,14 @@ export function OutcomeTile({ weekId, outcome, primary }: { weekId: string; outc
           <OutcomeForm weekId={weekId} initial="" primary={primary} />
         </>
       )}
+      {stuck && (
+        <details className="mt-3 text-sm">
+          <summary className="cursor-pointer text-teal-dark">Stuck on something? Add a blocker or ask for help</summary>
+          <div className="mt-2">
+            <BlockerForm weekId={weekId} blocker={stuck.blocker} help={stuck.help} />
+          </div>
+        </details>
+      )}
     </section>
   );
 }
@@ -45,10 +55,10 @@ export function TalkedToTile({ weekId, count, goal, lastWeekShort }: { weekId: s
         {count} <span className="text-base font-normal text-muted">logged this week</span>
       </p>
       <div className="mt-2">
-        <ProgressBar value={Math.min(count, goal)} max={goal} tone="navy" />
+        <ProgressBar value={Math.min(count, goal)} max={goal} tone="navy" label="People talked to this week" />
       </div>
       <p className="mt-2 text-sm text-muted">Your goal: {goal}</p>
-      {lastWeekShort > 0 && count < goal && <p className="mt-1 text-sm text-ink">Last week came in {lastWeekShort} short. One conversation this week starts making it up.</p>}
+      {lastWeekShort > 0 && count === 0 && <p className="mt-1 text-sm text-ink">One conversation this week gets you going again.</p>}
       <details className="mt-2 text-sm">
         <summary className="cursor-pointer text-teal-dark">Change goal</summary>
         <InlineForm action={saveTalkGoalAction} fields={{ week: weekId }} submit="Save goal">

@@ -39,7 +39,10 @@ async function People({ show }: { show: "feedback" | "all" }) {
         {tab("/people?show=all", "Everyone", show === "all")}
       </nav>
       {total === 0 ? (
-        <p className="text-sm text-muted">Nobody logged yet. Every conversation you log shows here.</p>
+        <>
+          <p className="text-sm text-muted">Nobody logged yet. Every conversation you log shows here.</p>
+          <p className="mt-2 text-sm text-muted">Or tell Claude: &quot;I talked to an agency owner today. Here are my notes.&quot;</p>
+        </>
       ) : cards.length === 0 ? (
         <p className="text-sm text-muted">
           No conversations with feedback yet.{" "}

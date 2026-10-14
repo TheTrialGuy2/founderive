@@ -61,11 +61,11 @@ export function LayerBadge({ layer }: { layer: Layer }) {
 
 export const layerWho = (layer: Layer) => LAYER_COPY[layer].who;
 
-export function ProgressBar({ value, max, tone = "lime" }: { value: number; max: number; tone?: "lime" | "coral" | "navy" }) {
+export function ProgressBar({ value, max, tone = "lime", label }: { value: number; max: number; tone?: "lime" | "coral" | "navy"; label?: string }) {
   const pct = max === 0 ? 0 : Math.min(100, Math.round((value / max) * 100));
   const color = tone === "lime" ? "bg-lime" : tone === "coral" ? "bg-coral" : "bg-teal-dark";
   return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-sand" role="progressbar" aria-valuenow={value} aria-valuemax={max}>
+    <div className="h-2 w-full overflow-hidden rounded-full bg-sand" role="progressbar" aria-label={label} aria-valuenow={value} aria-valuemin={0} aria-valuemax={max}>
       <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
     </div>
   );
