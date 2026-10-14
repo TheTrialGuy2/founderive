@@ -1,6 +1,7 @@
+import { canvasBlocks } from "../core/canvas";
 import { brokenLinks, describeBrokenLink, linksOf } from "../core/links";
 import { readEntry } from "./read";
-import { kindOf, type KindData } from "./schemas";
+import { AREAS, kindOf, type KindData } from "./schemas";
 import { walkMarkdown } from "./walk";
 
 export type CheckReport = {
@@ -27,6 +28,11 @@ const FOLDER_NAMES: Record<string, string> = {
 export async function checkData(): Promise<CheckReport> {
   const rels = await walkMarkdown();
   const present = new Set(rels);
+  // Steps a record may link to: the founder's canvas blocks (or the shipped list) plus the seven shipped areas.
+  const config = await readEntry("canvasConfig", "canvas/blocks.md");
+  const steps = new Set<string>([...canvasBlocks(config?.ok ? config.data : null).map((d) => d.id), ...AREAS]);
+  const unknownStep = (rel: string, field: string, id: string) =>
+    warnings.push({ path: rel, warning: `${field}: "${id}" isn't a step on your canvas, so it won't show on a step page. Pick one of your steps, or add it to canvas/blocks.md.` });
   const errors: CheckReport["errors"] = [];
   const warnings: CheckReport["warnings"] = [];
   const misnamed: string[] = [];
@@ -63,6 +69,16 @@ export async function checkData(): Promise<CheckReport> {
     }
     // A broken link is a warning; the record itself is still valid and still shown (amendment §13).
     for (const b of brokenLinks(linksOf(kind, entry.data), (r) => present.has(r))) warnings.push({ path: rel, warning: describeBrokenLink(b) });
+    if (kind === "conversation") for (const a of (entry.data as KindData<"conversation">).areas) if (!steps.has(a)) unknownStep(rel, "areas", a);
+    if (kind === "test") {
+      const a = (entry.data as KindData<"test">).area;
+      if (!steps.has(a)) unknownStep(rel, "area", a);
+    }
+    if (kind === "checkin")
+      for (const c of (entry.data as KindData<"checkin">).commitments) {
+        const id = c.link?.startsWith("step:") ? c.link.slice("step:".length) : null;
+        if (id && !steps.has(id)) unknownStep(rel, "link", id);
+      }
     if (kind === "test") testLinks.set(rel, (entry.data as KindData<"test">).relatedConversations);
     if (kind === "conversation") conversationLinks.set(rel, (entry.data as KindData<"conversation">).relatedTests);
   }
