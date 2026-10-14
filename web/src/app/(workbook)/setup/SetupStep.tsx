@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useState, type ReactNode } from "react";
 import { saveSetupStepAction } from "@/app/(workbook)/actions";
 import { buttonPrimary, buttonQuiet, errorText, inputClass } from "@/components/workbook/form";
+import { isLogoTooBig, LOGO_TOO_BIG_MESSAGE } from "@/core/logo";
 import { IDLE } from "@/lib/action-state";
 import { US_STATES } from "@/lib/us-states";
 
@@ -46,6 +47,7 @@ export function SetupStep({ step, initial, canJump }: { step: number; initial: R
   const v = { ...initial, ...state.values };
   const err = state.errors ?? {};
   const [inProgram, setInProgram] = useState(v.inProgram === "on");
+  const [logoTooBig, setLogoTooBig] = useState<string | null>(null);
   const [cofounders, setCofounders] = useState(v.cofounders);
   const initialCofounderNames: string[] = (() => {
     try {
@@ -74,7 +76,7 @@ export function SetupStep({ step, initial, canJump }: { step: number; initial: R
   );
 
   return (
-    <form action={formAction} className="max-w-2xl space-y-6" noValidate>
+    <form action={formAction} encType="multipart/form-data" className="max-w-2xl space-y-6" noValidate>
       <div>
         {canJump ? (
           <nav aria-label="Setup steps">
@@ -173,6 +175,31 @@ export function SetupStep({ step, initial, canJump }: { step: number; initial: R
             </label>
           </Field>
           {text("website", "Website", "e.g. lantern.app", { optional: true })}
+          <Field id="logo" label="Logo (optional)" error={err.logo} hint="PNG, JPG or WebP, up to 1 MB.">
+            <input
+              id="logo"
+              name="logo"
+              type="file"
+              accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+              className="block w-full text-sm text-ink"
+              aria-invalid={!!err.logo || !!logoTooBig}
+              aria-describedby={[logoTooBig ? "logo-too-big" : null, err.logo ? "logo-error" : null, "logo-hint"].filter(Boolean).join(" ") || undefined}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file && isLogoTooBig(file.size)) {
+                  e.target.value = "";
+                  setLogoTooBig(LOGO_TOO_BIG_MESSAGE);
+                } else {
+                  setLogoTooBig(null);
+                }
+              }}
+            />
+            {logoTooBig && (
+              <p id="logo-too-big" role="alert" className={errorText}>
+                {logoTooBig}
+              </p>
+            )}
+          </Field>
           {text("industry", "Industry", "e.g. Home healthcare")}
           <Field id="businessModel" label="Business type" error={err.businessModel}>
             <select id="businessModel" name="businessModel" defaultValue={v.businessModel} className={inputClass} aria-invalid={!!err.businessModel} aria-describedby={err.businessModel ? "businessModel-error" : undefined}>
@@ -233,13 +260,18 @@ export function SetupStep({ step, initial, canJump }: { step: number; initial: R
   );
 }
 
-function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: ReactNode }) {
+function Field({ id, label, error, hint, children }: { id: string; label: string; error?: string; hint?: string; children: ReactNode }) {
   return (
     <div>
       <label htmlFor={id} className="mb-1 block text-sm font-medium text-ink">
         {label}
       </label>
       {children}
+      {hint && (
+        <p id={`${id}-hint`} className="mt-1 text-sm text-muted">
+          {hint}
+        </p>
+      )}
       {error && (
         <p id={`${id}-error`} className={errorText}>
           {error}

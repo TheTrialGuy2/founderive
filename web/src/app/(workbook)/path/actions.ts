@@ -60,10 +60,11 @@ export async function reopenStepAction(_prev: ActionState, fd: FormData): Promis
   return run(() => reopenStep(field(fd, "id")));
 }
 
+/** Plans a conversation about step `id` (from the Customer step page, or People where the founder picks the step). */
 export async function planConversationAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const values = { who: field(fd, "who"), due: field(fd, "due") };
+  const values = { who: field(fd, "who"), due: field(fd, "due"), id: field(fd, "id") };
   return run(async () => {
     await assertThisWeek(field(fd, "week"));
-    await planConversation(field(fd, "week"), field(fd, "id"), values);
+    await planConversation(field(fd, "week"), values.id, values);
   }, values);
 }

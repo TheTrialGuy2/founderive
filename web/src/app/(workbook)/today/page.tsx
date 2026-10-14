@@ -9,6 +9,7 @@ import { OutcomeTile, OutreachTile, TalkedToTile } from "@/components/home/WeekT
 import { BlockerForm } from "@/components/today/BlockerForm";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { buttonPrimary } from "@/components/workbook/form";
+import { logoVersion } from "@/commands/logo";
 import { loadToday } from "@/commands/today";
 
 export default function HomePage() {
@@ -33,10 +34,24 @@ async function HomeContent() {
   }
   const { founder: f, today, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, carried, path, talkedTo, dueItems, action } = view;
   const stepIndex = path.current ? path.steps.findIndex((s) => s.id === path.current?.id) + 1 : null;
+  const logoV = await logoVersion();
 
   return (
     <>
-      <PageHeader eyebrow={`Week of ${formatDate(weekStartsOn)}${stepIndex ? ` · Step ${stepIndex} of ${path.total}` : ""}`} title={f.venture || "Home"} />
+      <PageHeader
+        eyebrow={`Week of ${formatDate(weekStartsOn)}${stepIndex ? ` · Step ${stepIndex} of ${path.total}` : ""}`}
+        title={
+          logoV != null ? (
+            <span className="inline-flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a local founder-data file served by our own /api/logo route; next/image's optimizer isn't needed for a local file. */}
+              <img src={`/api/logo?v=${logoV}`} alt="" className="h-10 w-auto" />
+              {f.venture || "Home"}
+            </span>
+          ) : (
+            f.venture || "Home"
+          )
+        }
+      />
       {checkinEntry && !checkinEntry.ok && (
         <div className="mb-4">
           <FlaggedFile path={checkinEntry.path} error={checkinEntry.error} />

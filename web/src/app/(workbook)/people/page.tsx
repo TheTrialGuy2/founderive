@@ -3,7 +3,11 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { formatDate, PageHeader } from "@/components/ui";
 import { buttonPrimary } from "@/components/workbook/form";
+import { PlanConversation } from "@/components/people/PlanConversation";
+import { loadAreaOptions } from "@/commands/canvas";
 import { loadPeople } from "@/commands/lists";
+import { loadFounderToday } from "@/commands/today";
+import { addDays, isoWeekId } from "@/core/week";
 import { areaLabel } from "@/lib/loop-labels";
 
 export default function PeoplePage({ searchParams }: PageProps<"/people">) {
@@ -16,12 +20,22 @@ export default function PeoplePage({ searchParams }: PageProps<"/people">) {
         Log someone you talked to
       </Link>
       <Suspense fallback={null}>
+        <Plan />
+      </Suspense>
+      <Suspense fallback={null}>
         {searchParams.then((sp) => (
           <People show={sp.show === "all" ? "all" : "feedback"} />
         ))}
       </Suspense>
     </>
   );
+}
+
+/** The quiet second action: plan a conversation for this week (stamped with this week's id, so a stale page is refused). */
+async function Plan() {
+  await connection();
+  const [today, steps] = await Promise.all([loadFounderToday(), loadAreaOptions()]);
+  return <PlanConversation weekId={isoWeekId(today)} tomorrow={addDays(today, 1)} steps={steps} />;
 }
 
 async function People({ show }: { show: "feedback" | "all" }) {

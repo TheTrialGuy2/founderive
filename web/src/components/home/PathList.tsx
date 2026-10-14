@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { chooseFocusAction } from "@/app/(workbook)/path/actions";
 import { buttonPrimary, buttonQuiet, inputClass } from "@/components/workbook/form";
-import type { HomeAction } from "@/core/home";
-import type { PathView } from "@/core/path";
+import { CONVERSATION_STEP, type HomeAction } from "@/core/home";
+import type { PathStep, PathView } from "@/core/path";
 import { InlineForm } from "./InlineForm";
 import { ViewSwitch } from "./ViewSwitch";
 
-const people = (n: number) => (n === 0 ? "Not discussed yet" : `${n} ${n === 1 ? "person" : "people"} discussed this`);
+/** Only the Customer step is about conversations, so only it says "Not discussed yet"; other steps show a count once someone has. */
+const people = (s: PathStep) => (s.discussed > 0 ? `${s.discussed} ${s.discussed === 1 ? "person" : "people"} discussed this` : s.id === CONVERSATION_STEP ? "Not discussed yet" : null);
 
 export function PathList({ path, action, weekId }: { path: PathView; action: HomeAction | null; weekId: string }) {
   const stepIsMain = action?.kind === "step";
@@ -55,7 +56,7 @@ export function PathList({ path, action, weekId }: { path: PathView; action: Hom
                 </Link>
                 <span className="block text-sm text-muted">{s.meaning}</span>
               </span>
-              {s.id !== "you" && <span className="text-xs text-muted">{s.tested ? "Tested · supported" : people(s.discussed)}</span>}
+              {s.id !== "you" && (s.tested || people(s)) && <span className="text-xs text-muted">{s.tested ? "Tested · supported" : people(s)}</span>}
               <span className="w-16 text-right text-xs font-semibold text-navy">{isCurrent ? "Current" : s.done ? "Done" : ""}</span>
               {isCurrent && action?.kind === "step" && (
                 <Link href={action.href} className={stepIsMain ? buttonPrimary : buttonQuiet}>

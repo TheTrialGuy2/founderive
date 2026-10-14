@@ -1,17 +1,41 @@
 "use server";
 
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { addCommitment, recordChoice, setBlocker, setCommitmentStatus, setOutcome } from "@/commands/checkin";
 import { setHomeworkStatus } from "@/commands/homework";
+import { clearLogo, setLogo } from "@/commands/logo";
 import { LAST_STEP, parseSetupStep, saveSetupStep } from "@/commands/setup";
 import { assertThisWeek } from "@/commands/today";
 import type { ActionState } from "@/lib/action-state";
+import { ValidationError } from "@/store/logo";
 import { field, run } from "./action-utils";
+
+const LOGO_SAVE_FAILED = "Couldn't save the logo. Try again.";
+
+/** The store's own validation (wrong file type, too big) is safe and useful to show; anything else — a filesystem
+ *  or permission problem — gets a generic, friendly message instead of a raw error. */
+const logoErrorMessage = (error: unknown): string => (error instanceof ValidationError ? error.message : LOGO_SAVE_FAILED);
 
 export async function saveSetupStepAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const step = Number(field(fd, "step"));
   const parsed = parseSetupStep(step, fd);
   if (!parsed.ok) return { status: "error", message: parsed.errors.step ?? "Check the highlighted answers.", errors: parsed.errors, values: parsed.values };
+
+  // Step 2's logo is an optional file, not a typed field, so it's saved on its own before the rest of the step.
+  // A problem with it (wrong type, too big) keeps everything the founder typed and says what's wrong.
+  if (step === 2) {
+    const logo = fd.get("logo");
+    if (logo instanceof File && logo.size > 0) {
+      try {
+        await setLogo(new Uint8Array(await logo.arrayBuffer()));
+      } catch (error) {
+        const message = logoErrorMessage(error);
+        return { status: "error", message, errors: { logo: message }, values: parsed.values };
+      }
+    }
+  }
+
   let wasComplete = false;
   try {
     ({ wasComplete } = await saveSetupStep(step, parsed.patch));
@@ -21,6 +45,30 @@ export async function saveSetupStepAction(_prev: ActionState, fd: FormData): Pro
   // A completed setup lets a founder jump to any step to edit it; saving from there returns to /today rather than
   // walking the rest of the steps again.
   redirect(wasComplete || step >= LAST_STEP ? "/today" : `/setup?step=${step + 1}`);
+}
+
+/** Changes or adds the logo from the You page (step 2's upload handles the first one, during setup). */
+export async function saveLogoAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const logo = fd.get("logo");
+  if (!(logo instanceof File) || logo.size === 0) return { status: "error", message: "Choose a PNG, JPG or WebP file." };
+  try {
+    await setLogo(new Uint8Array(await logo.arrayBuffer()));
+  } catch (error) {
+    return { status: "error", message: logoErrorMessage(error) };
+  }
+  refresh();
+  return { status: "saved" };
+}
+
+/** Removes the logo from the You page. Archives it; never deletes. */
+export async function removeLogoAction(): Promise<ActionState> {
+  try {
+    await clearLogo();
+  } catch (error) {
+    return { status: "error", message: logoErrorMessage(error) };
+  }
+  refresh();
+  return { status: "saved" };
 }
 
 export async function saveOutcome(_prev: ActionState, fd: FormData): Promise<ActionState> {

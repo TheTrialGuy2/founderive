@@ -7,7 +7,7 @@ import { buttonPrimary, inputClass } from "@/components/workbook/form";
 import type { PathStep } from "@/core/path";
 
 /**
- * The step page's one main action: plan a conversation, log the one you planned, or log someone you talked to.
+ * The Customer step page's one main action (no other step plans or logs conversations): plan a conversation, log the one you planned, or log someone you talked to.
  * `plan` is the earliest-due open planned conversation (`<week>:<commitment id>`), so logging it can close it.
  */
 export function StepAction({ step, weekId, tomorrow, plan }: { step: PathStep; weekId: string; tomorrow: string; plan: string | null }) {

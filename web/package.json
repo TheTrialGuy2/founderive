@@ -12,15 +12,21 @@
     "check-data": "tsx scripts/check-data.mts",
     "today": "tsx scripts/today.mts",
     "data-dir": "tsx scripts/data-dir.mts",
-    "smoke": "tsx scripts/smoke.mts"
+    "smoke": "tsx scripts/smoke.mts",
+    "pty-check": "tsx scripts/pty-check.mts",
+    "terminal": "tsx scripts/terminal.mts",
+    "postinstall": "node -e \"const fs=require('fs');for(const f of ['node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper','node_modules/node-pty/prebuilds/darwin-x64/spawn-helper']){try{fs.chmodSync(f, fs.statSync(f).mode | 0o111);}catch(e){}}\""
   },
   "dependencies": {
     "@ibm/plex-sans": "^1.1.0",
     "@ibm/plex-serif": "^2.0.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "lucide-react": "^1.55.0",
     "next": "16.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "ws": "^8.22.0",
     "yaml": "^2.9.1",
     "zod": "^4.6.6"
   },
@@ -29,12 +35,16 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.2",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.3"
+  },
+  "optionalDependencies": {
+    "node-pty": "^1.1.0"
   },
   "packageManager": "pnpm@11.0.8"
 }

@@ -33,10 +33,16 @@ describe("homeAction", () => {
     const f: DueItem = { key: "followup:c.md#f-1", kind: "followup", id: "c.md#f-1", text: "Follow up with Dana: send the price", due: "2026-10-12", week: null, href: "/conversations/c" };
     expect(homeAction({ ...base, due: [f] })).toMatchObject({ kind: "overdue", key: "followup:c.md#f-1" });
   });
-  it("then the current step, with the concrete next move", () => {
-    expect(homeAction(base)).toMatchObject({ kind: "step", mode: "plan", label: "Continue: plan a conversation about Problem", href: "/path/problem" });
-    expect(homeAction({ ...base, path: path(step({ planned: 1 })) })).toMatchObject({ mode: "log", label: "Continue: log your conversation about Problem" });
-    expect(homeAction({ ...base, path: path(step({ discussed: 2 })) })).toMatchObject({ mode: "open", label: "Continue: Problem" });
+  it("then the current step: on Customer, the concrete conversation move", () => {
+    const customer = (over: Partial<PathStep> = {}) => path(step({ id: "customer", title: "Customer", href: "/path/customer", ...over }));
+    expect(homeAction({ ...base, path: customer() })).toMatchObject({ kind: "step", mode: "plan", label: "Continue: plan a conversation about Customer", href: "/path/customer" });
+    expect(homeAction({ ...base, path: customer({ planned: 1 }) })).toMatchObject({ mode: "log", label: "Continue: log your conversation about Customer" });
+    expect(homeAction({ ...base, path: customer({ discussed: 2 }) })).toMatchObject({ mode: "open", label: "Continue: Customer" });
+  });
+  it("on any other step, opens it to work on the answer, whatever was discussed or planned", () => {
+    for (const over of [{}, { planned: 1 }, { discussed: 2 }]) {
+      expect(homeAction({ ...base, path: path(step(over)) })).toMatchObject({ kind: "step", mode: "open", label: "Continue: Problem", reason: "Work on your answer, then mark it done.", href: "/path/problem", stepId: "problem" });
+    }
   });
   it("asks to choose a focus when every step is done", () => {
     expect(homeAction({ ...base, path: path(null, true) })).toMatchObject({ kind: "focus", label: "Choose this week's focus" });

@@ -70,6 +70,7 @@ export const founderSchema = z.strictObject({
   cofounders: z.enum(COFOUNDERS).nullish(),
   cofounderNames: z.array(z.string().min(1)).optional(),
   website: z.string().nullish(),
+  logo: z.string().regex(/^brand\/logo\.(png|jpg|webp)$/).nullish(),
   industry: z.string().nullish(),
   startedOn: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "use YYYY-MM").nullish(),
   problem: z.string().nullish(),

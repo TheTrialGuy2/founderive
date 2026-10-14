@@ -34,6 +34,23 @@ describe("founder.startedOn", () => {
   it("flags an impossible pinned today", () => expect(ok(founderSchema, founder({ today: "2026-13-45" }))).toBe(false));
 });
 
+describe("founder.logo", () => {
+  it("accepts brand/logo.png, .jpg or .webp", () => {
+    expect(ok(founderSchema, founder({ logo: "brand/logo.png" }))).toBe(true);
+    expect(ok(founderSchema, founder({ logo: "brand/logo.jpg" }))).toBe(true);
+    expect(ok(founderSchema, founder({ logo: "brand/logo.webp" }))).toBe(true);
+  });
+  it("accepts null and absent (no logo set)", () => {
+    expect(ok(founderSchema, founder({ logo: null }))).toBe(true);
+    expect(ok(founderSchema, founder({}))).toBe(true);
+  });
+  it("rejects anything else, including svg and a path outside brand/", () => {
+    expect(ok(founderSchema, founder({ logo: "brand/logo.svg" }))).toBe(false);
+    expect(ok(founderSchema, founder({ logo: "logo.png" }))).toBe(false);
+    expect(ok(founderSchema, founder({ logo: "brand/other.png" }))).toBe(false);
+  });
+});
+
 describe("nextStepLog.via", () => {
   it("records who logged a choice: the app or an agent", () => {
     const entry = { date: "2026-10-13", actionId: "guide:x", label: "X", choice: "dismissed", reason: "Busy" };

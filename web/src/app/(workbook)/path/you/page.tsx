@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { PageHeader } from "@/components/ui";
+import { LogoRow } from "@/components/workbook/LogoRow";
+import { logoVersion } from "@/commands/logo";
 import { loadToday } from "@/commands/today";
+import { websiteHref } from "@/core/website";
+
+const Empty = () => <span className="text-muted">Not set</span>;
 
 export default function YouStepPage() {
   return (
@@ -18,15 +23,30 @@ async function YouContent() {
   const view = await loadToday();
   if (view.status !== "ready") redirect("/setup");
   const f = view.founder;
-  const rows: [string, string | null | undefined, number][] = [
-    ["Venture", f.venture, 2],
-    ["One-liner", f.oneLiner ?? "Still working on it", 2],
-    ["Who it's for", f.targetCustomer, 4],
-    ["The problem", f.problem, 4],
-    ["Stage", f.stage, 3],
-    ["30-day outcome", f.outcome30, 4],
-    ["Hours a week", f.hoursPerWeek != null ? String(f.hoursPerWeek) : null, 4],
+  const websiteLink = websiteHref(f.website);
+  const rows: { label: string; step: number; content: ReactNode }[] = [
+    { label: "Venture", step: 2, content: f.venture || <Empty /> },
+    { label: "One-liner", step: 2, content: f.oneLiner ?? "Still working on it" },
+    {
+      label: "Website",
+      step: 2,
+      content: websiteLink ? (
+        <a href={websiteLink} target="_blank" rel="noreferrer" className="text-teal-dark hover:text-navy">
+          {f.website}
+        </a>
+      ) : f.website ? (
+        f.website
+      ) : (
+        <Empty />
+      ),
+    },
+    { label: "Who it's for", step: 4, content: f.targetCustomer || <Empty /> },
+    { label: "The problem", step: 4, content: f.problem || <Empty /> },
+    { label: "Stage", step: 3, content: f.stage || <Empty /> },
+    { label: "30-day outcome", step: 4, content: f.outcome30 || <Empty /> },
+    { label: "Hours a week", step: 4, content: f.hoursPerWeek != null ? String(f.hoursPerWeek) : <Empty /> },
   ];
+  const logoV = await logoVersion();
   return (
     <>
       <Link href="/today" className="text-sm text-teal-dark hover:text-navy">
@@ -34,15 +54,16 @@ async function YouContent() {
       </Link>
       <PageHeader title="You">Who you are, what you&apos;re building, and what you want from it. You can change any of it.</PageHeader>
       <dl className="divide-y divide-line rounded-xl border border-line bg-paper">
-        {rows.map(([label, value, step]) => (
-          <div key={label} className="flex flex-wrap items-baseline gap-3 px-4 py-3">
-            <dt className="w-36 text-sm text-muted">{label}</dt>
-            <dd className="flex-1 text-ink">{value || <span className="text-muted">Not set</span>}</dd>
-            <Link href={`/setup?step=${step}`} className="text-sm text-teal-dark hover:text-navy">
+        {rows.map((r) => (
+          <div key={r.label} className="flex flex-wrap items-baseline gap-3 px-4 py-3">
+            <dt className="w-36 text-sm text-muted">{r.label}</dt>
+            <dd className="flex-1 text-ink">{r.content}</dd>
+            <Link href={`/setup?step=${r.step}`} className="text-sm text-teal-dark hover:text-navy">
               Edit
             </Link>
           </div>
         ))}
+        <LogoRow hasLogo={logoV != null} venture={f.venture} cacheBust={logoV ?? 0} />
       </dl>
       <section aria-labelledby="bring-heading" className="mt-10">
         <h2 id="bring-heading" className="font-semibold text-navy">

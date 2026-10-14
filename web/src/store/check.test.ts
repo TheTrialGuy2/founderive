@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { checkData } from "./check";
@@ -75,5 +75,13 @@ describe("checkData", () => {
       ]),
     );
     expect(report.warnings).toHaveLength(2);
+  });
+
+  it("warns (not errors) when founder.logo points to a file that isn't there", async () => {
+    const founder = await readFile(path.join(env.dir, "founder.md"), "utf8");
+    await writeFile(path.join(env.dir, "founder.md"), founder.replace("---\n", "---\nlogo: brand/logo.png\n"));
+    const report = await checkData();
+    expect(report.errors.map((e) => e.path)).not.toContain("founder.md");
+    expect(report.warnings).toContainEqual({ path: "founder.md", warning: "logo: brand/logo.png isn't in founder-data. Upload a logo again, or clear it." });
   });
 });

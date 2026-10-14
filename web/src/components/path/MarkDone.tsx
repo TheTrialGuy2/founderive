@@ -4,10 +4,11 @@ import { markStepDoneAction, reopenStepAction } from "@/app/(workbook)/path/acti
 import { InlineForm } from "@/components/home/InlineForm";
 import { ActionButton } from "@/components/today/ActionButton";
 import { formatDate } from "@/components/ui";
-import { buttonQuiet, inputClass } from "@/components/workbook/form";
+import { buttonPrimary, buttonQuiet, inputClass } from "@/components/workbook/form";
 import type { PathStep } from "@/core/path";
 
-export function MarkDone({ step, nextStep }: { step: PathStep; nextStep: PathStep | null }) {
+/** `primary` when marking done is the step page's one main action (a written answer on a step without conversations). */
+export function MarkDone({ step, nextStep, primary = false }: { step: PathStep; nextStep: PathStep | null; primary?: boolean }) {
   if (step.done) {
     return (
       <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -19,7 +20,7 @@ export function MarkDone({ step, nextStep }: { step: PathStep; nextStep: PathSte
   }
   return (
     <details>
-      <summary className={`${buttonQuiet} cursor-pointer list-none`}>Mark step done{nextStep ? ` → ${nextStep.title}` : ""}</summary>
+      <summary className={`${primary ? buttonPrimary : buttonQuiet} cursor-pointer list-none`}>Mark step done{nextStep ? ` → ${nextStep.title}` : ""}</summary>
       <p className="mt-2 text-sm text-muted">You can reopen it anytime; your answer stays.</p>
       {/* After saving, the founder lands on the next step (or Home when this is the last one). */}
       <InlineForm action={markStepDoneAction} fields={nextStep ? { id: step.id, next: nextStep.href } : { id: step.id }} submit="Mark done">

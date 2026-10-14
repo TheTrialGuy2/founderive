@@ -1,4 +1,5 @@
 import { dueWords } from "../core/due";
+import { CONVERSATION_STEP } from "../core/home";
 import type { TodayView } from "./today";
 
 const byDue = (a: { due?: string | null }, b: { due?: string | null }) => (a.due ?? "9999-12-31").localeCompare(b.due ?? "9999-12-31");
@@ -25,7 +26,7 @@ export function formatToday(view: TodayView): string {
   const index = cur ? view.path.steps.findIndex((s) => s.id === cur.id) + 1 : 0;
   out.push(
     cur
-      ? `Path: ${cur.title} (step ${index} of ${view.path.total}) · ${cur.discussed} ${cur.discussed === 1 ? "person" : "people"} discussed it${cur.planned ? ` · ${cur.planned} planned` : ""}`
+      ? `Path: ${cur.title} (step ${index} of ${view.path.total})${cur.id === CONVERSATION_STEP || cur.discussed > 0 ? ` · ${cur.discussed} ${cur.discussed === 1 ? "person" : "people"} discussed it` : ""}${cur.planned ? ` · ${cur.planned} planned` : ""}`
       : `Path: ${view.path.allDone ? "every step done; choose this week's focus" : "no current step"}`,
   );
   const t = view.currentTest;

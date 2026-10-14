@@ -2,7 +2,9 @@
 // One command for founders: checks Node, installs what's needed, starts Founderive on this computer and opens the browser.
 // Set FOUNDERIVE_NO_OPEN=1 to start it without opening a browser (it still prints the address).
 import { spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,8 +39,39 @@ if (install.status !== 0) {
   process.exit(install.status ?? 1);
 }
 
+/** A free port on 127.0.0.1: `preferred` if it's free, otherwise any free one. */
+function freePort(preferred) {
+  return new Promise((resolve) => {
+    const tryPort = (p) => {
+      const s = net.createServer();
+      s.once("error", () => (p === 0 ? resolve(0) : tryPort(0)));
+      s.listen(p, "127.0.0.1", () => {
+        const port = s.address().port;
+        s.close(() => resolve(port));
+      });
+    };
+    tryPort(preferred);
+  });
+}
+
 console.log("Starting Founderive…");
-const dev = spawn("pnpm", ["dev"], { cwd: web, stdio: ["inherit", "pipe", "inherit"], shell });
+const appPort = await freePort(3000);
+const terminalPort = await freePort(0);
+// The Claude panel isn't available on Windows yet: there, no terminal starts and the app gets no terminal settings,
+// so the panel says so instead of trying to connect.
+const panelEnv =
+  process.platform === "win32"
+    ? { ...process.env, FOUNDERIVE_APP_PORT: String(appPort) }
+    : {
+        ...process.env,
+        FOUNDERIVE_APP_PORT: String(appPort),
+        FOUNDERIVE_TERMINAL_PORT: String(terminalPort),
+        FOUNDERIVE_TERMINAL_TOKEN: randomBytes(32).toString("hex"), // new every launch; only Founderive's own page gets it
+      };
+// The Claude panel's terminal. If it can't start or stops, Founderive keeps running; the panel says what happened.
+const terminal = process.platform === "win32" ? null : spawn("pnpm", ["-s", "terminal"], { cwd: web, stdio: ["ignore", "inherit", "inherit"], env: panelEnv, shell });
+terminal?.on("error", () => {});
+const dev = spawn("pnpm", ["dev", "--port", String(appPort)], { cwd: web, stdio: ["inherit", "pipe", "inherit"], shell, env: panelEnv });
 let output = "";
 let announced = false;
 dev.stdout.on("data", (chunk) => {
@@ -54,10 +87,14 @@ dev.stdout.on("data", (chunk) => {
   console.log(`Your data: ${resolveDataDir()}\n`);
   if (!noOpen) openBrowser(url);
 });
-dev.on("exit", (code) => process.exit(code ?? 0));
+dev.on("exit", (code) => {
+  terminal?.kill();
+  process.exit(code ?? 0);
+});
 for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => stop(signal));
 
 function stop(signal) {
+  terminal?.kill(signal);
   if (process.platform === "win32" && dev.pid) {
     // dev runs through a shell on Windows, so killing it alone would leave the Next server running.
     spawnSync("taskkill", ["/pid", String(dev.pid), "/T", "/F"], { stdio: "ignore" });

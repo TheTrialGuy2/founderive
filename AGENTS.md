@@ -4,13 +4,17 @@ Founderive is a local app (`web/`) that shows a founder's record kept as Markdow
 
 ## Starting Founderive for a founder
 
-If the founder asks to get set up, start Founderive or open the app, run `node start.mjs` from the repo root. It keeps running (start it in the background) and opens the founder's browser to setup (first run) or Home. Don't ask them to edit founder-data by hand to get started; setup in the app does it.
+If the founder asks to get set up, start Founderive or open the app, run `node start.mjs` from the repo root. It keeps running (start it in the background) and opens the founder's browser to setup (first run) or Home. Don't ask them to edit founder-data by hand to get started; setup in the app does it. `node start.mjs` also starts the Claude panel's terminal. A founder can run Claude Code or Codex there, inside the app, with their own sign-in.
 
 ## Working with a founder
 
 Founderive is used two ways at once: the founder works in the app, and the founder talks to you. You're the one who asks. The app is where they see what you wrote. What you write to their data folder (see "Rules for founder-data") shows up in the app live.
 
 **Who decides.** The founder decides. You propose, summarize and organize; they confirm anything that counts as an interpretation, a decision or a judgment about their venture. Write what they said, not what you concluded. If you're unsure which record something belongs in, ask. Don't invent file kinds. If there's no record for something yet, it goes in the body of the nearest file, in their words.
+
+`website` and `oneLiner` in founder.md are your frame of reference for the venture. You may read the website for context; treat what it says as the founder's public framing, not confirmed facts.
+
+When you're running in Founderive's Claude panel, you're in the repo root as usual; the founder sees Founderive beside you. If `FOUNDERIVE_PANEL=1` is set, you're running inside Founderive's panel: Founderive is already running — don't run `node start.mjs`. A line starting "I'm on the <step> step in Founderive" means they're on that step page: read the step (its canvas block, the conversations whose `areas` include it, and its planned conversations) before answering.
 
 ### When they say "set me up"
 
@@ -27,7 +31,7 @@ Read before you speak: `founder.md`, this ISO week's check-in, and the current p
 2. **Who did you talk to since last time?** Log each person they name as a conversation (follow `.claude/skills/log-conversation/SKILL.md`), with `areas` set to the step it informs. Then say the count from `talkedTo` against their goal ("2 logged this week, your goal is 3"), never as a shortfall. Outreach numbers they mention go in this week's `outreach` (`reached`, `replied`).
 3. **The main action**, from `action`, in the same words as Home (`action.label`, then `action.reason`). Don't rank anything yourself.
 4. **What's due**, from `dueItems`, in words ("due Tue", "from last week"). It holds open commitments (this week's and carried), program homework and follow-ups due (`kind: followup`, also listed in `followUps` and under "Follow-ups due:" in the text); say each one once. Then ask about the last commitment, with the rules below.
-5. **One question.** If nobody has discussed the current step and nothing is planned (`path.current.discussed` and `path.current.planned` are both 0), ask "Who's one person you could talk to about <step> this week?" When they answer, add a commitment `{ id, text: "Talk to <who> about <step title>", due, status: open, link: "step:<step id>" }`. Otherwise ask the question that moves the main action.
+5. **One question.** If the current step is Customer (`path.current.id` is `customer`) and nobody has discussed it and nothing is planned (`path.current.discussed` and `path.current.planned` are both 0), ask "Who's one person you could talk to about Customer this week?" When they answer, add a commitment `{ id, text: "Talk to <who> about Customer", due, status: open, link: "step:customer" }`. Conversations are planned and logged on the Customer step (and from People) only. For any other current step, ask one question about that step's answer (what they believe now, or what would make it done). Otherwise ask the question that moves the main action.
 
 **What happened to the last commitment** — the open commitment with the earliest due date on or before today, from this week or carried from an earlier one. If there is none, skip this step. If it's due today, ask about it at the next conversation instead. Otherwise ask whether it's done, still going, or not happening, and write the answer in the check-in file it lives in (`checkins/<its week>.md`; never move or copy it into this week's):
 - Done → `status: done`.
@@ -79,6 +83,7 @@ The entry is `{ date, actionId, label, choice, reason, until, replacement, via: 
 - A judgment about their venture they haven't confirmed in their own words.
 - A field the schema doesn't list. check-data will reject the file and the app will ignore it.
 - Anything into `_reference/` unless asked.
+- The logo. The founder uploads, changes or removes it in the app; you never write `brand/logo.*` or `founder.logo`.
 
 ### The weekly review
 
@@ -124,7 +129,7 @@ Use plain words and short turns. Say what you read in the record before asking f
 
 | Path | Fields |
 |---|---|
-| `founder.md` | name, venture, city, region (two-letter US state code), commitment (full-time / part-time / nights-weekends), cofounders (solo / two / three-plus), cofounderNames (list of names, optional), website, industry, startedOn (YYYY-MM), problem, oneLiner (null = still working on it), stage (idea / validating / pre-revenue / revenue), businessModel (service / local-business / physical-product / software / marketplace / nonprofit / other), targetCustomer, evidence (none / conversations / active-users / paying-customers / repeat-customers), outcome30, hoursPerWeek, weeklyTalkGoal, setupComplete, optional program: programTitle + programStart + programWeeks, currentWeek?, today? (date pin) |
+| `founder.md` | name, venture, city, region (two-letter US state code), commitment (full-time / part-time / nights-weekends), cofounders (solo / two / three-plus), cofounderNames (list of names, optional), website, logo (brand/logo.png\|jpg\|webp, uploaded in the app), industry, startedOn (YYYY-MM), problem, oneLiner (null = still working on it), stage (idea / validating / pre-revenue / revenue), businessModel (service / local-business / physical-product / software / marketplace / nonprofit / other), targetCustomer, evidence (none / conversations / active-users / paying-customers / repeat-customers), outcome30, hoursPerWeek, weeklyTalkGoal, setupComplete, optional program: programTitle + programStart + programWeeks, currentWeek?, today? (date pin) |
 | `checkins/YYYY-Www.md` | week (ISO, Monday start), outcome, commitments [{id, text, due?, status open / done / dropped, reason (required if dropped), link? (a founder-data path, `guide:<step id>`, or `step:<block id>`)}], blocker, helpNeeded, talkGoal, outreach {reached, replied}, focus, nextStepLog [{date, actionId, label, choice dismissed / deferred / replaced, reason, until?, replacement?, via? app / agent}] |
 | `program/week-NN.md` | week, title, date?, status (not-started / in-progress / done), exercises [{id, title, savesTo?}], homework [{id, title, due?, status (open / done / skipped), skipReason (required if skipped), savesTo?}] |
 | `canvas/blocks.md` | Optional. blocks [{id (lowercase-hyphen), title, prompt}]. Replaces the shipped generic blocks (customer, problem, solution, alternatives, advantage, channel, revenue, cost, feasibility) |

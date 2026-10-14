@@ -58,3 +58,10 @@ textarea::placeholder {
   outline-offset: 3px;
   box-shadow: 0 0 0 5px var(--color-teal-dark);
 }
+
+/* The Claude panel takes its width from --panel-w on wide screens; below 900px it's a bottom drawer. */
+@media (min-width: 900px) {
+  aside[aria-label="Claude"] {
+    width: var(--panel-w, 440px);
+  }
+}

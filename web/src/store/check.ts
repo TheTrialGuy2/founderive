@@ -1,6 +1,8 @@
+import { access } from "node:fs/promises";
 import { canvasBlocks } from "../core/canvas";
 import { looksLikeContactDetails } from "../core/privacy";
 import { brokenLinks, describeBrokenLink, linksOf } from "../core/links";
+import { resolveInData } from "./paths";
 import { readEntry } from "./read";
 import { AREAS, kindOf, type KindData } from "./schemas";
 import { walkMarkdown } from "./walk";
@@ -70,6 +72,11 @@ export async function checkData(): Promise<CheckReport> {
     }
     // A broken link is a warning; the record itself is still valid and still shown (amendment §13).
     for (const b of brokenLinks(linksOf(kind, entry.data), (r) => present.has(r))) warnings.push({ path: rel, warning: describeBrokenLink(b) });
+    if (kind === "founder") {
+      const logo = (entry.data as KindData<"founder">).logo;
+      if (logo && !(await access(resolveInData(logo)).then(() => true, () => false)))
+        warnings.push({ path: rel, warning: `logo: ${logo} isn't in founder-data. Upload a logo again, or clear it.` });
+    }
     if (kind === "conversation") for (const a of (entry.data as KindData<"conversation">).areas) if (!steps.has(a)) unknownStep(rel, "areas", a);
     if (kind === "test") {
       const a = (entry.data as KindData<"test">).area;

@@ -71,6 +71,16 @@ describe("loadToday path fields", () => {
     if (v.status !== "ready") throw new Error(v.status);
     expect(v.path.current?.id).toBe("problem");
   });
+  it("names the answer, not a conversation, when the current step isn't Customer", async () => {
+    await setCommitmentStatus("2026-W42", "c-1", "done"); // the fixture's past-due commitment would be the main action
+    await markStepDone("customer", "", "2026-10-13");
+    const v = await loadToday();
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.action).toMatchObject({ kind: "step", stepId: "problem", mode: "open", label: "Continue: Problem", reason: "Work on your answer, then mark it done." });
+    const text = formatToday(v);
+    expect(text).toMatch(/^Main action: Continue: Problem$/m);
+    expect(text).toMatch(/^Path: Problem \(step \d+ of \d+\)$/m); // nobody discussed it, and that isn't this step's job
+  });
 });
 
 describe("a page from an earlier week", () => {

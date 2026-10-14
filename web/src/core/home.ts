@@ -1,6 +1,9 @@
 import { dueWords, type DueItem } from "./due";
 import type { PathView } from "./path";
 
+/** The one step whose page plans and logs conversations. Conversations about anything else are logged from People. */
+export const CONVERSATION_STEP = "customer";
+
 export type HomeAction =
   | { kind: "risk"; label: string; reason: string; href: string }
   | { kind: "outcome"; label: string; reason: string }
@@ -12,7 +15,7 @@ export type HomeAction =
 /**
  * The one main action, shared by Home and `pnpm today` so the app and the agent always name the same thing. First
  * match wins: a risk, a missing outcome, a blocker, the earliest item past its date, the current step, then (every
- * step done) choosing this week's focus.
+ * step done) choosing this week's focus. Only the Customer step's action is about a conversation.
  */
 export function homeAction(input: {
   today: string;
@@ -30,6 +33,8 @@ export function homeAction(input: {
   if (late) return { kind: "overdue", label: late.text, reason: `It's ${dueWords(late, input.today)}. Finish it, or drop it with a reason.`, key: late.key };
   const step = input.path.current;
   if (step) {
+    // Conversations are planned and logged on the Customer step only; every other step is about the answer.
+    if (step.id !== CONVERSATION_STEP) return { kind: "step", label: `Continue: ${step.title}`, reason: "Work on your answer, then mark it done.", href: step.href, stepId: step.id, mode: "open" };
     const mode = step.planned > 0 ? "log" : step.discussed === 0 ? "plan" : "open";
     const label = mode === "plan" ? `Continue: plan a conversation about ${step.title}` : mode === "log" ? `Continue: log your conversation about ${step.title}` : `Continue: ${step.title}`;
     const reason =

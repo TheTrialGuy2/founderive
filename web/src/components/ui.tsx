@@ -5,7 +5,7 @@ export function formatDate(iso: string) {
   return new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export function PageHeader({ eyebrow, title, children }: { eyebrow?: string; title: string; children?: ReactNode }) {
+export function PageHeader({ eyebrow, title, children }: { eyebrow?: string; title: ReactNode; children?: ReactNode }) {
   return (
     <header className="mb-8">
       {eyebrow && <p className="text-xs font-semibold tracking-[0.12em] text-teal-dark uppercase">{eyebrow}</p>}
