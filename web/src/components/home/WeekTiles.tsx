@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ProgressBar } from "@/components/ui";
 import { BlockerForm } from "@/components/today/BlockerForm";
 import { OutcomeForm } from "@/components/today/OutcomeForm";
@@ -45,7 +46,8 @@ export function OutcomeTile({ weekId, outcome, primary, stuck }: { weekId: strin
   );
 }
 
-export function TalkedToTile({ weekId, count, goal, lastWeekShort }: { weekId: string; count: number; goal: number; lastWeekShort: number }) {
+/** `importedWaiting` adds a quiet way to the imported conversations that don't count until the founder confirms them. */
+export function TalkedToTile({ weekId, count, goal, lastWeekShort, importedWaiting = 0 }: { weekId: string; count: number; goal: number; lastWeekShort: number; importedWaiting?: number }) {
   return (
     <section className={tile} aria-labelledby="talked-heading">
       <h2 id="talked-heading" className={label}>
@@ -59,6 +61,13 @@ export function TalkedToTile({ weekId, count, goal, lastWeekShort }: { weekId: s
       </div>
       <p className="mt-2 text-sm text-muted">Your goal: {goal}</p>
       {lastWeekShort > 0 && count === 0 && <p className="mt-1 text-sm text-ink">One conversation this week gets you going again.</p>}
+      {importedWaiting > 0 && (
+        <p className="mt-1 text-sm">
+          <Link href="/people?show=imported" className="text-teal-dark hover:text-navy">
+            {importedWaiting} imported, waiting for you
+          </Link>
+        </p>
+      )}
       <details className="mt-2 text-sm">
         <summary className="cursor-pointer text-teal-dark">Change goal</summary>
         <InlineForm action={saveTalkGoalAction} fields={{ week: weekId }} submit="Save goal">
