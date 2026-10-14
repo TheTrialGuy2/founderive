@@ -5,9 +5,8 @@ import { createTestAction } from "@/app/(workbook)/tests/actions";
 import { describedBy, Field, FormAlert } from "@/components/workbook/Field";
 import { buttonPrimary, inputClass } from "@/components/workbook/form";
 import { IDLE } from "@/lib/action-state";
-import { AREA_LABELS, options } from "@/lib/loop-labels";
 
-export function TestForm({ initial }: { initial: Record<string, string> }) {
+export function TestForm({ initial, areaOptions, returnTo }: { initial: Record<string, string>; areaOptions: [string, string][]; returnTo?: string }) {
   const [state, formAction, pending] = useActionState(createTestAction, IDLE);
   const v: Record<string, string> = { ...initial, ...state.values };
   const err = state.errors ?? {};
@@ -29,13 +28,14 @@ export function TestForm({ initial }: { initial: Record<string, string> }) {
   return (
     <form action={formAction} className="max-w-2xl space-y-5" noValidate>
       <FormAlert message={state.status === "error" ? state.message : undefined} />
+      {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
       <Field id="title" label="Name the test" error={err.title}>
         <input id="title" name="title" defaultValue={v.title} placeholder="e.g. Ask agency owners to pay for a pilot" className={inputClass} aria-invalid={!!err.title} aria-describedby={describedBy("title", err.title)} />
       </Field>
-      <Field id="area" label="Part of the business it tests" error={err.area}>
+      <Field id="area" label="Step it tests" error={err.area}>
         <select id="area" name="area" defaultValue={v.area ?? ""} className={inputClass} aria-invalid={!!err.area} aria-describedby={describedBy("area", err.area)}>
           <option value="">Choose one</option>
-          {options(AREA_LABELS).map(([value, label]) => (
+          {areaOptions.map(([value, label]) => (
             <option key={value} value={value}>
               {label}
             </option>

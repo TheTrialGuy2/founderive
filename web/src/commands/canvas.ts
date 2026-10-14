@@ -1,5 +1,6 @@
 import { applyBlockSave, canvasBlocks, confirmImport, type CanvasBlockDef } from "../core/canvas";
 import { slugOf } from "../core/slug";
+import { areaLabel } from "../lib/loop-labels";
 import { listEntries, readEntry, type Entry } from "../store/read";
 import { CANVAS_STATUSES, type ConversationType, type KindData, type TestStatus } from "../store/schemas";
 import { updateEntry } from "../store/update";
@@ -42,6 +43,13 @@ export async function loadCanvas(): Promise<{
     .filter((e) => !listed.has(e.path))
     .map((e) => ({ path: e.path, error: e.ok ? `"${e.data.id}" isn't in your canvas list (canvas/blocks.md), so it isn't shown.` : e.error }));
   return { cards: defs.map((def) => cardFor(def, byPath.get(blockPath(def.id)) ?? null)), source, configError, others };
+}
+
+/** The founder's canvas steps as [id, title] form options, plus any ids a record already carries that aren't in the list (kept, never dropped). */
+export async function loadAreaOptions(extra: string[] = []): Promise<[string, string][]> {
+  const { defs } = await loadCanvasDefs();
+  const known = new Set(defs.map((d) => d.id));
+  return [...defs.map((d): [string, string] => [d.id, d.title]), ...extra.filter((id) => !known.has(id)).map((id): [string, string] => [id, areaLabel(id)])];
 }
 
 export async function loadCanvasBlock(id: string): Promise<{ status: "missing" } | ({ status: "ready" } & CanvasCard)> {

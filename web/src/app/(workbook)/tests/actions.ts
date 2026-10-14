@@ -7,6 +7,7 @@ import { abandonTest, completeTest, createTest, parseTestForm, saveEvidenceNotes
 import { slugOf } from "@/core/slug";
 import { checkCompletion, type CompletionForm } from "@/core/venture-tests";
 import type { ActionState } from "@/lib/action-state";
+import { safeReturnTo } from "@/lib/return-to";
 import { field, run } from "../action-utils";
 
 export async function createTestAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
@@ -19,7 +20,7 @@ export async function createTestAction(_prev: ActionState, fd: FormData): Promis
     return { status: "error", message: error instanceof Error ? error.message : "Couldn't save the test. Try again.", values: parsed.values };
   }
   // redirect() throws, so it stays outside the try block.
-  redirect(`/tests/${slugOf(rel)}`);
+  redirect(safeReturnTo(field(fd, "returnTo")) ?? `/tests/${slugOf(rel)}`);
 }
 
 export async function startTestAction(_prev: ActionState, fd: FormData): Promise<ActionState> {

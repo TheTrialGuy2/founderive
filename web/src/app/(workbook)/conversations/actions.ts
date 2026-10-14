@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { addFollowUp, confirmWhatChanges, createConversation, parseConversationForm, setFollowUpStatus, updateConversation } from "@/commands/conversations";
 import { slugOf } from "@/core/slug";
 import type { ActionState } from "@/lib/action-state";
+import { safeReturnTo } from "@/lib/return-to";
 import { field, run } from "../action-utils";
 
 export async function createConversationAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
@@ -16,7 +17,7 @@ export async function createConversationAction(_prev: ActionState, fd: FormData)
     return { status: "error", message: error instanceof Error ? error.message : "Couldn't save the conversation. Try again.", values: parsed.values };
   }
   // redirect() throws, so it stays outside the try block.
-  redirect(`/conversations/${slugOf(rel)}`);
+  redirect(safeReturnTo(field(fd, "returnTo")) ?? `/conversations/${slugOf(rel)}`);
 }
 
 export async function updateConversationAction(_prev: ActionState, fd: FormData): Promise<ActionState> {

@@ -11,6 +11,7 @@ import { SeededNote } from "@/components/workbook/SeededNote";
 import { BrokenLinks } from "@/components/workbook/BrokenLinks";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { unlinkEvidenceAction } from "@/app/(workbook)/evidence-actions";
+import { loadAreaOptions } from "@/commands/canvas";
 import { loadConversation, type Conversation } from "@/commands/conversations";
 import { loadFounderToday } from "@/commands/today";
 import { isCustomerEvidence, isEvidenceEligible } from "@/core/conversations";
@@ -60,6 +61,7 @@ async function ConversationContent({ slug }: { slug: string }) {
   // Only an open test takes new evidence; a closed one is frozen.
   const linkable = linkableTests(view.tests, c.relatedTests);
   const confirmed = c.whatChangesConfirmed && !!c.whatChanges;
+  const areaOptions = await loadAreaOptions(c.areas);
 
   return (
     <>
@@ -186,7 +188,7 @@ async function ConversationContent({ slug }: { slug: string }) {
       <details className="mt-6">
         <summary className="cursor-pointer text-sm font-medium text-teal-dark">Edit details and notes</summary>
         <div className="mt-4">
-          <ConversationForm mode="edit" path={view.path} initial={formValues(c, view.notes)} />
+          <ConversationForm mode="edit" path={view.path} initial={formValues(c, view.notes)} areaOptions={areaOptions} />
         </div>
       </details>
     </>

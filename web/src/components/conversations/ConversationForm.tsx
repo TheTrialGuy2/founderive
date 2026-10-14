@@ -5,7 +5,7 @@ import { createConversationAction, updateConversationAction } from "@/app/(workb
 import { describedBy, Field, FormAlert } from "@/components/workbook/Field";
 import { buttonPrimary, buttonQuiet, errorText, inputClass } from "@/components/workbook/form";
 import { IDLE } from "@/lib/action-state";
-import { AREA_LABELS, options, TYPE_LABELS } from "@/lib/loop-labels";
+import { TYPE_LABELS } from "@/lib/loop-labels";
 
 const GROUPS = [
   { legend: "Could buy: counts as customer evidence", types: ["customer", "prospect"] },
@@ -14,9 +14,9 @@ const GROUPS = [
 const FOLLOW_UP_ROWS = [0, 1, 2];
 const chip = "flex min-h-10 items-center gap-2 rounded-md border border-line bg-paper px-3 text-sm text-ink has-[:checked]:border-teal-dark has-[:checked]:bg-aqua/40";
 
-type Props = { mode: "create" | "edit"; initial: Record<string, string>; path?: string };
+type Props = { mode: "create" | "edit"; initial: Record<string, string>; path?: string; areaOptions: [string, string][]; returnTo?: string };
 
-export function ConversationForm({ mode, initial, path }: Props) {
+export function ConversationForm({ mode, initial, path, areaOptions, returnTo }: Props) {
   const [state, formAction, pending] = useActionState(mode === "create" ? createConversationAction : updateConversationAction, IDLE);
   const v: Record<string, string> = { ...initial, ...state.values };
   const err = state.errors ?? {};
@@ -55,6 +55,7 @@ export function ConversationForm({ mode, initial, path }: Props) {
     <form action={formAction} className="max-w-2xl space-y-6" noValidate>
       <FormAlert message={state.status === "error" ? state.message : undefined} />
       {path && <input type="hidden" name="path" value={path} />}
+      {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
 
       <fieldset aria-describedby={err.type ? "type-error" : undefined}>
         <legend className="mb-2 text-sm font-medium text-ink">Who you talked to</legend>
@@ -105,9 +106,9 @@ export function ConversationForm({ mode, initial, path }: Props) {
       </details>
 
       <fieldset aria-describedby={err.areas ? "areas-error" : undefined}>
-        <legend className="mb-1 text-sm font-medium text-ink">Parts of the business it touches (optional)</legend>
+        <legend className="mb-1 text-sm font-medium text-ink">Steps it informs (optional)</legend>
         <div className="flex flex-wrap gap-2">
-          {options(AREA_LABELS).map(([value, label]) => (
+          {areaOptions.map(([value, label]) => (
             <label key={value} className={chip}>
               <input type="checkbox" name="areas" value={value} defaultChecked={areas.has(value)} /> {label}
             </label>
