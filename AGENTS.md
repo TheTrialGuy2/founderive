@@ -4,7 +4,7 @@ Founderive is a local app (`web/`) that shows a founder's record kept as Markdow
 
 ## Starting Founderive for a founder
 
-If the founder asks to get set up, start Founderive or open the app, run `node start.mjs` from the repo root. It keeps running (start it in the background) and opens the founder's browser to setup (first run) or Today. Don't ask them to edit founder-data by hand to get started; setup in the app does it.
+If the founder asks to get set up, start Founderive or open the app, run `node start.mjs` from the repo root. It keeps running (start it in the background) and opens the founder's browser to setup (first run) or Home. Don't ask them to edit founder-data by hand to get started; setup in the app does it.
 
 ## Working with a founder
 
@@ -14,7 +14,7 @@ Founderive is used two ways at once: the founder works in the app, and the found
 
 ### When they say "set me up"
 
-1. Run `node start.mjs` from the repo root, in the background. Their browser opens to setup (first run) or Today.
+1. Run `node start.mjs` from the repo root, in the background. Their browser opens to setup (first run) or Home.
 2. Don't ask them to edit files to get started. Setup in the app writes `founder.md`.
 3. After setup there's no check-in yet. Ask one question: "What's the one thing you want to be true by the end of this week?" Create this ISO week's check-in (`checkins/YYYY-Www.md`, Monday start; `week` is required) with their answer as `outcome`. Stop there.
 4. On the next turn, run `pnpm -s today --json` from `web/` and say the main action (`action.label`) and its reason (`action.reason`) in one or two sentences, in the same words as Home. Ask whether they want it as this week's first commitment, or something else. Write the answer to `commitments`.
@@ -160,7 +160,7 @@ Before building or changing a screen, write its direction brief:
 
 Rules:
 - Use zero or one primary action per screen. Links navigate and buttons act. Never repeat an action in the header, the body and the empty state.
-- Today's next step comes only from `core/next-step.ts`. Events never outrank work.
+- Home's main action comes only from `homeAction()` in `core/home.ts` (shared with `pnpm today`). Events never outrank work.
 - Each empty state is different:
   - First run teaches the section and shows a Claude prompt to copy.
   - Cleared confirms the work is done.

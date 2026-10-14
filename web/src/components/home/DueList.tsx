@@ -50,7 +50,7 @@ export function DueList({ weekId, today, items, primaryKey, commitments, carried
               <li key={i.key} className="flex items-start justify-between gap-3">
                 <span className="text-sm text-ink">
                   {i.href ? (
-                    <Link href={i.href} className="hover:text-teal-dark">
+                    <Link href={i.href} className="font-medium text-teal-dark underline-offset-2 hover:underline">
                       {i.text}
                     </Link>
                   ) : (
