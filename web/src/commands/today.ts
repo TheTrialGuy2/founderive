@@ -1,7 +1,10 @@
 import { capacityWarning } from "../core/capacity";
 import { dueFollowUps } from "../core/conversations";
+import { dueItems as buildDueItems, type DueItem } from "../core/due";
 import { guideProgress, guideStepForWeek, type GuideStep } from "../core/guide";
+import { homeAction, type HomeAction } from "../core/home";
 import { activeChoices, nextStep, type Candidate } from "../core/next-step";
+import { DEFAULT_TALK_GOAL, talkedToInWeek, type PathView } from "../core/path";
 import { currentWeek, weekFile } from "../core/program";
 import { slugOf } from "../core/slug";
 import { localISODate, resolveToday } from "../core/today";
@@ -13,6 +16,7 @@ import { listEntries, readEntry, type Entry } from "../store/read";
 import type { KindData } from "../store/schemas";
 import { checkinPath, weekOfCheckinPath } from "./checkin";
 import { loadGuideFacts, loadLoopRecords } from "./loop";
+import { loadPathFor } from "./path";
 
 export type TodayView =
   | { status: "setup" }
@@ -37,6 +41,10 @@ export type TodayView =
       /** Open commitments from earlier weeks' check-ins, each with the week it lives in. They stay where they were written. */
       carried: CarriedCommitment[];
       capacity: string | null;
+      path: PathView;
+      talkedTo: { count: number; goal: number; reached: number; replied: number; lastWeekShort: number };
+      dueItems: DueItem[];
+      action: HomeAction | null;
     };
 
 /** `week` is the week in the check-in's file name, so a status change writes to `path`. */
@@ -95,6 +103,28 @@ export async function loadToday(): Promise<TodayView> {
     choices: activeChoices(checkins, weekId, today),
   });
 
+  const path = await loadPathFor({ setupComplete: f.setupComplete, focus: checkin?.focus, openCommitments: ranked.filter((c) => c.status === "open"), records });
+  const lastWeekId = isoWeekId(addDays(today, -7));
+  const lastCheckin = checkins.find((c) => c.week === lastWeekId);
+  const goal = checkin?.talkGoal ?? f.weeklyTalkGoal ?? DEFAULT_TALK_GOAL;
+  const lastGoal = lastCheckin?.talkGoal ?? f.weeklyTalkGoal ?? DEFAULT_TALK_GOAL;
+  const talkedTo = {
+    count: talkedToInWeek(records.conversations, weekId),
+    goal,
+    reached: checkin?.outreach?.reached ?? 0,
+    replied: checkin?.outreach?.replied ?? 0,
+    lastWeekShort: Math.max(0, lastGoal - talkedToInWeek(records.conversations, lastWeekId)),
+  };
+  const dueList = buildDueItems({ commitments: ranked, homework });
+  const action = homeAction({
+    today,
+    risk: next && next.tier === 1 ? { label: next.label, reason: next.reason, href: next.href ?? "/today" } : null,
+    outcome: checkin?.outcome,
+    blocker: checkin?.blocker,
+    due: dueList,
+    path,
+  });
+
   const openCount = ranked.filter((c) => c.status === "open").length + openHomework.length;
   return {
     status: "ready",
@@ -116,6 +146,10 @@ export async function loadToday(): Promise<TodayView> {
     followUps,
     carried,
     capacity: capacityWarning(f.hoursPerWeek, f.commitment, openCount),
+    path,
+    talkedTo,
+    dueItems: dueList,
+    action,
   };
 }
 

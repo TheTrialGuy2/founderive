@@ -1,13 +1,12 @@
+import { dueWords } from "../core/due";
 import type { TodayView } from "./today";
 
 const byDue = (a: { due?: string | null }, b: { due?: string | null }) => (a.due ?? "9999-12-31").localeCompare(b.due ?? "9999-12-31");
 
-/** The due marker for an open commitment: today, overdue (with its date) or a future date. */
-const dueMarker = (due: string | null | undefined, today: string): string => {
-  if (!due) return "";
-  if (due === today) return " · due today";
-  if (due < today) return ` · due ${due} (overdue)`;
-  return ` · due ${due}`;
+/** When an open commitment is due, in the same words as Home. */
+const dueMarker = (due: string | null | undefined, week: string | null | undefined, today: string): string => {
+  const words = dueWords({ due, week }, today);
+  return words ? ` · ${words}` : "";
 };
 
 /** Today as plain text, in the app's order (amendment §5.2), with the ids an agent needs to write back. */
@@ -15,11 +14,21 @@ export function formatToday(view: TodayView): string {
   if (view.status === "setup") return "Setup isn't finished. Run node start.mjs from the repo root and finish setup in the browser.";
   if (view.status === "flagged") return `founder-data/${view.path} can't be read: ${view.error}\nFix it, then run pnpm check-data.`;
   const out: string[] = [];
+  if (view.action) out.push(`Main action: ${view.action.label}`, `  Why: ${view.action.reason}`);
+  else out.push("Main action: nothing is waiting");
   out.push(`Today: ${view.today} (week ${view.weekId}, starts ${view.weekStartsOn})`);
   out.push(`Outcome: ${view.checkin?.outcome ?? "not set"}`);
   if (view.founder.outcome30) out.push(`30-day outcome: ${view.founder.outcome30}`);
-  if (view.next) out.push(`Next action: ${view.next.label}`, `  Why: ${view.next.reason}`, `  id: ${view.next.id}`);
-  else out.push("Next action: nothing is waiting");
+  const t2 = view.talkedTo;
+  out.push(`Logged this week: ${t2.count} · your goal: ${t2.goal} (reached ${t2.reached}, replied ${t2.replied})`);
+  if (t2.lastWeekShort > 0) out.push(`  Last week came in ${t2.lastWeekShort} short.`);
+  const cur = view.path.current;
+  const index = cur ? view.path.steps.findIndex((s) => s.id === cur.id) + 1 : 0;
+  out.push(
+    cur
+      ? `Path: ${cur.title} (step ${index} of ${view.path.total}) · ${cur.discussed} ${cur.discussed === 1 ? "person" : "people"} discussed it${cur.planned ? ` · ${cur.planned} planned` : ""}`
+      : `Path: ${view.path.allDone ? "every step done; choose this week's focus" : "no current step"}`,
+  );
   const t = view.currentTest;
   out.push(t ? `Current test: ${t.title}${t.due ? ` · due ${t.due}` : ""} · ${t.linkedCount} linked · ${t.evidenceCount} customer evidence · strength ${t.evidenceStrength} (${t.path})` : `Current test: none running${view.plannedTests ? ` (${view.plannedTests} planned)` : ""}`);
   const commitments = view.checkin?.commitments ?? [];
@@ -29,7 +38,7 @@ export function formatToday(view: TodayView): string {
   const dropped = commitments.filter((c) => c.status === "dropped");
   out.push("Commitments:");
   if (open.length === 0) out.push("  none");
-  for (const c of open) out.push(`  ${c.text}${dueMarker(c.due, view.today)}${c.week !== view.weekId ? ` · from week ${c.week}` : ""} (id ${c.id})`);
+  for (const c of open) out.push(`  ${c.text}${dueMarker(c.due, c.week, view.today)}${c.week !== view.weekId ? ` · from week ${c.week}` : ""} (id ${c.id})`);
   if (done.length > 0) {
     out.push("Done this week:");
     for (const c of done) out.push(`  ${c.text} (id ${c.id})`);
@@ -41,8 +50,7 @@ export function formatToday(view: TodayView): string {
   // The same follow-ups as the JSON and the Today page: open, due today or earlier, oldest first.
   out.push("Follow-ups due:");
   if (view.followUps.length === 0) out.push("  none");
-  for (const f of view.followUps) out.push(`  ${f.text} · ${f.due < view.today ? `overdue since ${f.due}` : "due today"} (id ${f.id})`);
-  if (view.capacity) out.push(`Capacity: ${view.capacity}`);
+  for (const f of view.followUps) out.push(`  ${f.text} · ${dueWords({ due: f.due }, view.today)} (id ${f.id})`);
   const homework = view.homework.filter((h) => h.status === "open");
   if (homework.length > 0) {
     out.push(`Program week ${view.programWeek}:`);

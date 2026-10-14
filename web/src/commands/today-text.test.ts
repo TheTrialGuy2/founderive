@@ -20,14 +20,14 @@ describe("formatToday", () => {
   it("prints Today in the app's order, with the ids an agent needs", async () => {
     const text = formatToday(await loadToday());
     expect(text.split("\n").slice(0, 6)).toEqual([
+      "Main action: Email the two agencies from the meetup",
+      "  Why: It's due Mon. Finish it, or drop it with a reason.",
       "Today: 2026-10-13 (week 2026-W42, starts 2026-10-12)",
       "Outcome: Talk to five agency owners about scheduling",
       "30-day outcome: Three agencies agree to a paid pilot",
-      "Next action: Email the two agencies from the meetup",
-      "  Why: Overdue since 2026-10-12.",
-      "  id: commitment:2026-W42:c-1",
+      "Logged this week: 0 · your goal: 3 (reached 0, replied 0)",
     ]);
-    expect(text).toContain("  Email the two agencies from the meetup · due 2026-10-12 (overdue) (id c-1)");
+    expect(text).toContain("  Email the two agencies from the meetup · due Mon (id c-1)");
     expect(text).toContain("Done this week:");
     expect(text).toContain("  Draft interview questions (id c-2)");
     expect(text).not.toContain("Dropped this week:");
@@ -79,9 +79,9 @@ describe("formatToday", () => {
     expect(droppedIdx).toBeGreaterThan(doneIdx);
     const commitmentLines = lines.slice(commitmentsIdx + 1, doneIdx);
     expect(commitmentLines).toEqual([
-      "  Email the two agencies from the meetup · due 2026-10-12 (overdue) (id c-1)",
+      "  Email the two agencies from the meetup · due Mon (id c-1)",
       "  Call the pilot lead · due today (id c-3)",
-      "  Send the follow-up deck · due 2026-10-20 (id c-4)",
+      "  Send the follow-up deck · due Oct 20 (id c-4)",
     ]);
     expect(lines.slice(doneIdx + 1, droppedIdx)).toEqual(["  Draft interview questions (id c-2)"]);
     expect(lines.slice(droppedIdx + 1, droppedIdx + 2)).toEqual(["  Interview a sixth agency — Couldn't reach anyone new this week (id c-5)"]);
@@ -118,7 +118,7 @@ describe("formatToday across weeks and follow-ups", () => {
   it("lists a commitment carried from an earlier week with the week it came from", async () => {
     await addCommitment("2026-W41", { text: "Book the venue", due: "2026-10-09" });
     const text = formatToday(await loadToday());
-    expect(text).toMatch(/^ {2}Book the venue · due 2026-10-09 \(overdue\) · from week 2026-W41 \(id c-[^)]+\)$/m);
+    expect(text).toMatch(/^ {2}Book the venue · from last week · from week 2026-W41 \(id c-[^)]+\)$/m);
   });
   it("prints a Follow-ups due: block that matches the JSON and the Today page", async () => {
     await createConversation(DANA);
@@ -127,7 +127,7 @@ describe("formatToday across weeks and follow-ups", () => {
     const text = formatToday(view);
     expect(view.followUps).toHaveLength(1);
     const fu = view.followUps[0];
-    expect(text).toContain(`Follow-ups due:\n  ${fu.text} · overdue since ${fu.due} (id ${fu.id})`);
+    expect(text).toContain(`Follow-ups due:\n  ${fu.text} · due Mon (id ${fu.id})`);
   });
   it("says none when no follow-up is due", async () => expect(formatToday(await loadToday())).toContain("Follow-ups due:\n  none"));
 });

@@ -53,6 +53,6 @@ describe("the core loop", () => {
     expect(after.next).toMatchObject({ id: `commitment:2026-W42:${commitmentId}`, tier: 7 });
     const text = formatToday(after);
     expect(text).not.toMatch(/Program week/);
-    expect(text).toContain(`Next action: ${FORM.nextCommitment}`);
+    expect(text).toContain(`  ${FORM.nextCommitment} · due Fri (id ${commitmentId})`);
   });
 });
