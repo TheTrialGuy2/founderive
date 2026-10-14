@@ -9,13 +9,14 @@ export type HomeAction =
   | { kind: "outcome"; label: string; reason: string }
   | { kind: "blocker"; label: string; reason: string }
   | { kind: "overdue"; label: string; reason: string; key: string }
+  | { kind: "imports"; label: string; reason: string; href: string }
   | { kind: "step"; label: string; reason: string; href: string; stepId: string; mode: "plan" | "log" | "open" }
   | { kind: "focus"; label: string; reason: string };
 
 /**
  * The one main action, shared by Home and `pnpm today` so the app and the agent always name the same thing. First
- * match wins: a risk, a missing outcome, a blocker, the earliest item past its date, the current step, then (every
- * step done) choosing this week's focus. Only the Customer step's action is about a conversation.
+ * match wins: a risk, a missing outcome, a blocker, the earliest item past its date, imported conversations waiting
+ * for the founder to confirm, the current step, then (every step done) choosing this week's focus. Only the Customer step's action is about a conversation.
  */
 export function homeAction(input: {
   today: string;
@@ -23,6 +24,8 @@ export function homeAction(input: {
   outcome: string | null | undefined;
   blocker: string | null | undefined;
   due: DueItem[];
+  /** Imported conversations (seeded) the founder hasn't confirmed. They don't count as evidence until confirmed. */
+  importedWaiting: number;
   path: PathView;
 }): HomeAction | null {
   if (input.risk) return { kind: "risk", ...input.risk };
@@ -31,6 +34,10 @@ export function homeAction(input: {
   // The earliest-dated item past its date, whatever order the list came in.
   const late = input.due.filter((d) => !!d.due && d.due < input.today).reduce<DueItem | null>((min, d) => (!min || (d.due as string) < (min.due as string) ? d : min), null);
   if (late) return { kind: "overdue", label: late.text, reason: `It's ${dueWords(late, input.today)}. Finish it, or drop it with a reason.`, key: late.key };
+  if (input.importedWaiting > 0) {
+    const n = input.importedWaiting;
+    return { kind: "imports", label: `Review ${n} imported conversation${n === 1 ? "" : "s"}`, reason: "They count toward people talked to once you confirm them.", href: "/people?show=imported" };
+  }
   const step = input.path.current;
   if (step) {
     // Conversations are planned and logged on the Customer step only; every other step is about the answer.

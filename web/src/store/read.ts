@@ -6,7 +6,7 @@ import { walkMarkdown } from "./walk";
 
 export type Entry<K extends Kind> =
   | { ok: true; kind: K; path: string; data: KindData<K>; body: string }
-  | { ok: false; kind: K; path: string; error: string };
+  | { ok: false; kind: K; path: string; error: string; /** The file says `seeded: true` though it doesn't pass its schema: an import that needs fixing. */ seeded?: boolean };
 
 export function parseEntry<K extends Kind>(kind: K, rel: string, text: string): Entry<K> {
   let parsed: { data: unknown; body: string };
@@ -16,7 +16,10 @@ export function parseEntry<K extends Kind>(kind: K, rel: string, text: string): 
     return { ok: false, kind, path: rel, error: `YAML: ${(error as Error).message.split("\n")[0]}` };
   }
   const result = KINDS[kind].schema.safeParse(parsed.data);
-  if (!result.success) return { ok: false, kind, path: rel, error: formatIssues(result.error) };
+  if (!result.success) {
+    const seeded = typeof parsed.data === "object" && parsed.data !== null && (parsed.data as { seeded?: unknown }).seeded === true;
+    return { ok: false, kind, path: rel, error: formatIssues(result.error), ...(seeded ? { seeded } : {}) };
+  }
   return { ok: true, kind, path: rel, data: result.data as KindData<K>, body: parsed.body };
 }
 

@@ -188,6 +188,48 @@ export async function confirmWhatChanges(rel: string, whatChanges: string): Prom
   });
 }
 
+/**
+ * The founder accepts an imported conversation as their own: only the `seeded` mark goes. Its source, its draft of
+ * "what this changes" and that draft's unconfirmed state are kept. A conversation that isn't imported is left
+ * untouched (not rewritten), and false comes back.
+ */
+export async function confirmImportedConversation(rel: string): Promise<boolean> {
+  const entry = await readEntry("conversation", rel);
+  if (!entry) throw missing(rel);
+  if (!entry.ok) throw new Error(`Fix founder-data/${rel} first: ${entry.error}`);
+  if (!entry.data.seeded) return false;
+  await updateEntry("conversation", rel, (data, body) => {
+    if (!data) throw missing(rel);
+    const next: Conversation = { ...data };
+    delete next.seeded;
+    return { data: next, body };
+  });
+  return true;
+}
+
+/**
+ * Confirms every imported conversation, one file at a time; a file that fails is reported with what to fix and the
+ * rest go on. An unreadable file that says it's imported is reported too, since it can't be confirmed until fixed.
+ */
+export async function confirmAllImportedConversations(): Promise<{ confirmed: number; failed: { path: string; error: string }[] }> {
+  const entries = await listEntries("conversation");
+  let confirmed = 0;
+  const failed: { path: string; error: string }[] = [];
+  for (const e of entries) {
+    if (!e.ok) {
+      if (e.seeded) failed.push({ path: e.path, error: `Fix founder-data/${e.path} first: ${e.error}` });
+      continue;
+    }
+    if (!e.data.seeded) continue;
+    try {
+      if (await confirmImportedConversation(e.path)) confirmed++;
+    } catch (error) {
+      failed.push({ path: e.path, error: error instanceof Error ? error.message : "Couldn't save it. Try again." });
+    }
+  }
+  return { confirmed, failed };
+}
+
 /** Every conversation, customer evidence apart from advice, newest first. Unreadable files are listed, never dropped. */
 export async function loadConversations(): Promise<{ evidence: ConversationRow[]; advice: ConversationRow[]; flagged: { path: string; error: string }[] }> {
   const entries = await listEntries("conversation");

@@ -4,26 +4,36 @@ import { TYPE_LABELS } from "../lib/loop-labels";
 import { listEntries } from "../store/read";
 import { loadLoopRecords } from "./loop";
 
-export type PersonCard = { slug: string; person: string; role: string; date: string; line: string | null; feedback: boolean; steps: string[] };
+export type PersonCard = { path: string; slug: string; person: string; role: string; date: string; line: string | null; feedback: boolean; imported: boolean; steps: string[] };
 export type LoggedRow = { kind: "conversation" | "test" | "decision"; title: string; href: string; date: string };
+export type PeopleFilter = "feedback" | "all" | "imported";
 
-/** Everyone the founder has logged, newest first. "feedback" keeps the conversations that count toward people talked to. */
-export async function loadPeople(show: "feedback" | "all"): Promise<{ cards: PersonCard[]; total: number }> {
-  const { conversations } = await loadLoopRecords();
-  const cards = conversations
+/**
+ * Everyone the founder has logged, newest first. "feedback" keeps the conversations that count toward people talked
+ * to; "imported" keeps the imported ones (seeded) waiting for the founder to confirm them. `imported` counts those
+ * whatever the filter, and `flaggedImports` lists imported files that can't be read, so they can be fixed.
+ */
+export async function loadPeople(show: PeopleFilter): Promise<{ cards: PersonCard[]; total: number; imported: number; flaggedImports: { path: string; error: string }[] }> {
+  const entries = await listEntries("conversation");
+  const cards = entries
+    .flatMap((e) => (e.ok ? [{ path: e.path, data: e.data, notes: e.body }] : []))
     .map(
       (c): PersonCard => ({
+        path: c.path,
         slug: slugOf(c.path),
         person: c.data.person,
         role: c.data.segment || c.data.org || TYPE_LABELS[c.data.type],
         date: conversationDate(c),
         line: c.data.quotes[0] ?? (c.notes.trim().split("\n")[0] || null),
         feedback: isFeedbackConversation(c),
+        imported: !!c.data.seeded,
         steps: c.data.areas,
       }),
     )
     .sort((a, b) => b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
-  return { cards: show === "all" ? cards : cards.filter((c) => c.feedback), total: cards.length };
+  const flaggedImports = entries.flatMap((e) => (!e.ok && e.seeded ? [{ path: e.path, error: e.error }] : []));
+  const kept = show === "all" ? cards : show === "imported" ? cards.filter((c) => c.imported) : cards.filter((c) => c.feedback);
+  return { cards: kept, total: cards.length, imported: cards.filter((c) => c.imported).length, flaggedImports };
 }
 
 /** Conversations, tests and decisions in one list, newest first. `type` narrows to one kind; `q` matches titles, ignoring case. */

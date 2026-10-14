@@ -22,6 +22,13 @@ describe("loadStep", () => {
     expect(v.nextStep?.id).toBe("solution");
     expect(v.people[0]).toMatchObject({ person: "Maya", role: "Agency owner", line: "I rebuild it every Sunday" });
   });
+  it("counts imported conversations waiting, which nobody has discussed until they're confirmed", async () => {
+    await createConversation({ type: "customer", person: "Maya", org: null, date: "2026-10-12", segment: null, context: null, questionsAsked: null, observedBehavior: null, quotes: ["I rebuild it every Sunday"], numbers: [], alternatives: null, urgency: null, buyingProcess: null, areas: [], followUps: [], whatChanges: null, whatChangesConfirmed: false, notes: "" }, { seeded: true, source: "chat import" });
+    const v = await loadStep("customer");
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.people).toEqual([]);
+    expect(v.importedWaiting).toBe(1);
+  });
   it("reports a step that isn't on the path", async () => {
     expect((await loadStep("nope")).status).toBe("missing");
   });

@@ -15,7 +15,7 @@ export type PlannedConversation = { week: string; id: string; text: string; due:
  */
 export async function loadStep(id: string): Promise<
   | { status: "setup" | "missing" }
-  | { status: "ready"; step: PathStep; index: number; total: number; nextStep: PathStep | null; weekId: string; today: string; people: StepCard[]; planned: PlannedConversation[]; tests: { slug: string; title: string; status: TestStatus }[] }
+  | { status: "ready"; step: PathStep; index: number; total: number; nextStep: PathStep | null; weekId: string; today: string; people: StepCard[]; planned: PlannedConversation[]; tests: { slug: string; title: string; status: TestStatus }[]; importedWaiting: number }
 > {
   const records = await loadLoopRecords();
   const view = await loadToday(records);
@@ -40,5 +40,5 @@ export async function loadStep(id: string): Promise<
     .map((c): PlannedConversation => ({ week: c.week, id: c.id, text: c.text, due: c.due ?? null }))
     .sort((a, b) => (a.due ?? "9999-12-31").localeCompare(b.due ?? "9999-12-31") || a.week.localeCompare(b.week));
   const tests = records.tests.filter((t) => t.data.area === id).map((t) => ({ slug: slugOf(t.path), title: t.data.title, status: t.data.status }));
-  return { status: "ready", step: view.path.steps[i], index: i + 1, total: view.path.total, nextStep: view.path.steps[i + 1] ?? null, weekId: view.weekId, today: view.today, people, planned, tests };
+  return { status: "ready", step: view.path.steps[i], index: i + 1, total: view.path.total, nextStep: view.path.steps[i + 1] ?? null, weekId: view.weekId, today: view.today, people, planned, tests, importedWaiting: view.importedWaiting };
 }

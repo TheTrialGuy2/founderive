@@ -1,9 +1,9 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
-import { addFollowUp, confirmWhatChanges, createConversation, loadConversation, loadConversations, parseConversationForm, setFollowUpStatus, updateConversation } from "./conversations";
+import { addFollowUp, confirmAllImportedConversations, confirmImportedConversation, confirmWhatChanges, createConversation, loadConversation, loadConversations, parseConversationForm, setFollowUpStatus, updateConversation } from "./conversations";
 import { CONTACT_DETAILS_MESSAGE } from "../core/privacy";
 import { checkData } from "../store/check";
 import { CONTACT_SAMPLES, DANA, MENTOR } from "./test-inputs";
@@ -172,5 +172,48 @@ describe("contact details never reach a conversation's person", () => {
     await writeFile(path.join(env.dir, "conversations/2026-10-09-hand.md"), `---\ntype: customer\nperson: "${person}"\n---\nNotes\n`);
     const report = await checkData();
     expect(report.errors).toContainEqual({ path: "conversations/2026-10-09-hand.md", error: `person: ${CONTACT_DETAILS_MESSAGE}` });
+  });
+});
+
+describe("confirming imported conversations", () => {
+  const imported = (person: string, date: string) => createConversation({ ...DANA, person, org: null, date, whatChanges: "Drafted by the import", whatChangesConfirmed: false }, { seeded: true, source: "chat import 2026-10-13 #abc" });
+
+  it("clears only the seeded mark on one conversation, keeping its source and the unconfirmed draft", async () => {
+    const rel = await imported("Maya", "2026-10-07");
+    await confirmImportedConversation(rel);
+    const e = await readEntry("conversation", rel);
+    if (!e?.ok) throw new Error("unreadable");
+    expect(e.data.seeded).toBeUndefined();
+    expect(e.data.source).toBe("chat import 2026-10-13 #abc");
+    expect(e.data.whatChanges).toBe("Drafted by the import");
+    expect(e.data.whatChangesConfirmed).toBe(false);
+  });
+
+  it("leaves a conversation that isn't imported untouched", async () => {
+    const rel = await createConversation(DANA);
+    const before = await readFile(path.join(env.dir, rel), "utf8");
+    expect(await confirmImportedConversation(rel)).toBe(false);
+    expect(await readFile(path.join(env.dir, rel), "utf8")).toBe(before);
+  });
+
+  it("confirms every imported conversation, skips the rest, and reports a broken import without stopping", async () => {
+    const a = await imported("Maya", "2026-10-07");
+    const b = await imported("Lee", "2026-10-08");
+    const own = await createConversation(DANA);
+    const ownBefore = await readFile(path.join(env.dir, own), "utf8");
+    await writeFile(path.join(env.dir, "conversations/2026-10-09-broken.md"), "---\nseeded: true\ntype: customer\n---\nNotes\n");
+    await writeFile(path.join(env.dir, "conversations/2026-10-09-other-broken.md"), "---\ntype: customer\n---\nNotes\n");
+
+    const r = await confirmAllImportedConversations();
+    expect(r.confirmed).toBe(2);
+    expect(r.failed).toHaveLength(1);
+    expect(r.failed[0].path).toBe("conversations/2026-10-09-broken.md");
+    expect(r.failed[0].error).toMatch(/^Fix founder-data\/conversations\/2026-10-09-broken\.md first: /);
+    for (const rel of [a, b]) {
+      const e = await readEntry("conversation", rel);
+      expect(e?.ok && e.data.seeded).toBeFalsy();
+    }
+    expect(await readFile(path.join(env.dir, own), "utf8")).toBe(ownBefore);
+    expect(await confirmAllImportedConversations()).toEqual({ confirmed: 0, failed: r.failed });
   });
 });
