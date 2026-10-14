@@ -43,6 +43,8 @@ export type TodayView =
       capacity: string | null;
       path: PathView;
       talkedTo: { count: number; goal: number; reached: number; replied: number; lastWeekShort: number };
+      /** Imported conversations (seeded) waiting for the founder to confirm them. They don't count as evidence until then. */
+      importedWaiting: number;
       dueItems: DueItem[];
       action: HomeAction | null;
     };
@@ -120,6 +122,7 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
     // the sign. A founder in their first week has no shortfall.
     lastWeekShort: lastCheckin ? Math.max(0, lastGoal - talkedToInWeek(records.conversations, lastWeekId)) : 0,
   };
+  const importedWaiting = records.conversations.filter((c) => c.data.seeded).length;
   const dueList = buildDueItems({ commitments: ranked, homework, followUps });
   const action = homeAction({
     today,
@@ -127,6 +130,7 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
     outcome: checkin?.outcome,
     blocker: checkin?.blocker,
     due: dueList,
+    importedWaiting,
     path,
   });
 
@@ -153,6 +157,7 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
     capacity: capacityWarning(f.hoursPerWeek, f.commitment, openCount),
     path,
     talkedTo,
+    importedWaiting,
     dueItems: dueList,
     action,
   };

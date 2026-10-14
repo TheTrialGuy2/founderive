@@ -49,7 +49,7 @@ async function StepContent({ id }: { id: string }) {
       </>
     );
   }
-  const { step, index, total, nextStep, weekId, today, people, planned, tests } = view;
+  const { step, index, total, nextStep, weekId, today, people, planned, tests, importedCustomers } = view;
   const block = await loadCanvasBlock(id);
   const tomorrow = addDays(today, 1);
   const history = block.status === "ready" ? [...(block.block?.history ?? [])].reverse() : [];
@@ -107,7 +107,15 @@ async function StepContent({ id }: { id: string }) {
             People who discussed it · {people.length}
           </h2>
           {people.length === 0 ? (
-            <p className="mt-2 text-sm text-muted">Nobody yet.</p>
+            conversations && importedCustomers > 0 ? (
+              <p className="mt-2 text-sm text-ink">
+                <Link href="/people?show=imported" className="font-medium text-teal-dark hover:text-navy">
+                  {importedCustomers} imported customer conversation{importedCustomers === 1 ? "" : "s"} {importedCustomers === 1 ? "waits" : "wait"} for you — confirm {importedCustomers === 1 ? "it" : "them"} on People.
+                </Link>
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-muted">Nobody yet.</p>
+            )
           ) : (
             <ul className="mt-3 space-y-2">
               {people.map((p) => (

@@ -6,7 +6,7 @@ import type { PathStep, PathView } from "./path";
 const step = (over: Partial<PathStep> = {}): PathStep => ({ id: "problem", title: "Problem", meaning: "", doneWhen: "", done: false, doneOn: null, doneReason: null, discussed: 0, tested: false, planned: 0, href: "/path/problem", ...over });
 const path = (current: PathStep | null, allDone = false): PathView => ({ steps: current ? [current] : [], current, doneCount: 0, total: 1, allDone });
 const item = (due: string | null): DueItem => ({ key: "commitment:2026-W42:c-1", kind: "commitment", id: "c-1", text: "Call Dana", due, week: "2026-W42" });
-const base = { today: "2026-10-14", risk: null, outcome: "Talk to three people", blocker: null, due: [] as DueItem[], path: path(step()) };
+const base = { today: "2026-10-14", risk: null, outcome: "Talk to three people", blocker: null, due: [] as DueItem[], importedWaiting: 0, path: path(step()) };
 
 describe("homeAction", () => {
   it("puts a risk first", () => {
@@ -43,6 +43,13 @@ describe("homeAction", () => {
     for (const over of [{}, { planned: 1 }, { discussed: 2 }]) {
       expect(homeAction({ ...base, path: path(step(over)) })).toMatchObject({ kind: "step", mode: "open", label: "Continue: Problem", reason: "Work on your answer, then mark it done.", href: "/path/problem", stepId: "problem" });
     }
+  });
+  it("asks to review imported conversations after anything past its date and before the step", () => {
+    expect(homeAction({ ...base, importedWaiting: 3, due: [item("2026-10-08")] })?.kind).toBe("overdue");
+    expect(homeAction({ ...base, importedWaiting: 3, blocker: "No intros" })?.kind).toBe("blocker");
+    expect(homeAction({ ...base, importedWaiting: 3 })).toEqual({ kind: "imports", label: "Review 3 imported conversations", reason: "Imported conversations don't count until you confirm them.", href: "/people?show=imported" });
+    expect(homeAction({ ...base, importedWaiting: 1 })?.label).toBe("Review 1 imported conversation");
+    expect(homeAction({ ...base, importedWaiting: 2, path: path(null, true) })?.kind).toBe("imports");
   });
   it("asks to choose a focus when every step is done", () => {
     expect(homeAction({ ...base, path: path(null, true) })).toMatchObject({ kind: "focus", label: "Choose this week's focus" });

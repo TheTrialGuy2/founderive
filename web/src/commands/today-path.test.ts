@@ -19,6 +19,34 @@ const talk = (date: string, areas: string[] = []) =>
   createConversation({ type: "customer", person: "Maya", org: null, date, segment: null, context: null, questionsAsked: null, observedBehavior: null, quotes: ["I rebuild it every Sunday"], numbers: [], alternatives: null, urgency: null, buyingProcess: null, areas, followUps: [], whatChanges: null, whatChangesConfirmed: false, notes: "" });
 
 describe("loadToday path fields", () => {
+  it("counts imported conversations waiting to be confirmed, names them as the main action, and says so in the text", async () => {
+    const imported = (person: string) =>
+      createConversation({ type: "customer", person, org: null, date: "2026-10-12", segment: null, context: null, questionsAsked: null, observedBehavior: null, quotes: ["I rebuild it every Sunday"], numbers: [], alternatives: null, urgency: null, buyingProcess: null, areas: [], followUps: [], whatChanges: null, whatChangesConfirmed: false, notes: "" }, { seeded: true, source: "chat import" });
+    await imported("Maya");
+    await imported("Lee");
+    await setCommitmentStatus("2026-W42", "c-1", "done"); // the fixture's past-due commitment would be the main action
+    const v = await loadToday();
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.importedWaiting).toBe(2);
+    expect(v.talkedTo.count).toBe(0); // they don't count until confirmed
+    expect(v.action).toMatchObject({ kind: "imports", label: "Review 2 imported conversations", href: "/people?show=imported" });
+    const text = formatToday(v);
+    expect(text).toMatch(/^Main action: Review 2 imported conversations/m);
+    expect(text).toMatch(/^Imported, waiting for you: 2 conversations$/m);
+  });
+  it("counts imported advice too, since every import waits for the founder", async () => {
+    await createConversation({ type: "mentor", person: "Sam", org: null, date: "2026-10-12", segment: null, context: null, questionsAsked: null, observedBehavior: null, quotes: [], numbers: [], alternatives: null, urgency: null, buyingProcess: null, areas: [], followUps: [], whatChanges: null, whatChangesConfirmed: false, notes: "Talk to agencies" }, { seeded: true, source: "chat import" });
+    const v = await loadToday();
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.importedWaiting).toBe(1);
+  });
+  it("says nothing about imports when none wait", async () => {
+    await talk("2026-10-12");
+    const v = await loadToday();
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.importedWaiting).toBe(0);
+    expect(formatToday(v)).not.toMatch(/Imported, waiting/);
+  });
   it("counts people talked to this week against the goal, with outreach", async () => {
     await talk("2026-10-12", ["problem"]);
     await setTalkGoal("2026-W42", "4");

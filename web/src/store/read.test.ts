@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { listEntries, readEntry } from "./read";
+import { listEntries, parseEntry, readEntry } from "./read";
 import { kindOf } from "./schemas";
 import { useTempData } from "./test-helpers";
 
@@ -72,5 +72,18 @@ describe("listEntries", () => {
   it("lists every file of a kind, sorted, skipping _archive", async () => {
     const all = await listEntries("week");
     expect(all.map((e) => e.path)).toEqual(["program/week-01.md", "program/week-02.md", "program/week-03.md"]);
+  });
+});
+
+describe("parseEntry", () => {
+  it("gives a flagged import only its path, error, kind, ok and seeded, never its data", () => {
+    const e = parseEntry("conversation", "conversations/2026-10-09-broken.md", "---\nseeded: true\ntype: nonsense\nperson: Maya\n---\nNotes\n");
+    expect(e.ok).toBe(false);
+    expect(Object.keys(e).sort()).toEqual(["error", "kind", "ok", "path", "seeded"]);
+  });
+  it("can't tell a file with broken YAML is an import, so check-data reports it instead", () => {
+    const e = parseEntry("conversation", "conversations/2026-10-09-broken.md", "---\nseeded: true\ntype: [customer\n---\n");
+    expect(e.ok).toBe(false);
+    expect("seeded" in e).toBe(false);
   });
 });

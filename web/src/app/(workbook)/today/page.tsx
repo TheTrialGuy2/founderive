@@ -32,7 +32,7 @@ async function HomeContent() {
       </>
     );
   }
-  const { founder: f, today, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, carried, path, talkedTo, dueItems, action } = view;
+  const { founder: f, today, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, carried, path, talkedTo, importedWaiting, dueItems, action } = view;
   const stepIndex = path.current ? path.steps.findIndex((s) => s.id === path.current?.id) + 1 : null;
   const logoV = await logoVersion();
 
@@ -76,6 +76,18 @@ async function HomeContent() {
           )}
         </section>
       )}
+      {action?.kind === "imports" && (
+        <section aria-labelledby="imports-heading" className="mb-6 rounded-xl border border-line bg-sand/60 p-4">
+          <h2 id="imports-heading" className="text-[11px] font-semibold tracking-[0.08em] text-muted uppercase">
+            Imported, waiting for you
+          </h2>
+          <p className="mt-1 text-sm text-ink">{action.reason}</p>
+          {/* It navigates, so it stays a link, styled as the page's one main action. */}
+          <Link href={action.href} className={`${buttonPrimary} mt-3`}>
+            {action.label}
+          </Link>
+        </section>
+      )}
       <div className="grid gap-4 md:grid-cols-3">
         <OutcomeTile
           weekId={weekId}
@@ -83,7 +95,7 @@ async function HomeContent() {
           primary={action?.kind === "outcome"}
           stuck={action?.kind === "blocker" ? undefined : { blocker: checkin?.blocker ?? "", help: checkin?.helpNeeded ?? "" }}
         />
-        <TalkedToTile weekId={weekId} count={talkedTo.count} goal={talkedTo.goal} lastWeekShort={talkedTo.lastWeekShort} />
+        <TalkedToTile weekId={weekId} count={talkedTo.count} goal={talkedTo.goal} lastWeekShort={talkedTo.lastWeekShort} importedWaiting={action?.kind === "imports" ? 0 : importedWaiting} />
         <OutreachTile weekId={weekId} reached={talkedTo.reached} replied={talkedTo.replied} />
       </div>
       <div className="mt-4">
