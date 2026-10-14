@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { KindData } from "../store/schemas";
 import { DEFAULT_CANVAS } from "./canvas";
-import { buildPath, conversationDate, isFeedbackConversation, talkedToInWeek, type PathConversation, type PathInput } from "./path";
+import { buildPath, conversationDate, discussesStep, isFeedbackConversation, talkedToInWeek, type PathConversation, type PathInput } from "./path";
 
 const conv = (path: string, data: Partial<KindData<"conversation">>, notes = "They rebuild schedules every Sunday."): PathConversation => ({
   path,
@@ -71,6 +71,23 @@ describe("buildPath", () => {
   it("counts open planned conversations per step", () => {
     const p = buildPath(base({ openCommitments: [{ link: "step:problem" }, { link: "step:problem" }, { link: "guide:x" }] }));
     expect(p.steps.find((s) => s.id === "problem")?.planned).toBe(2);
+  });
+});
+
+describe("discussesStep", () => {
+  it("counts a tagged feedback conversation for its own area, not others", () => {
+    const c = conv("conversations/2026-10-12-a.md", { areas: ["problem"] });
+    expect(discussesStep(c, "problem")).toBe(true);
+    expect(discussesStep(c, "customer")).toBe(false);
+  });
+  it("counts an untagged feedback conversation only for customer", () => {
+    const c = conv("conversations/2026-10-12-a.md", { areas: [] });
+    expect(discussesStep(c, "customer")).toBe(true);
+    expect(discussesStep(c, "problem")).toBe(false);
+  });
+  it("excludes advice conversations and unconfirmed imports", () => {
+    expect(discussesStep(conv("conversations/2026-10-12-a.md", { areas: ["problem"], type: "mentor" }), "problem")).toBe(false);
+    expect(discussesStep(conv("conversations/2026-10-12-a.md", { areas: ["problem"], seeded: true }), "problem")).toBe(false);
   });
 });
 

@@ -12,7 +12,6 @@ import { confirmImportedAction } from "@/app/(workbook)/canvas/actions";
 import { loadCanvasBlock } from "@/commands/canvas";
 import { loadStep } from "@/commands/step";
 import { addDays } from "@/core/week";
-import { loadFounderToday } from "@/commands/today";
 import { STATUS_LABELS } from "@/lib/loop-labels";
 
 export default function StepPage({ params }: PageProps<"/path/[id]">) {
@@ -44,9 +43,9 @@ async function StepContent({ id }: { id: string }) {
       </>
     );
   }
-  const { step, index, total, nextStep, weekId, people, tests } = view;
+  const { step, index, total, nextStep, weekId, today, people, tests } = view;
   const block = await loadCanvasBlock(id);
-  const tomorrow = addDays(await loadFounderToday(), 1);
+  const tomorrow = addDays(today, 1);
   const history = block.status === "ready" ? [...(block.block?.history ?? [])].reverse() : [];
 
   return (

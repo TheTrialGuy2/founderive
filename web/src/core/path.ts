@@ -64,9 +64,13 @@ export function talkedToInWeek(conversations: PathConversation[], weekId: string
   return conversations.filter((c) => isFeedbackConversation(c) && isoWeekId(conversationDate(c)) === weekId).length;
 }
 
+/** Whether a feedback conversation discussed this step: tagged with its area, or an untagged conversation counted for customer (it always says something about the customer). */
+export function discussesStep(c: PathConversation, stepId: string): boolean {
+  return isFeedbackConversation(c) && (c.data.areas.includes(stepId) || (stepId === "customer" && c.data.areas.length === 0));
+}
+
 function discussed(id: string, conversations: PathConversation[]): number {
-  // A customer conversation always says something about the customer, so an untagged one counts there.
-  return conversations.filter((c) => isFeedbackConversation(c) && (c.data.areas.includes(id) || (id === "customer" && c.data.areas.length === 0))).length;
+  return conversations.filter((c) => discussesStep(c, id)).length;
 }
 
 /** The founder's path: You, then their canvas blocks in order, each with what's been done on it. */

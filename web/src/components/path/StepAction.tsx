@@ -11,10 +11,10 @@ export function StepAction({ step, weekId, tomorrow }: { step: PathStep; weekId:
   const logHref = `/conversations/new?step=${step.id}`;
   if (step.planned === 0 && step.discussed === 0) {
     return (
-      <details className="mt-4" open>
-        <summary className={`${buttonPrimary} cursor-pointer list-none`}>Plan one conversation</summary>
-        <p className="mt-3 text-sm text-muted">Who could you talk to about {step.title.toLowerCase()} this week? A first name, a role, or &quot;someone who…&quot; is enough.</p>
-        <InlineForm action={planConversationAction} fields={{ week: weekId, id: step.id }} submit="Add to this week">
+      <div className="mt-4">
+        <p className="font-semibold text-navy">Plan one conversation</p>
+        <p className="mt-1 text-sm text-muted">Who could you talk to about {step.title.toLowerCase()} this week? A first name, a role, or &quot;someone who…&quot; is enough.</p>
+        <InlineForm action={planConversationAction} fields={{ week: weekId, id: step.id }} submit="Plan one conversation" primary>
           {(v) => (
             <>
               <label className="min-w-48 flex-1 text-sm text-ink">
@@ -34,7 +34,7 @@ export function StepAction({ step, weekId, tomorrow }: { step: PathStep; weekId:
             Log it
           </Link>
         </p>
-      </details>
+      </div>
     );
   }
   return (
