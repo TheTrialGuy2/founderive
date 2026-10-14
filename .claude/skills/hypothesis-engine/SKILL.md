@@ -25,7 +25,7 @@ If something you need is missing, ask. Don't guess.
    - Outcome: "If we [change], then [specific customer] will [measurable behavior] by [date]."
    - Commitment: "We believe [customer] will [pay, sign, switch or come back] for [outcome]. We'll know by [a small, real action] within [time]."
    These fit any business: a price for a service, a deposit for a product, a signed letter from a partner. Don't assume software or a subscription.
-2. **Diverge.** Generate 6-10 candidate assumptions, H1 to Hn, spread across the areas customer, problem, solution, channel, revenue, cost and feasibility. Use the founder's own words from their conversations. Show a table: id, area, assumption.
+2. **Diverge.** Generate 6-10 candidate assumptions, H1 to Hn, spread across the founder's steps: the block ids in their `canvas/blocks.md`, or, when there's no such file, the shipped nine (customer, problem, solution, alternatives, advantage, channel, revenue, cost, feasibility). Use the founder's own words from their conversations. Show a table: id, area, assumption.
 3. **Evaluate.** Score each 1-5 on desirability, feasibility, viability and risk (how badly it hurts if it's wrong). Show the table with totals. Flag any total under 8 as probably not worth testing now. Check feasibility against the founder's stage and hours per week.
 4. **Converge.** Develop the top 2-3: the outcome statement, the commitment statement, why this one (2-3 sentences), the fastest way to be wrong (one sentence) and a one-paragraph test plan.
 5. **The founder picks one.** Ask which to test. Never pick for them.
@@ -65,7 +65,7 @@ source: hypothesis-engine draft 2026-10-13
 ## Decision and why
 ```
 
-- `area` is one of customer, problem, solution, channel, revenue, cost, feasibility. `status` is `planned` or `running`.
+- `area` is one block id from the founder's `canvas/blocks.md`, or, when there's no such file, one of the shipped nine: customer, problem, solution, alternatives, advantage, channel, revenue, cost, feasibility. `status` is `planned` or `running`.
 - You're drafting this from a conversation, not writing it on the founder's own form, so it always carries `seeded: true` and `source: "hypothesis-engine draft <today>"`. The founder clears `seeded` by confirming the test in the app; never clear it yourself.
 - If the founder confirms a conversation is evidence for this test, add its path to `relatedConversations` and add this test's path to that conversation's `relatedTests` (both sides, or `check-data` will warn about a one-sided link). Only a customer or prospect conversation counts as evidence; mentor, partner and investor conversations are advice and can still be linked, but won't count toward a result later. A result of supported or contradicted also needs that conversation confirmed (not `seeded`) and linked back to the test, or the founder's own notes under `## Evidence` — that's the app's rule when they complete the test, not something you set here.
 - Never set `result`, `decision`, `closedOn` or `nextCommitment`. The founder completes the test in the app.

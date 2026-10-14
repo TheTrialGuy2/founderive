@@ -15,7 +15,7 @@ Run `pnpm -s data-dir` from the repo's `web/` folder, first, before reading or w
    - the smallest real action that would test it
    - success criteria: what result counts as supported, with a number
    - failure criteria: what result would prove it wrong, with a number
-   - the area: customer, problem, solution, channel, revenue, cost or feasibility
+   - the area: one block id from the founder's `canvas/blocks.md`, or, when there's no such file, one of the shipped nine: customer, problem, solution, alternatives, advantage, channel, revenue, cost, feasibility
    - a date to decide by, and whether they're starting now
 2. Write `<data>/tests/<YYYY-MM-DD>-<slug>.md` in the exact shape shown in `.claude/skills/hypothesis-engine/SKILL.md` ("File to write"), dated today. Use `status: running` with `startedOn: <today>` if they're starting now; otherwise `status: planned`. Mark it `seeded: true` with `source: new-test draft <today>`, since you're drafting it from the conversation, not the founder's own form; it shows as "Imported — confirm" until the founder confirms it in the app. Never overwrite; add `-2` if the name exists.
 3. If they name conversations that are evidence, link both sides: the conversation paths in `relatedConversations`, and this test's path in each conversation's `relatedTests` — both sides, or `check-data` will warn about a one-sided link. Only a customer or prospect conversation counts as evidence; mentor, partner and investor conversations are advice and can still be linked.

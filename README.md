@@ -33,7 +33,7 @@ cd founderive
 node start.mjs
 ```
 
-Your browser opens to a short setup that takes about five minutes. After that, Founderive opens on Today. Run `node start.mjs` again whenever you want to use it.
+Your browser opens to a short setup that takes about five minutes. After that, Founderive opens on Home. Run `node start.mjs` again whenever you want to use it.
 
 Using Claude Code or Codex? Open the folder and say "set me up". It runs the same command, then asks what you want to be true by the end of the week. The instructions it follows are in [AGENTS.md](AGENTS.md).
 
@@ -63,7 +63,7 @@ Founderive doesn't send your records anywhere. It runs only on your computer, at
 
 | Command | What it does |
 |---|---|
-| `pnpm today` | Prints Today in the terminal: this week's outcome, the next step and its reason, and what's open (`--json` for assistants) |
+| `pnpm today` | Prints Home in the terminal: the main action and why, people talked to this week, where you are on the path, and what's due (`--json` for assistants) |
 | `pnpm check-data` | Checks every file in your data folder and lists anything to fix |
 | `pnpm data-dir` | Prints where your data folder is |
 | `pnpm init-data` | Creates an empty data folder by hand. Setup in the app does this for you. |
@@ -71,7 +71,7 @@ Founderive doesn't send your records anywhere. It runs only on your computer, at
 
 ## Status
 
-Founderive is an early beta. The core loop works: setup, Today, the canvas, conversations, venture tests and decisions. The weekly review and a shareable progress summary are next.
+Founderive is an early beta. The core loop works: setup, Home, your path, people, tests and decisions. The weekly review and a shareable progress summary are next.
 
 ## Feedback
 
