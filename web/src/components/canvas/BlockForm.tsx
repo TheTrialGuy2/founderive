@@ -3,13 +3,13 @@
 import { useActionState } from "react";
 import { saveCanvasBlockAction } from "@/app/(workbook)/canvas/actions";
 import { describedBy, Field, FormAlert } from "@/components/workbook/Field";
-import { buttonPrimary, inputClass } from "@/components/workbook/form";
+import { buttonPrimary, buttonQuiet, inputClass } from "@/components/workbook/form";
 import { IDLE } from "@/lib/action-state";
 import { CANVAS_STATUS_HELP, CANVAS_STATUS_LABELS, options } from "@/lib/loop-labels";
 
 const TEXT_HINT = "What you believe now, in your own words. Earlier wording is kept below.";
 
-export function BlockForm({ id, initial }: { id: string; initial: { text: string; status: string; notes: string } }) {
+export function BlockForm({ id, initial, primary = true }: { id: string; initial: { text: string; status: string; notes: string }; primary?: boolean }) {
   const [state, formAction, pending] = useActionState(saveCanvasBlockAction, IDLE);
   const v = { ...initial, ...state.values };
   return (
@@ -35,7 +35,7 @@ export function BlockForm({ id, initial }: { id: string; initial: { text: string
       <Field id="notes" label="Notes (optional)">
         <textarea id="notes" name="notes" rows={4} defaultValue={v.notes} className={inputClass} />
       </Field>
-      <button type="submit" disabled={pending} className={buttonPrimary}>
+      <button type="submit" disabled={pending} className={primary ? buttonPrimary : buttonQuiet}>
         {pending ? "Saving…" : "Save block"}
       </button>
     </form>
