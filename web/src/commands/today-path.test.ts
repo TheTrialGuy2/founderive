@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
-import { bumpOutreach, setTalkGoal } from "./checkin";
+import { mkdir, writeFile } from "node:fs/promises";
+import nodePath from "node:path";
+import { bumpOutreach, loadCheckin, setCommitmentStatus, setTalkGoal } from "./checkin";
 import { createConversation } from "./conversations";
-import { markStepDone } from "./path";
-import { loadToday } from "./today";
+import { findPlannedConversation, markPlannedConversationDone, markStepDone, planConversation } from "./path";
+import { assertThisWeek, loadToday } from "./today";
 import { formatToday } from "./today-text";
 
 let env: Awaited<ReturnType<typeof useTempData>>;
@@ -26,12 +28,32 @@ describe("loadToday path fields", () => {
     expect(v.talkedTo).toMatchObject({ count: 1, goal: 4, reached: 1, replied: 0 });
     expect(v.path.steps.find((s) => s.id === "problem")?.discussed).toBe(1);
   });
-  it("uses the founder default goal of 3, and says how short last week came in", async () => {
+  it("uses the founder default goal of 3, and counts last week's shortfall when last week has a check-in", async () => {
     await talk("2026-10-06");
+    await mkdir(nodePath.join(env.dir, "checkins"), { recursive: true });
+    await writeFile(nodePath.join(env.dir, "checkins/2026-W41.md"), "---\nweek: 2026-W41\ncommitments: []\n---\n");
     const v = await loadToday();
     if (v.status !== "ready") throw new Error(v.status);
     expect(v.talkedTo.goal).toBe(3);
     expect(v.talkedTo.lastWeekShort).toBe(2);
+    expect(formatToday(v)).not.toMatch(/short/i);
+  });
+  it("counts no shortfall for a founder with no earlier check-in", async () => {
+    await talk("2026-10-06");
+    const v = await loadToday();
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.talkedTo.lastWeekShort).toBe(0);
+  });
+  it("lists follow-ups due with the commitments, and keeps the text's Follow-ups due lines", async () => {
+    await createConversation({ type: "customer", person: "Lee", org: null, date: "2026-10-05", segment: null, context: null, questionsAsked: null, observedBehavior: null, quotes: ["noted"], numbers: [], alternatives: null, urgency: null, buyingProcess: null, areas: [], followUps: [{ text: "Send the price", due: "2026-10-09" }], whatChanges: null, whatChangesConfirmed: false, notes: "" });
+    const v = await loadToday();
+    if (v.status !== "ready") throw new Error(v.status);
+    const f = v.dueItems.find((d) => d.kind === "followup");
+    expect(f).toMatchObject({ text: "Follow up with Lee: Send the price", due: "2026-10-09", href: expect.stringMatching(/^\/conversations\//) });
+    expect(f?.id).toMatch(/^conversations\/.+\.md#.+/);
+    // It's the earliest item past its date, so it's the main action.
+    expect(v.action).toMatchObject({ kind: "overdue", key: f?.key });
+    expect(formatToday(v)).toMatch(/Follow-ups due:\n  Follow up with Lee: Send the price/);
   });
   it("names the same main action in the view and the text", async () => {
     // The fixture's c-1 was due 2026-10-12 and today is pinned to 2026-10-13, so it comes first.
@@ -48,5 +70,55 @@ describe("loadToday path fields", () => {
     const v = await loadToday();
     if (v.status !== "ready") throw new Error(v.status);
     expect(v.path.current?.id).toBe("problem");
+  });
+});
+
+describe("a page from an earlier week", () => {
+  it("refuses a week that isn't this week, and accepts this one", async () => {
+    await expect(assertThisWeek("2026-W41")).rejects.toThrow("This page is from an earlier week. Reload to see this week.");
+    await expect(assertThisWeek("")).rejects.toThrow(/earlier week/);
+    await expect(assertThisWeek("2026-W42")).resolves.toBeUndefined();
+  });
+});
+
+describe("closing a planned conversation", () => {
+  const log = (type: "customer" | "mentor", plan: string | null) =>
+    createConversation({ type, person: "Dana", org: null, date: "2026-10-13", segment: null, context: null, questionsAsked: null, observedBehavior: null, quotes: ["I rebuild it every Sunday"], numbers: [], alternatives: null, urgency: null, buyingProcess: null, areas: ["customer"], followUps: [], whatChanges: null, whatChangesConfirmed: false, notes: "" }).then(() => (plan ? markPlannedConversationDone(plan) : undefined));
+
+  beforeEach(async () => {
+    await setCommitmentStatus("2026-W42", "c-1", "done"); // the fixture's past-due commitment would be the main action
+  });
+
+  it("finds an open planned conversation by week and id, and ignores anything else", async () => {
+    const id = await planConversation("2026-W42", "customer", { who: "Dana", due: "2026-10-15" });
+    expect(await findPlannedConversation(`2026-W42:${id}`)).toEqual({ week: "2026-W42", id, text: "Talk to Dana about Customer" });
+    expect(await findPlannedConversation(`2026-W42:nope`)).toBeNull();
+    expect(await findPlannedConversation(`../x:${id}`)).toBeNull();
+    expect(await findPlannedConversation("2026-W42:c-1")).toBeNull(); // not open, and not a planned conversation
+    expect(await findPlannedConversation("")).toBeNull();
+  });
+  it("marks the plan done when a feedback conversation is logged with it, so Home moves on", async () => {
+    const id = await planConversation("2026-W42", "customer", { who: "Dana", due: "2026-10-15" });
+    let v = await loadToday();
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.action).toMatchObject({ kind: "step", stepId: "customer", mode: "log" });
+    await log("customer", `2026-W42:${id}`);
+    expect((await loadCheckin("2026-W42")).data.commitments.find((c) => c.id === id)?.status).toBe("done");
+    v = await loadToday();
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.action).toMatchObject({ kind: "step", stepId: "customer", mode: "open" });
+  });
+  it("goes back to planning when the logged conversation doesn't count", async () => {
+    const id = await planConversation("2026-W42", "customer", { who: "a mentor", due: "2026-10-15" });
+    await log("mentor", `2026-W42:${id}`);
+    const v = await loadToday();
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.action).toMatchObject({ kind: "step", stepId: "customer", mode: "plan" });
+  });
+  it("leaves the plan open when it's ignored or invalid", async () => {
+    const id = await planConversation("2026-W42", "customer", { who: "Dana", due: "2026-10-15" });
+    await markPlannedConversationDone("2026-W42:nope");
+    await markPlannedConversationDone("garbage");
+    expect((await loadCheckin("2026-W42")).data.commitments.find((c) => c.id === id)?.status).toBe("open");
   });
 });

@@ -25,7 +25,8 @@ export function homeAction(input: {
   if (input.risk) return { kind: "risk", ...input.risk };
   if (!input.outcome) return { kind: "outcome", label: "Set this week's outcome", reason: "Everything this week is measured against it." };
   if (input.blocker) return { kind: "blocker", label: `Work through your blocker: ${input.blocker}`, reason: "It's stopping this week's outcome." };
-  const late = input.due.find((d) => !!d.due && d.due < input.today);
+  // The earliest-dated item past its date, whatever order the list came in.
+  const late = input.due.filter((d) => !!d.due && d.due < input.today).reduce<DueItem | null>((min, d) => (!min || (d.due as string) < (min.due as string) ? d : min), null);
   if (late) return { kind: "overdue", label: late.text, reason: `It's ${dueWords(late, input.today)}. Finish it, or drop it with a reason.`, key: late.key };
   const step = input.path.current;
   if (step) {

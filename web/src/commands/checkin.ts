@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { readEntry } from "../store/read";
+import { listEntries, readEntry } from "../store/read";
 import type { KindData } from "../store/schemas";
 import { updateEntry } from "../store/update";
 import { loadCanvasDefs } from "./canvas";
@@ -144,10 +144,14 @@ export async function setTalkGoal(weekId: string, goal: string): Promise<void> {
   });
 }
 
-/** Once every step is done, the step to deepen this week. */
+/** Once every step is done, the step to deepen this week. Refused while any step (You included) isn't done. */
 export async function chooseFocus(weekId: string, stepId: string): Promise<void> {
   const { defs } = await loadCanvasDefs();
   if (!defs.some((d) => d.id === stepId)) throw new Error(`"${stepId}" isn't a step on your path. Reload the page.`);
+  const founder = await readEntry("founder", "founder.md");
+  const done = new Set((await listEntries("canvasBlock")).flatMap((e) => (e.ok && e.data.done ? [e.data.id] : [])));
+  const notDone = !(founder?.ok && founder.data.setupComplete) ? "You" : defs.find((d) => !done.has(d.id))?.title;
+  if (notDone) throw new Error(`Finish or reopen steps first: ${notDone} isn't done.`);
   return update(weekId, (c) => {
     c.focus = stepId;
   });

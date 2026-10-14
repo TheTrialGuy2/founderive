@@ -15,7 +15,7 @@ import { dataDir } from "../store/paths";
 import { listEntries, readEntry, type Entry } from "../store/read";
 import type { KindData } from "../store/schemas";
 import { checkinPath, weekOfCheckinPath } from "./checkin";
-import { loadGuideFacts, loadLoopRecords } from "./loop";
+import { loadGuideFacts, loadLoopRecords, type LoopRecords } from "./loop";
 import { loadPathFor } from "./path";
 
 export type TodayView =
@@ -50,8 +50,11 @@ export type TodayView =
 /** `week` is the week in the check-in's file name, so a status change writes to `path`. */
 export type CarriedCommitment = KindData<"checkin">["commitments"][number] & { week: string; path: string };
 
-/** Everything Today shows, read from founder-data at request time. An invalid founder.md comes back flagged, never thrown. */
-export async function loadToday(): Promise<TodayView> {
+/**
+ * Everything Home shows, read from founder-data at request time. An invalid founder.md comes back flagged, never thrown.
+ * `preloaded` lets a caller that already read the loop records (the step page) share one snapshot with this view.
+ */
+export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
   const founder = await readEntry("founder", "founder.md");
   if (!founder || (founder.ok && !founder.data.setupComplete)) return { status: "setup" };
   if (!founder.ok) return { status: "flagged", path: founder.path, error: founder.error };
@@ -79,7 +82,7 @@ export async function loadToday(): Promise<TodayView> {
 
   const commitments = checkin?.commitments ?? [];
   const ranked = [...commitments.map((c) => ({ ...c, week: weekId })), ...carried];
-  const records = await loadLoopRecords();
+  const records = preloaded ?? (await loadLoopRecords());
   const facts = await loadGuideFacts(f, records);
   const guide = guideStepForWeek(f.stage, facts, ranked);
   const report = await checkData();
@@ -113,9 +116,11 @@ export async function loadToday(): Promise<TodayView> {
     goal,
     reached: checkin?.outreach?.reached ?? 0,
     replied: checkin?.outreach?.replied ?? 0,
-    lastWeekShort: Math.max(0, lastGoal - talkedToInWeek(records.conversations, lastWeekId)),
+    // Only a week the founder was using Founderive counts: Founderive keeps no setup date, so last week's check-in is
+    // the sign. A founder in their first week has no shortfall.
+    lastWeekShort: lastCheckin ? Math.max(0, lastGoal - talkedToInWeek(records.conversations, lastWeekId)) : 0,
   };
-  const dueList = buildDueItems({ commitments: ranked, homework });
+  const dueList = buildDueItems({ commitments: ranked, homework, followUps });
   const action = homeAction({
     today,
     risk: next && next.tier === 1 ? { label: next.label, reason: next.reason, href: next.href ?? "/today" } : null,
@@ -151,6 +156,14 @@ export async function loadToday(): Promise<TodayView> {
     dueItems: dueList,
     action,
   };
+}
+
+/**
+ * Refuses a write from a page loaded in an earlier week: a hidden `week` field from an open tab would otherwise write
+ * to last week's check-in.
+ */
+export async function assertThisWeek(weekId: string): Promise<void> {
+  if (weekId !== isoWeekId(await loadFounderToday())) throw new Error("This page is from an earlier week. Reload to see this week.");
 }
 
 /** The founder's "today" for actions that stamp dates: founder.md may pin one; otherwise the local date. */

@@ -24,6 +24,15 @@ describe("homeAction", () => {
     expect(a?.reason).toMatch(/from last week/);
     expect(a?.reason).not.toMatch(/overdue/i);
   });
+  it("picks the earliest past-due item even when the list isn't sorted", () => {
+    const late = (text: string, due: string): DueItem => ({ ...item(due), key: text, text });
+    const a = homeAction({ ...base, due: [late("Later", "2026-10-12"), late("Earliest", "2026-10-02"), late("Middle", "2026-10-08")] });
+    expect(a).toMatchObject({ kind: "overdue", label: "Earliest", key: "Earliest" });
+  });
+  it("counts a follow-up past its date as the main action", () => {
+    const f: DueItem = { key: "followup:c.md#f-1", kind: "followup", id: "c.md#f-1", text: "Follow up with Dana: send the price", due: "2026-10-12", week: null, href: "/conversations/c" };
+    expect(homeAction({ ...base, due: [f] })).toMatchObject({ kind: "overdue", key: "followup:c.md#f-1" });
+  });
   it("then the current step, with the concrete next move", () => {
     expect(homeAction(base)).toMatchObject({ kind: "step", mode: "plan", label: "Continue: plan a conversation about Problem", href: "/path/problem" });
     expect(homeAction({ ...base, path: path(step({ planned: 1 })) })).toMatchObject({ mode: "log", label: "Continue: log your conversation about Problem" });

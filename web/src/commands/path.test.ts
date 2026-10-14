@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readEntry } from "../store/read";
 import { useTempData } from "../store/test-helpers";
+import { mkdir, writeFile } from "node:fs/promises";
+import nodePath from "node:path";
 import { bumpOutreach, chooseFocus, loadCheckin, setOutreach, setTalkGoal } from "./checkin";
 import { markStepDone, planConversation, reopenStep } from "./path";
 
@@ -32,6 +34,11 @@ describe("path commands", () => {
     const c = (await loadCheckin("2026-W42")).data.commitments.find((x) => x.id === id);
     expect(c).toMatchObject({ text: "Talk to an agency owner from the meetup about Problem", due: "2026-10-16", status: "open", link: "step:problem" });
   });
+  it("checks the whole planned text for contact details, step title included", async () => {
+    await mkdir(nodePath.join(env.dir, "canvas"), { recursive: true });
+    await writeFile(nodePath.join(env.dir, "canvas/blocks.md"), "---\nblocks:\n  - id: reach\n    title: Reach acme.com\n    prompt: How do they find you?\n---\n");
+    await expect(planConversation("2026-W42", "reach", { who: "Dana", due: "2026-10-16" })).rejects.toThrow(/first name or a role/);
+  });
   it("refuses a planned conversation without who or a day, or with contact details", async () => {
     await expect(planConversation("2026-W42", "problem", { who: " ", due: "2026-10-16" })).rejects.toThrow(/who/i);
     await expect(planConversation("2026-W42", "problem", { who: "Dana", due: "" })).rejects.toThrow(/day/i);
@@ -57,7 +64,12 @@ describe("check-in effort fields", () => {
     expect((await loadCheckin("2026-W42")).data.talkGoal).toBe(4);
     await expect(setTalkGoal("2026-W42", "0")).rejects.toThrow(/1 and 50/);
   });
-  it("chooses this week's focus from the canvas steps", async () => {
+  it("refuses a focus while a step isn't done, naming the first one", async () => {
+    await expect(chooseFocus("2026-W42", "revenue")).rejects.toThrow("Finish or reopen steps first: Customer isn't done.");
+    expect((await loadCheckin("2026-W42")).data.focus ?? null).toBeNull();
+  });
+  it("chooses this week's focus from the canvas steps once every step is done", async () => {
+    for (const id of ["customer", "problem", "solution", "alternatives", "advantage", "channel", "revenue", "cost", "feasibility"]) await markStepDone(id, "", "2026-10-13");
     await chooseFocus("2026-W42", "revenue");
     expect((await loadCheckin("2026-W42")).data.focus).toBe("revenue");
     await expect(chooseFocus("2026-W42", "nope")).rejects.toThrow(/isn't a step/);

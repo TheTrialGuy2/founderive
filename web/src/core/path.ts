@@ -109,7 +109,8 @@ export function buildPath(input: PathInput): PathView {
   ];
   const doneCount = steps.filter((s) => s.done).length;
   const allDone = doneCount === steps.length;
-  const focused = input.focus ? steps.find((s) => s.id === input.focus && s.id !== YOU_STEP) : undefined;
+  // A focus is for deepening a finished path; while any step is not done, that step comes first.
+  const focused = input.focus && allDone ? steps.find((s) => s.id === input.focus && s.id !== YOU_STEP) : undefined;
   const current = focused ?? steps.find((s) => !s.done) ?? null;
   return { steps, current, doneCount, total: steps.length, allDone };
 }

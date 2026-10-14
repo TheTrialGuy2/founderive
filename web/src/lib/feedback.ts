@@ -5,7 +5,8 @@ export const ISSUES_URL = "https://github.com/TheTrialGuy2/founderive/issues/new
 export type FeedbackInput = { whatHappened: string; page: string | null; expected: string | null };
 
 // The app's routes with no dynamic segment. Anything else has a record's slug (a person's name, a test's title) in it.
-const STATIC_ROUTES = new Set(["/", "/today", "/tests", "/tests/new", "/conversations", "/conversations/new", "/canvas", "/decisions", "/feedback", "/import", "/import/folder", "/setup"]);
+// /path/you is static; any other /path/<step> reports as /path/….
+const STATIC_ROUTES = new Set(["/", "/today", "/tests", "/tests/new", "/conversations", "/conversations/new", "/canvas", "/decisions", "/feedback", "/import", "/import/folder", "/setup", "/people", "/logged", "/path/you"]);
 const TOP_LEVEL = new Set([...STATIC_ROUTES].map((r) => r.split("/")[1]).filter(Boolean));
 
 /**

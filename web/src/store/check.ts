@@ -1,4 +1,5 @@
 import { canvasBlocks } from "../core/canvas";
+import { looksLikeContactDetails } from "../core/privacy";
 import { brokenLinks, describeBrokenLink, linksOf } from "../core/links";
 import { readEntry } from "./read";
 import { AREAS, kindOf, type KindData } from "./schemas";
@@ -31,10 +32,10 @@ export async function checkData(): Promise<CheckReport> {
   // Steps a record may link to: the founder's canvas blocks (or the shipped list) plus the seven shipped areas.
   const config = await readEntry("canvasConfig", "canvas/blocks.md");
   const steps = new Set<string>([...canvasBlocks(config?.ok ? config.data : null).map((d) => d.id), ...AREAS]);
-  const unknownStep = (rel: string, field: string, id: string) =>
-    warnings.push({ path: rel, warning: `${field}: "${id}" isn't a step on your canvas, so it won't show on a step page. Pick one of your steps, or add it to canvas/blocks.md.` });
   const errors: CheckReport["errors"] = [];
   const warnings: CheckReport["warnings"] = [];
+  const unknownStep = (rel: string, field: string, id: string) =>
+    warnings.push({ path: rel, warning: `${field}: "${id}" isn't a step on your canvas, so it won't show on a step page. Pick one of your steps, or add it to canvas/blocks.md.` });
   const misnamed: string[] = [];
   const unknown: string[] = [];
   // Each readable test's conversations and each readable conversation's tests, to compare the two sides afterwards.
@@ -78,6 +79,9 @@ export async function checkData(): Promise<CheckReport> {
       for (const c of (entry.data as KindData<"checkin">).commitments) {
         const id = c.link?.startsWith("step:") ? c.link.slice("step:".length) : null;
         if (id && !steps.has(id)) unknownStep(rel, "link", id);
+        // A planned conversation's text is shown on Home and the step page, so it follows the same rule as `person`.
+        if (id && c.status === "open" && looksLikeContactDetails(c.text))
+          warnings.push({ path: rel, warning: `commitments: "${c.id}" holds contact details. Use a first name or a role, like Dana or agency owner, in its text.` });
       }
     if (kind === "test") testLinks.set(rel, (entry.data as KindData<"test">).relatedConversations);
     if (kind === "conversation") conversationLinks.set(rel, (entry.data as KindData<"conversation">).relatedTests);

@@ -1,9 +1,9 @@
 import { buildPath, type PathView } from "../core/path";
 import { CONTACT_DETAILS_MESSAGE, looksLikeContactDetails } from "../core/privacy";
-import { listEntries } from "../store/read";
+import { listEntries, readEntry } from "../store/read";
 import { updateEntry } from "../store/update";
 import { blockPath, loadCanvasDefs } from "./canvas";
-import { addCommitment } from "./checkin";
+import { addCommitment, checkinPath, setCommitmentStatus } from "./checkin";
 import { isRealDate } from "./form";
 import type { LoopRecords } from "./loop";
 
@@ -47,7 +47,33 @@ export async function planConversation(weekId: string, stepId: string, input: { 
   const def = await stepDef(stepId);
   const who = input.who.trim();
   if (!who) throw new Error('Say who you\'ll talk to: a first name, a role, or "someone who…".');
-  if (looksLikeContactDetails(who)) throw new Error(CONTACT_DETAILS_MESSAGE);
+  // The whole sentence is what's saved, so the whole sentence is checked: a step's own title counts too.
+  const text = `Talk to ${who} about ${def.title}`;
+  if (looksLikeContactDetails(text)) throw new Error(CONTACT_DETAILS_MESSAGE);
   if (!isRealDate(input.due)) throw new Error("Pick the day you'll talk to them.");
-  return addCommitment(weekId, { text: `Talk to ${who} about ${def.title}`, due: input.due, link: `step:${stepId}` });
+  return addCommitment(weekId, { text, due: input.due, link: `step:${stepId}` });
+}
+
+const WEEK_ID = /^\d{4}-W\d{2}$/;
+
+/**
+ * An open planned conversation named `<week>:<commitment id>` (how the step page's "Log the conversation" link names
+ * it), or null when the value is malformed, the check-in can't be read, or the commitment isn't an open `step:` one.
+ */
+export async function findPlannedConversation(plan: string): Promise<{ week: string; id: string; text: string } | null> {
+  const at = plan.indexOf(":");
+  const week = plan.slice(0, at);
+  const id = plan.slice(at + 1);
+  if (at < 0 || !WEEK_ID.test(week) || !id) return null;
+  const entry = await readEntry("checkin", checkinPath(week));
+  if (!entry?.ok) return null;
+  const c = entry.data.commitments.find((x) => x.id === id);
+  return c && c.status === "open" && c.link?.startsWith("step:") ? { week, id, text: c.text } : null;
+}
+
+/** Marks a planned conversation done in the check-in it lives in, once the founder has logged it. Anything invalid is ignored. */
+export async function markPlannedConversationDone(plan: string): Promise<void> {
+  const found = await findPlannedConversation(plan);
+  if (!found) return;
+  await setCommitmentStatus(found.week, found.id, "done");
 }

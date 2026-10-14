@@ -25,14 +25,25 @@ describe("loadStep", () => {
   it("reports a step that isn't on the path", async () => {
     expect((await loadStep("nope")).status).toBe("missing");
   });
-  it("orders people newest first, with an undated conversation last", async () => {
+  it("lists this step's open planned conversations, this week's and carried, earliest due first", async () => {
+    const later = await planConversation("2026-W42", "problem", { who: "Dana", due: "2026-10-16" });
+    const carried = await planConversation("2026-W41", "problem", { who: "Lee", due: "2026-10-09" });
+    await planConversation("2026-W42", "revenue", { who: "Ann", due: "2026-10-15" });
+    const v = await loadStep("problem");
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.planned).toEqual([
+      { week: "2026-W41", id: carried, text: "Talk to Lee about Problem", due: "2026-10-09" },
+      { week: "2026-W42", id: later, text: "Talk to Dana about Problem", due: "2026-10-16" },
+    ]);
+  });
+  it("orders people newest first by when they talked, using the file date when the date is unknown", async () => {
     const base = { type: "customer" as const, org: null, segment: null, context: null, questionsAsked: null, observedBehavior: null, quotes: ["noted"], numbers: [], alternatives: null, urgency: null, buyingProcess: null, areas: ["problem"], followUps: [], whatChanges: null, whatChangesConfirmed: false, notes: "" };
     await createConversation({ ...base, person: "Ann", date: "2026-10-01" });
     await createConversation({ ...base, person: "Bea", date: "2026-10-10" });
     await createConversation({ ...base, person: "Cass", date: null }, {}, "2026-10-13");
     const v = await loadStep("problem");
     if (v.status !== "ready") throw new Error(v.status);
-    expect(v.people.map((p) => p.person)).toEqual(["Bea", "Ann", "Cass"]);
+    expect(v.people.map((p) => p.person)).toEqual(["Cass", "Bea", "Ann"]);
   });
   it("sets `changed` only when what this conversation changes is confirmed", async () => {
     const base = { type: "customer" as const, org: null, date: "2026-10-12", segment: null, context: null, questionsAsked: null, observedBehavior: null, quotes: ["noted"], numbers: [], alternatives: null, urgency: null, buyingProcess: null, areas: ["problem"], followUps: [] };

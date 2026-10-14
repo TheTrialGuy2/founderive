@@ -34,3 +34,16 @@ describe("dueItems", () => {
     expect(items[1]).toMatchObject({ kind: "commitment", key: "commitment:2026-W42:c-2" });
   });
 });
+
+describe("dueItems with follow-ups", () => {
+  it("includes follow-ups that are due, keyed by their existing id, with the conversation's link", () => {
+    const items = dueItems({
+      commitments: [{ id: "c-2", text: "Fri", due: "2026-10-16", status: "open", week: "2026-W42" }],
+      homework: [],
+      followUps: [{ id: "conversations/2026-10-08-dana.md#f-1", text: "Follow up with Dana: send the price", href: "/conversations/2026-10-08-dana", due: "2026-10-12" }],
+    });
+    expect(items.map((i) => i.text)).toEqual(["Follow up with Dana: send the price", "Fri"]);
+    expect(items[0]).toMatchObject({ kind: "followup", id: "conversations/2026-10-08-dana.md#f-1", key: "followup:conversations/2026-10-08-dana.md#f-1", href: "/conversations/2026-10-08-dana", week: null });
+  });
+});
+

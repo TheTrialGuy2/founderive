@@ -32,4 +32,15 @@ describe("step links", () => {
     const r = await checkData();
     expect(r.warnings.filter((w) => /isn't a step/.test(w.warning))).toEqual([]);
   });
+  it("warns when an open planned conversation holds contact details, and not once it's done", async () => {
+    await put(
+      "checkins/2026-W43.md",
+      "---\nweek: 2026-W43\ncommitments:\n  - id: c-1\n    text: Talk to dana@example.com about Problem\n    link: step:problem\n  - id: c-2\n    text: Talk to 704-555-0199 about Problem\n    status: done\n    link: step:problem\n  - id: c-3\n    text: Talk to Dana about Problem\n    link: step:problem\n---\n",
+    );
+    const r = await checkData();
+    const hits = r.warnings.filter((w) => /contact details/i.test(w.warning));
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ path: "checkins/2026-W43.md" });
+    expect(hits[0].warning).toMatch(/c-1/);
+  });
 });

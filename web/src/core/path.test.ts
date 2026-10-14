@@ -47,6 +47,10 @@ describe("buildPath", () => {
     expect(p.current?.id).toBe("revenue");
     expect(p.allDone).toBe(true);
   });
+  it("ignores a focus while any step is still not done", () => {
+    const blocks = new Map(DEFAULT_CANVAS.filter((d) => d.id !== "cost").map((d) => [d.id, { done: "2026-10-01" }]));
+    expect(buildPath(base({ blocks, focus: "revenue" })).current?.id).toBe("cost");
+  });
   it("ignores a focus that names no step", () => {
     expect(buildPath(base({ focus: "nope" })).current?.id).toBe("customer");
   });

@@ -33,8 +33,9 @@ describe("routePattern (feedback never carries a record's name)", () => {
     ["/tests/2026-10-06-paid-pilot?tab=evidence#x", "/tests/…"],
     ["/conversations/a/b", "/conversations/…/…"],
     ["/some-unknown-page", "/…"],
+    ["/path/problem", "/path/…"],
   ])("%s becomes %s", (path, pattern) => expect(routePattern(path)).toBe(pattern));
-  it.each(["/today", "/tests", "/tests/new", "/conversations/new", "/import/folder", "/setup", "/feedback", "/decisions", "/"])("keeps the static route %s", (path) =>
+  it.each(["/today", "/tests", "/tests/new", "/conversations/new", "/import/folder", "/setup", "/feedback", "/decisions", "/", "/people", "/logged", "/path/you"])("keeps the static route %s", (path) =>
     expect(routePattern(path)).toBe(path));
   it("never lets a dynamic segment reach the email, the issue or the text", () => {
     const leaky = { ...input, page: "/conversations/2026-10-08-dana-ortiz" };
