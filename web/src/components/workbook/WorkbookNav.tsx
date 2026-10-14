@@ -14,7 +14,7 @@ export function WorkbookNav() {
     <nav className="sticky top-0 z-30 border-b border-line bg-paper/95 backdrop-blur md:h-screen md:w-60 md:shrink-0 md:border-r md:border-b-0" aria-label="Workbook">
       <div className="flex items-center justify-between px-4 py-3 md:block md:px-5 md:pt-6 md:pb-4">
         <BrandWordmark />
-        <p className="hidden text-[11px] font-medium tracking-[0.06em] text-muted uppercase md:mt-2 md:block">Founder operating record</p>
+        <p className="hidden text-[11px] font-medium tracking-[0.06em] text-muted uppercase md:mt-2 md:block">Your founder workbook</p>
         <Link href={feedbackHref} className="text-xs font-medium text-teal-dark hover:text-navy md:hidden">
           Send feedback
         </Link>
@@ -25,7 +25,7 @@ export function WorkbookNav() {
             <p className="hidden px-3 pb-1 text-[11px] font-semibold tracking-[0.08em] text-muted uppercase md:block">{group.label}</p>
             <ul className="flex gap-1 md:flex-col">
               {group.items.map((item) => {
-                const active = isActive(pathname, item.href);
+                const active = isActive(pathname, item);
                 return (
                   <li key={item.href}>
                     <Link
@@ -43,9 +43,6 @@ export function WorkbookNav() {
         ))}
       </div>
       <div className="hidden space-y-1 px-5 py-5 md:block">
-        <Link href="/setup" className="block text-xs font-medium text-teal-dark hover:text-navy">
-          Venture setup
-        </Link>
         <Link href={feedbackHref} className="block text-xs font-medium text-teal-dark hover:text-navy">
           Send feedback
         </Link>

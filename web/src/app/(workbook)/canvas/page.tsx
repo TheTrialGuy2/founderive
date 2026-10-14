@@ -2,6 +2,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { Badge, Card, formatDate, PageHeader } from "@/components/ui";
+import { ViewSwitch } from "@/components/home/ViewSwitch";
 import { CopyPrompt } from "@/components/workbook/CopyPrompt";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { loadCanvas, type CanvasCard } from "@/commands/canvas";
@@ -13,6 +14,9 @@ export default function CanvasPage() {
   return (
     <>
       <PageHeader title="Canvas">Your current beliefs about the business, one block each. A block is a belief until a test backs it.</PageHeader>
+      <div className="mb-6">
+        <ViewSwitch current="canvas" />
+      </div>
       <Suspense fallback={null}>
         <CanvasContent />
       </Suspense>

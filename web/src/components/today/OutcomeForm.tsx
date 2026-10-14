@@ -2,10 +2,10 @@
 
 import { useActionState } from "react";
 import { saveOutcome } from "@/app/(workbook)/actions";
-import { buttonPrimary, errorText, inputClass } from "@/components/workbook/form";
+import { buttonPrimary, buttonQuiet, errorText, inputClass } from "@/components/workbook/form";
 import { IDLE } from "@/lib/action-state";
 
-export function OutcomeForm({ weekId, initial }: { weekId: string; initial: string }) {
+export function OutcomeForm({ weekId, initial, primary = true }: { weekId: string; initial: string; primary?: boolean }) {
   const [state, formAction, pending] = useActionState(saveOutcome, IDLE);
   return (
     <form action={formAction} className="space-y-2">
@@ -14,7 +14,7 @@ export function OutcomeForm({ weekId, initial }: { weekId: string; initial: stri
         This week&apos;s outcome
       </label>
       <textarea id="outcome" name="outcome" rows={2} defaultValue={state.values?.outcome ?? initial} className={inputClass} />
-      <button type="submit" disabled={pending} className={buttonPrimary}>
+      <button type="submit" disabled={pending} className={primary ? buttonPrimary : buttonQuiet}>
         {pending ? "Saving…" : "Save this week's outcome"}
       </button>
       {state.status === "error" && (
