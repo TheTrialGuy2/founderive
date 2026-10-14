@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Founderive",
-  description: "The founder-owned operating record that turns the work of building a company into clear next steps and credible proof of progress.",
+  description: "A workbook for early-stage founders that runs on your own computer. Test what you believe about your business and get one next step each day.",
   icons: { icon: "/founderive-mark.svg" },
 };
 
