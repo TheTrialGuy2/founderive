@@ -47,7 +47,7 @@ describe("homeAction", () => {
   it("asks to review imported conversations after anything past its date and before the step", () => {
     expect(homeAction({ ...base, importedWaiting: 3, due: [item("2026-10-08")] })?.kind).toBe("overdue");
     expect(homeAction({ ...base, importedWaiting: 3, blocker: "No intros" })?.kind).toBe("blocker");
-    expect(homeAction({ ...base, importedWaiting: 3 })).toEqual({ kind: "imports", label: "Review 3 imported conversations", reason: "They count toward people talked to once you confirm them.", href: "/people?show=imported" });
+    expect(homeAction({ ...base, importedWaiting: 3 })).toEqual({ kind: "imports", label: "Review 3 imported conversations", reason: "Imported conversations don't count until you confirm them.", href: "/people?show=imported" });
     expect(homeAction({ ...base, importedWaiting: 1 })?.label).toBe("Review 1 imported conversation");
     expect(homeAction({ ...base, importedWaiting: 2, path: path(null, true) })?.kind).toBe("imports");
   });

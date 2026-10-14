@@ -3,7 +3,8 @@ import { CONTACT_DETAILS_MESSAGE, looksLikeContactDetails } from "../core/privac
 import { brokenLinks, linksOf, type BrokenLink } from "../core/links";
 import { pathForSlug, slugOf } from "../core/slug";
 import { existingPaths, listEntries, readEntry } from "../store/read";
-import { BLOCK_ID_PATTERN, CONVERSATION_TYPES, type ConversationType, type KindData, type TestStatus } from "../store/schemas";
+import { BLOCK_ID_PATTERN, CONVERSATION_TYPES, KINDS, type ConversationType, type KindData, type TestStatus } from "../store/schemas";
+import { archiveEntry, ValidationError } from "../store/write";
 import { updateEntry } from "../store/update";
 import { newId } from "./checkin";
 import { createDated, type RecordMeta } from "./create";
@@ -198,36 +199,68 @@ export async function confirmImportedConversation(rel: string): Promise<boolean>
   if (!entry) throw missing(rel);
   if (!entry.ok) throw new Error(`Fix founder-data/${rel} first: ${entry.error}`);
   if (!entry.data.seeded) return false;
-  await updateEntry("conversation", rel, (data, body) => {
-    if (!data) throw missing(rel);
-    const next: Conversation = { ...data };
-    delete next.seeded;
-    return { data: next, body };
-  });
+  try {
+    await updateEntry("conversation", rel, (data, body) => {
+      if (!data) throw missing(rel);
+      // Confirmed meanwhile (another tab, another Confirm all): nothing to write, and it isn't counted twice.
+      if (!data.seeded) throw new AlreadyConfirmed();
+      const next: Conversation = { ...data };
+      delete next.seeded;
+      return { data: next, body };
+    });
+  } catch (error) {
+    if (error instanceof AlreadyConfirmed) return false;
+    throw error;
+  }
   return true;
 }
 
+class AlreadyConfirmed extends Error {}
+
+const refuseNonConversationPath = (rel: string) => {
+  if (!KINDS.conversation.pattern.test(rel)) throw new ValidationError(`${rel} isn't a conversation file. Reload the page.`);
+};
+
 /**
- * Confirms every imported conversation, one file at a time; a file that fails is reported with what to fix and the
- * rest go on. An unreadable file that says it's imported is reported too, since it can't be confirmed until fixed.
+ * Confirms the imported conversations the founder saw listed (`paths`), one file at a time. Any path that isn't a
+ * conversation file refuses the whole request before anything changes. A listed file that isn't imported anymore, or
+ * is gone, is skipped; one that can't be read is named in `broken` (People lists those to fix); `failed` keeps files
+ * that couldn't be saved, and the rest go on.
  */
-export async function confirmAllImportedConversations(): Promise<{ confirmed: number; failed: { path: string; error: string }[] }> {
-  const entries = await listEntries("conversation");
+export async function confirmAllImportedConversations(paths: string[]): Promise<{ confirmed: number; broken: string[]; failed: { path: string; error: string }[] }> {
+  const unique = [...new Set(paths)];
+  unique.forEach(refuseNonConversationPath);
   let confirmed = 0;
+  const broken: string[] = [];
   const failed: { path: string; error: string }[] = [];
-  for (const e of entries) {
+  for (const rel of unique) {
+    const e = await readEntry("conversation", rel);
+    if (!e) continue;
     if (!e.ok) {
-      if (e.seeded) failed.push({ path: e.path, error: `Fix founder-data/${e.path} first: ${e.error}` });
+      broken.push(rel);
       continue;
     }
     if (!e.data.seeded) continue;
     try {
-      if (await confirmImportedConversation(e.path)) confirmed++;
+      if (await confirmImportedConversation(rel)) confirmed++;
     } catch (error) {
-      failed.push({ path: e.path, error: error instanceof Error ? error.message : "Couldn't save it. Try again." });
+      failed.push({ path: rel, error: error instanceof Error ? error.message : "Couldn't save it. Try again." });
     }
   }
-  return { confirmed, failed };
+  return { confirmed, broken, failed };
+}
+
+/**
+ * "Not mine": moves an imported conversation the founder doesn't recognise to `_archive/<its path>`, never deleting
+ * it (moving the file back undoes it). Only imported (seeded) conversations; returns where it went.
+ */
+export async function archiveImportedConversation(rel: string): Promise<string> {
+  refuseNonConversationPath(rel);
+  const entry = await readEntry("conversation", rel);
+  if (!entry) throw missing(rel);
+  if (!entry.ok) throw new Error(`Fix founder-data/${rel} first: ${entry.error}`);
+  if (!entry.data.seeded) throw new Error("Only imported conversations can be moved to _archive here. This one is already yours.");
+  return archiveEntry(rel);
 }
 
 /** Every conversation, customer evidence apart from advice, newest first. Unreadable files are listed, never dropped. */

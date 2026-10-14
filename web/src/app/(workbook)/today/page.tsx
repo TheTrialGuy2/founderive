@@ -95,7 +95,7 @@ async function HomeContent() {
           primary={action?.kind === "outcome"}
           stuck={action?.kind === "blocker" ? undefined : { blocker: checkin?.blocker ?? "", help: checkin?.helpNeeded ?? "" }}
         />
-        <TalkedToTile weekId={weekId} count={talkedTo.count} goal={talkedTo.goal} lastWeekShort={talkedTo.lastWeekShort} importedWaiting={importedWaiting} />
+        <TalkedToTile weekId={weekId} count={talkedTo.count} goal={talkedTo.goal} lastWeekShort={talkedTo.lastWeekShort} importedWaiting={action?.kind === "imports" ? 0 : importedWaiting} />
         <OutreachTile weekId={weekId} reached={talkedTo.reached} replied={talkedTo.replied} />
       </div>
       <div className="mt-4">

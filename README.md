@@ -111,7 +111,7 @@ Then use it in one of two ways:
 | Port 3000 is already in use | Nothing to do: Founderive picks another free port and prints the address. |
 | The Claude panel says it can't start | In Terminal: `cd founderive/web` then `pnpm pty-check`. It says what's wrong. The rest of Founderive works without the panel. |
 | The panel says Claude Code isn't installed | Install it from [Anthropic's setup guide](https://docs.claude.com/en/docs/claude-code/setup), then reload the page. |
-| `esbuild … installed for another platform` | Your Terminal is running Intel (Rosetta) tools on an Apple Silicon Mac. Run the command without `timeout`/x86 wrappers, or prefix it with `arch -arm64`. |
+| `esbuild … installed for another platform` | Your Terminal is running Intel (Rosetta) tools on an Apple Silicon Mac. Delete the `web/node_modules` folder, then run `arch -arm64 node start.mjs`. |
 | Anything else | Choose **Send feedback** in the app, or [open an issue](https://github.com/TheTrialGuy2/founderive/issues/new). |
 
 ## Your data

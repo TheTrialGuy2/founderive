@@ -36,7 +36,7 @@ export function homeAction(input: {
   if (late) return { kind: "overdue", label: late.text, reason: `It's ${dueWords(late, input.today)}. Finish it, or drop it with a reason.`, key: late.key };
   if (input.importedWaiting > 0) {
     const n = input.importedWaiting;
-    return { kind: "imports", label: `Review ${n} imported conversation${n === 1 ? "" : "s"}`, reason: "They count toward people talked to once you confirm them.", href: "/people?show=imported" };
+    return { kind: "imports", label: `Review ${n} imported conversation${n === 1 ? "" : "s"}`, reason: "Imported conversations don't count until you confirm them.", href: "/people?show=imported" };
   }
   const step = input.path.current;
   if (step) {

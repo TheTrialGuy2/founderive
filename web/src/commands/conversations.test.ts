@@ -3,7 +3,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
-import { addFollowUp, confirmAllImportedConversations, confirmImportedConversation, confirmWhatChanges, createConversation, loadConversation, loadConversations, parseConversationForm, setFollowUpStatus, updateConversation } from "./conversations";
+import { addFollowUp, archiveImportedConversation, confirmAllImportedConversations, confirmImportedConversation, confirmWhatChanges, createConversation, loadConversation, loadConversations, parseConversationForm, setFollowUpStatus, updateConversation } from "./conversations";
 import { CONTACT_DETAILS_MESSAGE } from "../core/privacy";
 import { checkData } from "../store/check";
 import { CONTACT_SAMPLES, DANA, MENTOR } from "./test-inputs";
@@ -196,24 +196,66 @@ describe("confirming imported conversations", () => {
     expect(await readFile(path.join(env.dir, rel), "utf8")).toBe(before);
   });
 
-  it("confirms every imported conversation, skips the rest, and reports a broken import without stopping", async () => {
+  it("confirms only the listed imported conversations, skips the rest, and names a listed file that turned unreadable", async () => {
     const a = await imported("Maya", "2026-10-07");
     const b = await imported("Lee", "2026-10-08");
     const own = await createConversation(DANA);
     const ownBefore = await readFile(path.join(env.dir, own), "utf8");
-    await writeFile(path.join(env.dir, "conversations/2026-10-09-broken.md"), "---\nseeded: true\ntype: customer\n---\nNotes\n");
+    const broken = "conversations/2026-10-09-broken.md";
+    await writeFile(path.join(env.dir, broken), "---\nseeded: true\ntype: customer\n---\nNotes\n");
     await writeFile(path.join(env.dir, "conversations/2026-10-09-other-broken.md"), "---\ntype: customer\n---\nNotes\n");
 
-    const r = await confirmAllImportedConversations();
-    expect(r.confirmed).toBe(2);
-    expect(r.failed).toHaveLength(1);
-    expect(r.failed[0].path).toBe("conversations/2026-10-09-broken.md");
-    expect(r.failed[0].error).toMatch(/^Fix founder-data\/conversations\/2026-10-09-broken\.md first: /);
+    const r = await confirmAllImportedConversations([a, b, own, broken]);
+    expect(r).toEqual({ confirmed: 2, broken: [broken], failed: [] });
     for (const rel of [a, b]) {
       const e = await readEntry("conversation", rel);
       expect(e?.ok && e.data.seeded).toBeFalsy();
     }
     expect(await readFile(path.join(env.dir, own), "utf8")).toBe(ownBefore);
-    expect(await confirmAllImportedConversations()).toEqual({ confirmed: 0, failed: r.failed });
+    expect(await confirmAllImportedConversations([a, b, own, broken])).toEqual({ confirmed: 0, broken: [broken], failed: [] });
+  });
+
+  it("leaves an import made after the founder's list alone", async () => {
+    const seen = await imported("Maya", "2026-10-07");
+    const later = await imported("Lee", "2026-10-08");
+    expect(await confirmAllImportedConversations([seen])).toEqual({ confirmed: 1, broken: [], failed: [] });
+    const e = await readEntry("conversation", later);
+    expect(e?.ok && e.data.seeded).toBe(true);
+  });
+
+  it("counts each conversation once when two Confirm alls run at the same time", async () => {
+    const a = await imported("Maya", "2026-10-07");
+    const b = await imported("Lee", "2026-10-08");
+    const [r1, r2] = await Promise.all([confirmAllImportedConversations([a, b]), confirmAllImportedConversations([a, b])]);
+    expect(r1.confirmed + r2.confirmed).toBe(2);
+  });
+
+  it("refuses paths that aren't conversation files, before changing anything", async () => {
+    const a = await imported("Maya", "2026-10-07");
+    for (const bad of ["founder.md", "../outside.md", "conversations/../founder.md", "tests/2026-10-07-x.md", "conversations/notes.md"]) {
+      await expect(confirmAllImportedConversations([a, bad])).rejects.toThrow(/isn't a conversation file/);
+    }
+    const e = await readEntry("conversation", a);
+    expect(e?.ok && e.data.seeded).toBe(true);
+  });
+});
+
+describe("moving an import that isn't the founder's to _archive", () => {
+  const imported = (person: string) => createConversation({ ...DANA, person, org: null, date: "2026-10-07" }, { seeded: true, source: "chat import" });
+
+  it("moves the imported file to _archive/<its path>, never deleting it", async () => {
+    const rel = await imported("Maya");
+    const before = await readFile(path.join(env.dir, rel), "utf8");
+    expect(await archiveImportedConversation(rel)).toBe(`_archive/${rel}`);
+    expect(await readEntry("conversation", rel)).toBeNull();
+    expect(await readFile(path.join(env.dir, "_archive", rel), "utf8")).toBe(before);
+  });
+
+  it("refuses a conversation the founder has confirmed or logged themselves, and a missing or out-of-pattern path", async () => {
+    const own = await createConversation(DANA);
+    await expect(archiveImportedConversation(own)).rejects.toThrow(/only imported conversations/i);
+    expect(await readEntry("conversation", own)).not.toBeNull();
+    await expect(archiveImportedConversation("conversations/2026-10-01-gone.md")).rejects.toThrow(/isn't there anymore/);
+    await expect(archiveImportedConversation("founder.md")).rejects.toThrow(/isn't a conversation file/);
   });
 });

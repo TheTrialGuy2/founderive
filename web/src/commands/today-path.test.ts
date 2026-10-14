@@ -34,6 +34,12 @@ describe("loadToday path fields", () => {
     expect(text).toMatch(/^Main action: Review 2 imported conversations/m);
     expect(text).toMatch(/^Imported, waiting for you: 2 conversations$/m);
   });
+  it("counts imported advice too, since every import waits for the founder", async () => {
+    await createConversation({ type: "mentor", person: "Sam", org: null, date: "2026-10-12", segment: null, context: null, questionsAsked: null, observedBehavior: null, quotes: [], numbers: [], alternatives: null, urgency: null, buyingProcess: null, areas: [], followUps: [], whatChanges: null, whatChangesConfirmed: false, notes: "Talk to agencies" }, { seeded: true, source: "chat import" });
+    const v = await loadToday();
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.importedWaiting).toBe(1);
+  });
   it("says nothing about imports when none wait", async () => {
     await talk("2026-10-12");
     const v = await loadToday();

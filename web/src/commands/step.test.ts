@@ -27,7 +27,13 @@ describe("loadStep", () => {
     const v = await loadStep("customer");
     if (v.status !== "ready") throw new Error(v.status);
     expect(v.people).toEqual([]);
-    expect(v.importedWaiting).toBe(1);
+    expect(v.importedCustomers).toBe(1);
+  });
+  it("leaves imported advice out of the step's imported count", async () => {
+    await createConversation({ type: "mentor", person: "Sam", org: null, date: "2026-10-12", segment: null, context: null, questionsAsked: null, observedBehavior: null, quotes: [], numbers: [], alternatives: null, urgency: null, buyingProcess: null, areas: [], followUps: [], whatChanges: null, whatChangesConfirmed: false, notes: "" }, { seeded: true, source: "chat import" });
+    const v = await loadStep("customer");
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.importedCustomers).toBe(0);
   });
   it("reports a step that isn't on the path", async () => {
     expect((await loadStep("nope")).status).toBe("missing");

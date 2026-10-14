@@ -64,7 +64,7 @@ export function TalkedToTile({ weekId, count, goal, lastWeekShort, importedWaiti
       {importedWaiting > 0 && (
         <p className="mt-1 text-sm">
           <Link href="/people?show=imported" className="text-teal-dark hover:text-navy">
-            {importedWaiting} imported, waiting for you
+            {importedWaiting} imported, not confirmed yet
           </Link>
         </p>
       )}

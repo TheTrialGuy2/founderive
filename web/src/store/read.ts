@@ -13,6 +13,8 @@ export function parseEntry<K extends Kind>(kind: K, rel: string, text: string): 
   try {
     parsed = parseFrontmatter(text);
   } catch (error) {
+    // Broken YAML hides every field, `seeded` included, so such a file can't be recognised as an import here;
+    // check-data reports it instead.
     return { ok: false, kind, path: rel, error: `YAML: ${(error as Error).message.split("\n")[0]}` };
   }
   const result = KINDS[kind].schema.safeParse(parsed.data);

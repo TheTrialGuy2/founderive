@@ -8,29 +8,38 @@ import { IDLE } from "@/lib/action-state";
 const plural = (n: number) => `${n} conversation${n === 1 ? "" : "s"}`;
 
 /**
- * The Imported filter's one main action. Its message stays after the list empties, so the founder sees what happened;
- * a file that couldn't be confirmed is named with what to fix.
+ * The Imported filter's one main action. It sends the paths the founder sees listed, so an import that lands after
+ * the page loaded isn't confirmed unseen. Its message stays after the list empties; a file that turned unreadable is
+ * pointed to the "Imported files to fix" list rather than listed twice, and a file that couldn't be saved is named.
  */
-export function ConfirmAllImports({ count }: { count: number }) {
+export function ConfirmAllImports({ paths }: { paths: string[] }) {
   const [state, formAction, pending] = useActionState(confirmAllImportedAction, IDLE);
-  const confirmed = state.status === "saved" ? Number(state.result?.confirmed ?? 0) : 0;
-  const failed: { path: string; error: string }[] = state.status === "saved" ? JSON.parse(state.result?.failed ?? "[]") : [];
+  const saved = state.status === "saved";
+  const confirmed = saved ? Number(state.result?.confirmed ?? 0) : 0;
+  const broken = saved ? Number(state.result?.broken ?? 0) : 0;
+  const failed: { path: string; error: string }[] = saved ? JSON.parse(state.result?.failed ?? "[]") : [];
   return (
     <div className="mb-4">
-      {count > 0 && (
+      {paths.length > 0 && (
         <form action={formAction}>
+          {paths.map((p) => (
+            <input key={p} type="hidden" name="path" value={p} />
+          ))}
           <button type="submit" disabled={pending} className={buttonPrimary}>
-            {pending ? "Confirming…" : `Confirm all ${count}`}
+            {pending ? "Confirming…" : `Confirm all ${paths.length}`}
           </button>
         </form>
       )}
       <div aria-live="polite">
-        {state.status === "saved" && confirmed > 0 && <p className="mt-2 text-sm text-ink">Confirmed {plural(confirmed)}.</p>}
+        {confirmed > 0 && <p className="mt-2 text-sm text-ink">Confirmed {plural(confirmed)}.</p>}
+        {broken > 0 && (
+          <p role="alert" className="mt-2 text-sm text-ink">
+            Couldn&apos;t confirm {broken} — {broken === 1 ? "it's" : "they're"} listed below under Imported files to fix.
+          </p>
+        )}
         {failed.length > 0 && (
           <div role="alert" className="mt-2 text-sm text-ink">
-            <p>
-              Couldn&apos;t confirm {plural(failed.length)}. Fix {failed.length === 1 ? "it" : "each one"}, then confirm again:
-            </p>
+            <p>Couldn&apos;t save {plural(failed.length)}. Try again:</p>
             <ul className="mt-1 list-disc space-y-1 pl-5">
               {failed.map((f) => (
                 <li key={f.path}>
