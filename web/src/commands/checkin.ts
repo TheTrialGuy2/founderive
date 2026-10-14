@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { readEntry } from "../store/read";
 import type { KindData } from "../store/schemas";
 import { updateEntry } from "../store/update";
+import { loadCanvasDefs } from "./canvas";
 
 export type Checkin = KindData<"checkin">;
 type ChoiceInput = { actionId: string; label: string; choice: "dismissed" | "deferred" | "replaced"; reason: string; until?: string | null; replacement?: string | null };
@@ -107,5 +108,47 @@ export async function recordChoice(weekId: string, today: string, input: ChoiceI
   return update(weekId, (c) => {
     c.nextStepLog.push({ date: today, actionId: input.actionId, label: input.label, choice: input.choice, reason, until, replacement, via: "app" });
     if (replacement) c.commitments.push({ id: replacementId, text: replacement, due: null, status: "open", reason: null, link: null });
+  });
+}
+
+const wholeNumber = (value: string, message: string): number => {
+  const n = Number(value.trim());
+  if (!value.trim() || !Number.isInteger(n) || n < 0) throw new Error(message);
+  return n;
+};
+
+/** Adds one to this week's outreach: someone you reached out to, or someone who replied. */
+export async function bumpOutreach(weekId: string, which: string): Promise<void> {
+  if (which !== "reached" && which !== "replied") throw new Error(`Unknown outreach count: ${which}`);
+  return update(weekId, (c) => {
+    const o = c.outreach ?? { reached: 0, replied: 0 };
+    c.outreach = { ...o, [which]: o[which] + 1 };
+  });
+}
+
+/** Corrects this week's outreach by hand. Replied may be more than reached: people write to you first. */
+export async function setOutreach(weekId: string, reached: string, replied: string): Promise<void> {
+  const r = wholeNumber(reached, "Reached needs a whole number, 0 or more.");
+  const p = wholeNumber(replied, "Replied needs a whole number, 0 or more.");
+  return update(weekId, (c) => {
+    c.outreach = { reached: r, replied: p };
+  });
+}
+
+/** This week's goal for people talked to. */
+export async function setTalkGoal(weekId: string, goal: string): Promise<void> {
+  const n = Number(goal.trim());
+  if (!Number.isInteger(n) || n < 1 || n > 50) throw new Error("Pick a goal between 1 and 50.");
+  return update(weekId, (c) => {
+    c.talkGoal = n;
+  });
+}
+
+/** Once every step is done, the step to deepen this week. */
+export async function chooseFocus(weekId: string, stepId: string): Promise<void> {
+  const { defs } = await loadCanvasDefs();
+  if (!defs.some((d) => d.id === stepId)) throw new Error(`"${stepId}" isn't a step on your path. Reload the page.`);
+  return update(weekId, (c) => {
+    c.focus = stepId;
   });
 }
