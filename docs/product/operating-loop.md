@@ -39,8 +39,10 @@ Home's main action comes from `homeAction()` (`web/src/core/home.ts`), in this o
 2. missing outcome
 3. blocker
 4. the earliest item past its date
-5. the current path step
-6. choosing a focus
+5. imported conversations waiting for confirmation
+6. confirmed customer evidence that still needs the founder to say what it changes
+7. the current path step
+8. choosing a focus
 
 `next-step.ts` keeps its full ranking as context for the agent, computed by one function, in this order:
 

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { chooseFocusAction } from "@/app/(workbook)/path/actions";
+import { Badge } from "@/components/ui";
 import { buttonPrimary, buttonQuiet, inputClass } from "@/components/workbook/form";
 import { CONVERSATION_STEP, type HomeAction } from "@/core/home";
 import type { PathStep, PathView } from "@/core/path";
@@ -57,6 +58,7 @@ export function PathList({ path, action, weekId }: { path: PathView; action: Hom
                 <span className="block text-sm text-muted">{s.meaning}</span>
               </span>
               {s.id !== "you" && (s.tested || people(s)) && <span className="text-xs text-muted">{s.tested ? "Tested · supported" : people(s)}</span>}
+              {s.needsConfirmation && <Badge tone="warn">Needs confirmation</Badge>}
               <span className="w-16 text-right text-xs font-semibold text-navy">{isCurrent ? "Current" : s.done ? "Done" : ""}</span>
               {isCurrent && action?.kind === "step" && (
                 <Link href={action.href} className={stepIsMain ? buttonPrimary : buttonQuiet}>

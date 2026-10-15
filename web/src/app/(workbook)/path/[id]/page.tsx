@@ -8,8 +8,10 @@ import { AskClaude } from "@/components/path/AskClaude";
 import { MarkDone } from "@/components/path/MarkDone";
 import { PlannedList } from "@/components/path/PlannedList";
 import { StepAction } from "@/components/path/StepAction";
+import { NextStepLink, StepPageFrame } from "@/components/path/StepNavigation";
 import { ActionButton } from "@/components/today/ActionButton";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
+import { Pagination } from "@/components/workbook/Pagination";
 import { buttonPrimary } from "@/components/workbook/form";
 import { confirmImportedAction } from "@/app/(workbook)/canvas/actions";
 import { loadCanvasBlock } from "@/commands/canvas";
@@ -17,12 +19,13 @@ import { loadStep } from "@/commands/step";
 import { CONVERSATION_STEP } from "@/core/home";
 import { addDays } from "@/core/week";
 import { STATUS_LABELS } from "@/lib/loop-labels";
+import { pageHref, pageNumber, paginate } from "@/lib/pagination";
 
-export default function StepPage({ params }: PageProps<"/path/[id]">) {
+export default function StepPage({ params, searchParams }: PageProps<"/path/[id]">) {
   return (
     <Suspense fallback={<PageHeader eyebrow="Your path" title="Loading…" />}>
-      {params.then(({ id }) => (
-        <StepContent id={id} />
+      {Promise.all([params, searchParams]).then(([{ id }, sp]) => (
+        <StepContent id={id} requestedPeoplePage={pageNumber(sp.peoplePage)} />
       ))}
     </Suspense>
   );
@@ -32,7 +35,7 @@ export default function StepPage({ params }: PageProps<"/path/[id]">) {
 const chip = (discussed: number, tested: boolean, conversations: boolean) =>
   tested ? "Tested · supported" : discussed > 0 ? `${discussed} ${discussed === 1 ? "person" : "people"} discussed this` : conversations ? "Your guess · not discussed yet" : "Your guess";
 
-async function StepContent({ id }: { id: string }) {
+async function StepContent({ id, requestedPeoplePage }: { id: string; requestedPeoplePage: number }) {
   await connection();
   const view = await loadStep(id);
   if (view.status !== "ready") {
@@ -49,7 +52,7 @@ async function StepContent({ id }: { id: string }) {
       </>
     );
   }
-  const { step, index, total, nextStep, weekId, today, people, planned, tests, importedCustomers } = view;
+  const { step, steps, index, total, nextStep, weekId, today, people, planned, tests, importedCustomers } = view;
   const block = await loadCanvasBlock(id);
   const tomorrow = addDays(today, 1);
   const history = block.status === "ready" ? [...(block.block?.history ?? [])].reverse() : [];
@@ -59,9 +62,11 @@ async function StepContent({ id }: { id: string }) {
   const answered = block.status === "ready" && !!block.block?.text?.trim();
   const writeIsMain = !conversations && !answered && !step.done;
   const doneIsMain = !conversations && answered && !step.done;
+  const latestChange = people.find((person) => !!person.changed);
+  const pagedPeople = paginate(people, requestedPeoplePage);
 
   return (
-    <>
+    <StepPageFrame steps={steps} currentId={id}>
       <Link href="/today" className="text-sm text-teal-dark hover:text-navy">
         ← Your path · Step {index} of {total}
       </Link>
@@ -101,6 +106,18 @@ async function StepContent({ id }: { id: string }) {
         )}
       </section>
 
+      {latestChange?.changed && (
+        <section aria-labelledby="latest-change-heading" className="mt-4 rounded-xl border border-teal/30 bg-aqua/25 p-4">
+          <h2 id="latest-change-heading" className="text-[11px] font-semibold tracking-[0.08em] text-teal-dark uppercase">
+            Latest confirmed change
+          </h2>
+          <p className="mt-1 text-ink">{latestChange.changed}</p>
+          <Link href={`/conversations/${latestChange.slug}`} className="mt-2 inline-block text-sm font-medium text-teal-dark hover:text-navy">
+            From {latestChange.person} · {latestChange.date ? formatDate(latestChange.date) : "date unknown"}
+          </Link>
+        </section>
+      )}
+
       {(conversations || people.length > 0) && (
         <section aria-labelledby="people-heading" className="mt-10">
           <h2 id="people-heading" className="font-semibold text-navy">
@@ -118,7 +135,7 @@ async function StepContent({ id }: { id: string }) {
             )
           ) : (
             <ul className="mt-3 space-y-2">
-              {people.map((p) => (
+              {pagedPeople.items.map((p) => (
                 <li key={p.slug}>
                   <Link href={`/conversations/${p.slug}`} className="block rounded-xl border border-line bg-paper p-4 hover:border-teal-dark">
                     <span className="font-medium text-navy">{p.person}</span>{" "}
@@ -132,6 +149,7 @@ async function StepContent({ id }: { id: string }) {
               ))}
             </ul>
           )}
+          <Pagination {...pagedPeople} itemLabel="people" hrefForPage={(page) => pageHref(`/path/${id}`, {}, "peoplePage", page)} />
           <p className="mt-2 text-xs text-muted">Customer and prospect conversations with notes, a quote or a number count here.</p>
           {conversations && (
             <>
@@ -178,9 +196,12 @@ async function StepContent({ id }: { id: string }) {
         </ol>
       </details>
 
-      <footer className="mt-12 border-t border-line pt-6">
-        <MarkDone step={step} nextStep={nextStep} primary={doneIsMain} />
+      <footer className="mt-12 flex flex-wrap items-start justify-between gap-4 border-t border-line pt-6">
+        <div className="min-w-0 flex-1">
+          <MarkDone step={step} nextStep={nextStep} primary={doneIsMain} />
+        </div>
+        <NextStepLink nextStep={nextStep} />
       </footer>
-    </>
+    </StepPageFrame>
   );
 }

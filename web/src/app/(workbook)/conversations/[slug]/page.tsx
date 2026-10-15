@@ -10,6 +10,7 @@ import { ActionButton } from "@/components/today/ActionButton";
 import { SeededNote } from "@/components/workbook/SeededNote";
 import { BrokenLinks } from "@/components/workbook/BrokenLinks";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
+import { buttonQuiet } from "@/components/workbook/form";
 import { unlinkEvidenceAction } from "@/app/(workbook)/evidence-actions";
 import { loadAreaOptions } from "@/commands/canvas";
 import { loadConversation, type Conversation } from "@/commands/conversations";
@@ -17,18 +18,19 @@ import { loadFounderToday } from "@/commands/today";
 import { isCustomerEvidence, isEvidenceEligible } from "@/core/conversations";
 import { canUnlink, linkableTests } from "@/core/venture-tests";
 import { areaLabel, STATUS_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
+import { safeReturnTo } from "@/lib/return-to";
 
-export default function ConversationPage({ params }: PageProps<"/conversations/[slug]">) {
+export default function ConversationPage({ params, searchParams }: PageProps<"/conversations/[slug]">) {
   return (
     <Suspense fallback={<PageHeader eyebrow="Conversation" title="Loading…" />}>
-      {params.then(({ slug }) => (
-        <ConversationContent slug={slug} />
+      {Promise.all([params, searchParams]).then(([{ slug }, sp]) => (
+        <ConversationContent slug={slug} returnTo={safeReturnTo(typeof sp.returnTo === "string" ? sp.returnTo : "")} />
       ))}
     </Suspense>
   );
 }
 
-async function ConversationContent({ slug }: { slug: string }) {
+async function ConversationContent({ slug, returnTo }: { slug: string; returnTo: string | null }) {
   await connection();
   const [view, today] = await Promise.all([loadConversation(slug), loadFounderToday()]);
   if (view.status === "missing") {
@@ -62,6 +64,7 @@ async function ConversationContent({ slug }: { slug: string }) {
   const linkable = linkableTests(view.tests, c.relatedTests);
   const confirmed = c.whatChangesConfirmed && !!c.whatChanges;
   const areaOptions = await loadAreaOptions(c.areas);
+  const returnStep = returnTo ? areaOptions.find(([id]) => returnTo === `/path/${id}`)?.[1] : null;
 
   return (
     <>
@@ -103,6 +106,11 @@ async function ConversationContent({ slug }: { slug: string }) {
               {c.whatChanges && <p className="mb-2 text-sm text-muted">A draft you haven&apos;t confirmed yet. Edit it until it says what you believe.</p>}
               <WhatChangesForm path={view.path} initial={c.whatChanges ?? ""} confirmed={false} />
             </>
+          )}
+          {confirmed && returnTo && (
+            <Link href={returnTo} className={`${buttonQuiet} mt-3`}>
+              Continue to {returnStep ?? "the step"}
+            </Link>
           )}
         </Card>
 

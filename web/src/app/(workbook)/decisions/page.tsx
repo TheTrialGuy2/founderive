@@ -8,27 +8,32 @@ import { SeededNote } from "@/components/workbook/SeededNote";
 import { CopyPrompt } from "@/components/workbook/CopyPrompt";
 import { EmptyState } from "@/components/workbook/EmptyState";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
+import { Pagination } from "@/components/workbook/Pagination";
 import { loadDecisions, type DecisionRow } from "@/commands/decisions";
 import { loadFounderToday, loadPromptContext } from "@/commands/today";
 import { hrefFor } from "@/core/slug";
 import { AREA_LABELS } from "@/lib/loop-labels";
 import { fillPrompt, SKILL_PROMPTS } from "@/lib/prompts";
+import { pageHref, pageNumber, paginate } from "@/lib/pagination";
 
-export default function DecisionsPage() {
+export default function DecisionsPage({ searchParams }: PageProps<"/decisions">) {
   return (
     <>
       <PageHeader title="Decisions">Calls you made outside a test, with the reasoning kept. A test&apos;s own decision stays on the test.</PageHeader>
       <Suspense fallback={null}>
-        <DecisionsContent />
+        {searchParams.then((sp) => (
+          <DecisionsContent requestedPage={pageNumber(sp.page)} />
+        ))}
       </Suspense>
     </>
   );
 }
 
-async function DecisionsContent() {
+async function DecisionsContent({ requestedPage }: { requestedPage: number }) {
   await connection();
   const [{ rows, flagged, evidenceOptions, tests }, today, promptVars] = await Promise.all([loadDecisions(), loadFounderToday(), loadPromptContext()]);
   const labels = new Map(evidenceOptions.map((o) => [o.path, o.label]));
+  const paged = paginate(rows, requestedPage);
   return (
     <>
       {flagged.length > 0 && (
@@ -46,13 +51,14 @@ async function DecisionsContent() {
         </EmptyState>
       ) : (
         <ul className="space-y-3">
-          {rows.map((r) => (
+          {paged.items.map((r) => (
             <li key={r.path}>
               <DecisionCard row={r} labels={labels} />
             </li>
           ))}
         </ul>
       )}
+      <Pagination {...paged} itemLabel="decisions" hrefForPage={(page) => pageHref("/decisions", {}, "page", page)} />
       <Card title="Record a decision" className="mt-8">
         <DecisionForm today={today} evidenceOptions={evidenceOptions} tests={tests} />
       </Card>

@@ -10,6 +10,7 @@ export type HomeAction =
   | { kind: "blocker"; label: string; reason: string }
   | { kind: "overdue"; label: string; reason: string; key: string }
   | { kind: "imports"; label: string; reason: string; href: string }
+  | { kind: "interpretation"; label: string; reason: string; href: string }
   | { kind: "step"; label: string; reason: string; href: string; stepId: string; mode: "plan" | "log" | "open" }
   | { kind: "focus"; label: string; reason: string };
 
@@ -26,6 +27,8 @@ export function homeAction(input: {
   due: DueItem[];
   /** Imported conversations (seeded) the founder hasn't confirmed. They don't count as evidence until confirmed. */
   importedWaiting: number;
+  /** Confirmed customer evidence that the founder hasn't connected to a change yet, oldest first. */
+  changesWaiting: { person: string; href: string }[];
   path: PathView;
 }): HomeAction | null {
   if (input.risk) return { kind: "risk", ...input.risk };
@@ -37,6 +40,15 @@ export function homeAction(input: {
   if (input.importedWaiting > 0) {
     const n = input.importedWaiting;
     return { kind: "imports", label: `Review ${n} imported conversation${n === 1 ? "" : "s"}`, reason: "Imported conversations don't count until you confirm them.", href: "/people?show=imported" };
+  }
+  if (input.changesWaiting.length > 0) {
+    const n = input.changesWaiting.length;
+    return {
+      kind: "interpretation",
+      label: "Decide what this changes",
+      reason: `${n} customer conversation${n === 1 ? " has" : "s have"} evidence you haven't connected to a change yet.`,
+      href: input.changesWaiting[0].href,
+    };
   }
   const step = input.path.current;
   if (step) {

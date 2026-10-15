@@ -23,6 +23,7 @@ export function formatToday(view: TodayView): string {
   const t2 = view.talkedTo;
   out.push(`Logged this week: ${t2.count} · your goal: ${t2.goal} (reached ${t2.reached}, replied ${t2.replied})`);
   if (view.importedWaiting > 0) out.push(`Imported, waiting for you: ${view.importedWaiting} conversation${view.importedWaiting === 1 ? "" : "s"}`);
+  if (view.changesWaiting.length > 0) out.push(`Changes waiting for you: ${view.changesWaiting.length} conversation${view.changesWaiting.length === 1 ? "" : "s"}`);
   const cur = view.path.current;
   const index = cur ? view.path.steps.findIndex((s) => s.id === cur.id) + 1 : 0;
   out.push(

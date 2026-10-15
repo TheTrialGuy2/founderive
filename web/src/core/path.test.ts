@@ -39,6 +39,11 @@ describe("buildPath", () => {
     expect(p.current?.id).toBe("problem");
     expect(p.doneCount).toBe(2);
   });
+  it("marks imported step text as needing confirmation", () => {
+    const p = buildPath(base({ blocks: new Map([["problem", { seeded: true }]]) }));
+    expect(p.steps.find((s) => s.id === "problem")?.needsConfirmation).toBe(true);
+    expect(p.steps.find((s) => s.id === "customer")?.needsConfirmation).toBe(false);
+  });
   it("makes this week's focus the current step, even when it's done", () => {
     const blocks = new Map(DEFAULT_CANVAS.map((d) => [d.id, { done: "2026-10-01" }]));
     expect(buildPath(base({ blocks })).allDone).toBe(true);

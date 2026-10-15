@@ -8,7 +8,7 @@ import { PathList } from "@/components/home/PathList";
 import { OutcomeTile, OutreachTile, TalkedToTile } from "@/components/home/WeekTiles";
 import { BlockerForm } from "@/components/today/BlockerForm";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
-import { buttonPrimary } from "@/components/workbook/form";
+import { buttonPrimary, buttonQuiet } from "@/components/workbook/form";
 import { logoVersion } from "@/commands/logo";
 import { loadToday } from "@/commands/today";
 
@@ -32,7 +32,7 @@ async function HomeContent() {
       </>
     );
   }
-  const { founder: f, today, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, carried, path, talkedTo, importedWaiting, dueItems, action } = view;
+  const { founder: f, today, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, carried, path, talkedTo, importedWaiting, changesWaiting, dueItems, action } = view;
   const stepIndex = path.current ? path.steps.findIndex((s) => s.id === path.current?.id) + 1 : null;
   const logoV = await logoVersion();
 
@@ -85,6 +85,20 @@ async function HomeContent() {
           {/* It navigates, so it stays a link, styled as the page's one main action. */}
           <Link href={action.href} className={`${buttonPrimary} mt-3`}>
             {action.label}
+          </Link>
+        </section>
+      )}
+      {changesWaiting.length > 0 && (
+        <section aria-labelledby="changes-heading" className={`mb-6 rounded-xl border border-line p-4 ${action?.kind === "interpretation" ? "bg-sand/60" : "bg-paper"}`}>
+          <h2 id="changes-heading" className="text-[11px] font-semibold tracking-[0.08em] text-muted uppercase">
+            Changes waiting for a decision · {changesWaiting.length}
+          </h2>
+          <p className="mt-1 font-medium text-ink">
+            {changesWaiting[0].person} shared evidence you haven&apos;t connected to a change yet.
+          </p>
+          <p className="text-sm text-muted">Decide whether it changes a belief, feature, workflow, or next move. “Nothing yet” is a valid answer.</p>
+          <Link href={changesWaiting[0].href} className={`${action?.kind === "interpretation" ? buttonPrimary : buttonQuiet} mt-3`}>
+            Decide what this changes
           </Link>
         </section>
       )}

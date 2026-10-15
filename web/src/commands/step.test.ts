@@ -1,3 +1,5 @@
+import { writeFile } from "node:fs/promises";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
 import { createConversation } from "./conversations";
@@ -18,6 +20,7 @@ describe("loadStep", () => {
     const v = await loadStep("problem");
     if (v.status !== "ready") throw new Error(v.status);
     expect(v.step).toMatchObject({ id: "problem", discussed: 1, planned: 1 });
+    expect(v.steps.map((step) => step.id)).toEqual(["you", "customer", "problem", "solution", "alternatives", "advantage", "channel", "revenue", "cost", "feasibility"]);
     expect(v.index).toBe(3);
     expect(v.nextStep?.id).toBe("solution");
     expect(v.people[0]).toMatchObject({ person: "Maya", role: "Agency owner", line: "I rebuild it every Sunday" });
@@ -28,6 +31,13 @@ describe("loadStep", () => {
     if (v.status !== "ready") throw new Error(v.status);
     expect(v.people).toEqual([]);
     expect(v.importedCustomers).toBe(1);
+  });
+  it("reports imported step text as needing confirmation", async () => {
+    await writeFile(path.join(env.dir, "canvas/problem.md"), "---\nid: problem\ntext: Schedules are rebuilt by hand\nseeded: true\n---\n");
+    const v = await loadStep("problem");
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.step.needsConfirmation).toBe(true);
+    expect(v.steps.find((step) => step.id === "you")?.needsConfirmation).toBe(false);
   });
   it("leaves imported advice out of the step's imported count", async () => {
     await createConversation({ type: "mentor", person: "Sam", org: null, date: "2026-10-12", segment: null, context: null, questionsAsked: null, observedBehavior: null, quotes: [], numbers: [], alternatives: null, urgency: null, buyingProcess: null, areas: [], followUps: [], whatChanges: null, whatChangesConfirmed: false, notes: "" }, { seeded: true, source: "chat import" });

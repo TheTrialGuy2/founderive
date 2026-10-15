@@ -5,6 +5,7 @@ import { Badge, formatDate, PageHeader } from "@/components/ui";
 import { CopyPrompt } from "@/components/workbook/CopyPrompt";
 import { EmptyState } from "@/components/workbook/EmptyState";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
+import { Pagination } from "@/components/workbook/Pagination";
 import { buttonPrimary } from "@/components/workbook/form";
 import { ActionButton } from "@/components/today/ActionButton";
 import { confirmImportedRecordAction } from "@/app/(workbook)/import/actions";
@@ -12,22 +13,26 @@ import { loadPromptContext } from "@/commands/today";
 import { loadTests, type TestRow } from "@/commands/venture-tests";
 import { fillPrompt, SKILL_PROMPTS } from "@/lib/prompts";
 import { areaLabel, DECISION_LABELS, RESULT_LABELS, STATUS_LABELS, STRENGTH_LABELS } from "@/lib/loop-labels";
+import { pageHref, pageNumber, paginate } from "@/lib/pagination";
 
-export default function TestsPage() {
+export default function TestsPage({ searchParams }: PageProps<"/tests">) {
   return (
     <>
       <PageHeader title="Tests">Each test checks one belief with a small, real action. Its thresholds are set before the results come in.</PageHeader>
       <Suspense fallback={null}>
-        <TestsContent />
+        {searchParams.then((sp) => (
+          <TestsContent requestedClosedPage={pageNumber(sp.closedPage)} />
+        ))}
       </Suspense>
     </>
   );
 }
 
-async function TestsContent() {
+async function TestsContent({ requestedClosedPage }: { requestedClosedPage: number }) {
   await connection();
   const [{ running, planned, closed, flagged }, promptVars] = await Promise.all([loadTests(), loadPromptContext()]);
   const empty = running.length + planned.length + closed.length === 0;
+  const pagedClosed = paginate(closed, requestedClosedPage);
   return (
     <>
       {flagged.length > 0 && (
@@ -55,18 +60,19 @@ async function TestsContent() {
           </div>
           <TestSection id="running" title="Running" rows={running} empty="Nothing running. Start a planned test or design a new one." />
           <TestSection id="planned" title="Planned" rows={planned} empty="Nothing planned." />
-          <TestSection id="complete" title="Complete" rows={closed} empty="No completed tests yet." />
+          <TestSection id="complete" title="Complete" rows={pagedClosed.items} total={pagedClosed.total} empty="No completed tests yet." />
+          <Pagination {...pagedClosed} itemLabel="closed tests" hrefForPage={(page) => `${pageHref("/tests", {}, "closedPage", page)}#complete-heading`} />
         </>
       )}
     </>
   );
 }
 
-function TestSection({ id, title, rows, empty }: { id: string; title: string; rows: TestRow[]; empty: string }) {
+function TestSection({ id, title, rows, empty, total = rows.length }: { id: string; title: string; rows: TestRow[]; empty: string; total?: number }) {
   return (
     <section aria-labelledby={`${id}-heading`} className="mb-10">
       <h2 id={`${id}-heading`} className="font-semibold text-navy">
-        {title} · {rows.length}
+        {title} · {total}
       </h2>
       {rows.length === 0 ? (
         <p className="mt-2 text-sm text-muted">{empty}</p>

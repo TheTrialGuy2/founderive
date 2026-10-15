@@ -32,6 +32,7 @@ export type PathStep = {
   done: boolean;
   doneOn: string | null;
   doneReason: string | null;
+  needsConfirmation: boolean;
   discussed: number;
   tested: boolean;
   planned: number;
@@ -41,7 +42,7 @@ export type PathView = { steps: PathStep[]; current: PathStep | null; doneCount:
 export type PathConversation = { path: string; data: KindData<"conversation">; notes: string };
 export type PathInput = {
   defs: CanvasBlockDef[];
-  blocks: Map<string, { done?: string | null; doneReason?: string | null }>;
+  blocks: Map<string, { done?: string | null; doneReason?: string | null; seeded?: boolean }>;
   setupComplete: boolean;
   conversations: PathConversation[];
   tests: { path: string; data: KindData<"test"> }[];
@@ -82,6 +83,7 @@ export function buildPath(input: PathInput): PathView {
     done: input.setupComplete,
     doneOn: null,
     doneReason: null,
+    needsConfirmation: false,
     discussed: 0,
     tested: false,
     planned: 0,
@@ -100,6 +102,7 @@ export function buildPath(input: PathInput): PathView {
         done: !!block?.done,
         doneOn: block?.done ?? null,
         doneReason: block?.doneReason ?? null,
+        needsConfirmation: !!block?.seeded,
         discussed: discussed(def.id, input.conversations),
         tested: input.tests.some((t) => t.data.area === def.id && t.data.status === "complete" && t.data.result === "supported" && !t.data.seeded),
         planned: input.openCommitments.filter((c) => c.link === `step:${def.id}`).length,

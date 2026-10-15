@@ -24,7 +24,9 @@ export async function createConversationAction(_prev: ActionState, fd: FormData)
   // closed is ignored, and a failure here mustn't send the founder back to save the conversation twice.
   if (planDone) await markPlannedConversationDone(field(fd, "plan")).catch(() => undefined);
   // redirect() throws, so it stays outside the try block.
-  redirect(safeReturnTo(field(fd, "returnTo")) ?? `/conversations/${slugOf(rel)}`);
+  const detail = `/conversations/${slugOf(rel)}`;
+  const returnTo = safeReturnTo(field(fd, "returnTo"));
+  redirect(returnTo ? `${detail}?returnTo=${encodeURIComponent(returnTo)}` : detail);
 }
 
 export async function updateConversationAction(_prev: ActionState, fd: FormData): Promise<ActionState> {

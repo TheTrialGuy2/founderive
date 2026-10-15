@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dueFollowUps, evidenceCount, groupConversations, isCustomerEvidence, isEvidenceEligible, testLinks, type ConversationRecord } from "./conversations";
+import { dueFollowUps, evidenceCount, groupConversations, isCustomerEvidence, isEvidenceEligible, needsInterpretation, testLinks, type ConversationRecord } from "./conversations";
 
 type Row = Parameters<typeof dueFollowUps>[0][number];
 const row = (path: string, type: Row["data"]["type"], date: string, followUps: Row["data"]["followUps"] = []): Row => ({ path, data: { type, date, person: "Dana", followUps } });
@@ -60,6 +60,13 @@ describe("isEvidenceEligible", () => {
   it("still refuses advice and unconfirmed imports, whatever they record", () => {
     expect(isEvidenceEligible({ ...empty, type: "mentor" }, "Long notes")).toBe(false);
     expect(isEvidenceEligible({ ...empty, seeded: true }, "Long notes")).toBe(false);
+  });
+  it("waits for interpretation only after customer evidence is confirmed", () => {
+    expect(needsInterpretation({ ...empty }, "Notes")).toBe(true);
+    expect(needsInterpretation({ ...empty, whatChangesConfirmed: true }, "Notes")).toBe(false);
+    expect(needsInterpretation({ ...empty, seeded: true }, "Notes")).toBe(false);
+    expect(needsInterpretation({ ...empty, type: "mentor" }, "Notes")).toBe(false);
+    expect(needsInterpretation({ ...empty }, "")).toBe(false);
   });
 });
 

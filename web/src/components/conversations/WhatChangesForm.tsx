@@ -12,18 +12,18 @@ export function WhatChangesForm({ path, initial, confirmed }: { path: string; in
     <form action={formAction} className="space-y-2">
       <input type="hidden" name="path" value={path} />
       <label htmlFor="whatChanges" className="block text-sm font-medium text-ink">
-        {confirmed ? "What this changes, in your words" : "What does this change for you?"}
+        {confirmed ? "What changed, in your words" : "What did this change for you?"}
       </label>
       <textarea
         id="whatChanges"
         name="whatChanges"
         rows={3}
         defaultValue={state.values?.whatChanges ?? initial}
-        placeholder="e.g. Owners feel this every week, and the price ceiling may be near $300 a month"
+        placeholder="Owners feel this every week, and the price ceiling may be near $300 a month"
         className={inputClass}
       />
       <button type="submit" disabled={pending} className={confirmed ? buttonQuiet : buttonPrimary}>
-        {pending ? "Saving…" : "Confirm what this changes"}
+        {pending ? "Saving…" : "Confirm what changed"}
       </button>
       {state.status === "error" && (
         <p role="alert" className={errorText}>

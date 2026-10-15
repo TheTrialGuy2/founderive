@@ -3,7 +3,7 @@ import { clearLoopRecords, useTempData } from "../store/test-helpers";
 import { mkdir, writeFile } from "node:fs/promises";
 import nodePath from "node:path";
 import { bumpOutreach, loadCheckin, setCommitmentStatus, setTalkGoal } from "./checkin";
-import { createConversation } from "./conversations";
+import { confirmWhatChanges, createConversation } from "./conversations";
 import { findPlannedConversation, markPlannedConversationDone, markStepDone, planConversation } from "./path";
 import { assertThisWeek, loadToday } from "./today";
 import { formatToday } from "./today-text";
@@ -46,6 +46,21 @@ describe("loadToday path fields", () => {
     if (v.status !== "ready") throw new Error(v.status);
     expect(v.importedWaiting).toBe(0);
     expect(formatToday(v)).not.toMatch(/Imported, waiting/);
+  });
+  it("queues confirmed customer evidence until the founder says what it changes", async () => {
+    await setCommitmentStatus("2026-W42", "c-1", "done");
+    const rel = await createConversation({ type: "customer", person: "Maya", org: null, date: "2026-10-12", segment: null, context: null, questionsAsked: null, observedBehavior: null, quotes: ["I rebuild it every Sunday"], numbers: [], alternatives: null, urgency: null, buyingProcess: null, areas: ["problem"], followUps: [], whatChanges: null, whatChangesConfirmed: false, notes: "" });
+    let v = await loadToday();
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.changesWaiting).toEqual([{ path: rel, person: "Maya", date: "2026-10-12", href: expect.stringMatching(/^\/conversations\//), areas: ["problem"] }]);
+    expect(v.action).toMatchObject({ kind: "interpretation", label: "Decide what this changes", href: expect.stringMatching(/^\/conversations\//) });
+    expect(formatToday(v)).toMatch(/^Changes waiting for you: 1 conversation$/m);
+
+    await confirmWhatChanges(rel, "Focus the problem on rebuilding weekly schedules");
+    v = await loadToday();
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.changesWaiting).toEqual([]);
+    expect(v.action?.kind).toBe("step");
   });
   it("counts people talked to this week against the goal, with outreach", async () => {
     await talk("2026-10-12", ["problem"]);
@@ -135,13 +150,17 @@ describe("closing a planned conversation", () => {
     expect(await findPlannedConversation("2026-W42:c-1")).toBeNull(); // not open, and not a planned conversation
     expect(await findPlannedConversation("")).toBeNull();
   });
-  it("marks the plan done when a feedback conversation is logged with it, so Home moves on", async () => {
+  it("marks the plan done, asks what the evidence changes, then moves Home back to the step", async () => {
     const id = await planConversation("2026-W42", "customer", { who: "Dana", due: "2026-10-15" });
     let v = await loadToday();
     if (v.status !== "ready") throw new Error(v.status);
     expect(v.action).toMatchObject({ kind: "step", stepId: "customer", mode: "log" });
     await log("customer", `2026-W42:${id}`);
     expect((await loadCheckin("2026-W42")).data.commitments.find((c) => c.id === id)?.status).toBe("done");
+    v = await loadToday();
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.action).toMatchObject({ kind: "interpretation", label: "Decide what this changes" });
+    await confirmWhatChanges(v.changesWaiting[0].path, "Agency owners rebuild schedules every week");
     v = await loadToday();
     if (v.status !== "ready") throw new Error(v.status);
     expect(v.action).toMatchObject({ kind: "step", stepId: "customer", mode: "open" });
