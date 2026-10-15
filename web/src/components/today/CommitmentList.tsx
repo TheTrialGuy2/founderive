@@ -8,13 +8,14 @@ import { IDLE, type ActionState } from "@/lib/action-state";
 import { commitmentFields } from "@/lib/commitment-fields";
 import { ActionButton } from "./ActionButton";
 
-type Commitment = { id: string; text: string; due?: string | null; status: "open" | "done" | "dropped"; reason?: string | null; week?: string };
+type Commitment = { id: string; text: string; due?: string | null; status: "open" | "done" | "dropped"; reason?: string | null; week?: string; repeat?: { every: "week" } };
 type Homework = { id: string; title: string; due?: string | null; status: "open" | "done" | "skipped"; skipReason?: string | null };
 type Props = { weekId: string; today: string; commitments: Commitment[]; carried: (Commitment & { week: string })[]; programWeek: number | null; programLabel: string | null; homework: Homework[] };
 
 const dueText = (due: string | null | undefined, today: string, week?: string) => dueWords({ due, week }, today) || null;
 
 export function CommitmentList({ weekId, today, commitments, carried, programWeek, programLabel, homework }: Props) {
+  commitments = commitments.filter((commitment) => !commitment.repeat);
   // Open commitments from earlier weeks show here too, labelled with their week; they stay in that week's file.
   const open = [...commitments.filter((c) => c.status === "open"), ...carried];
   const closed = commitments.filter((c) => c.status !== "open");

@@ -1,6 +1,7 @@
 import { dueWords } from "../core/due";
 import { CONVERSATION_STEP } from "../core/home";
 import type { TodayView } from "./today";
+import { isCommitmentInstance } from "../core/commitments";
 
 const byDue = (a: { due?: string | null }, b: { due?: string | null }) => (a.due ?? "9999-12-31").localeCompare(b.due ?? "9999-12-31");
 
@@ -20,6 +21,7 @@ export function formatToday(view: TodayView): string {
   out.push(`Today: ${view.today} (week ${view.weekId}, starts ${view.weekStartsOn})`);
   out.push(`Outcome: ${view.checkin?.outcome ?? "not set"}`);
   if (view.founder.outcome30) out.push(`30-day outcome: ${view.founder.outcome30}`);
+  if (view.founder.goals?.length) out.push(`Goal counts: ${view.founder.goals.map((g) => `${g.id} ${g.count} of ${g.target}`).join("; ")}`);
   const t2 = view.talkedTo;
   out.push(`Logged this week: ${t2.count} · your goal: ${t2.goal} (reached ${t2.reached}, replied ${t2.replied})`);
   if (view.importedWaiting > 0) out.push(`Imported, waiting for you: ${view.importedWaiting} conversation${view.importedWaiting === 1 ? "" : "s"}`);
@@ -33,7 +35,7 @@ export function formatToday(view: TodayView): string {
   );
   const t = view.currentTest;
   out.push(t ? `Current test: ${t.title}${t.due ? ` · due ${t.due}` : ""} · ${t.linkedCount} linked · ${t.evidenceCount} customer evidence · strength ${t.evidenceStrength} (${t.path})` : `Current test: none running${view.plannedTests ? ` (${view.plannedTests} planned)` : ""}`);
-  const commitments = view.checkin?.commitments ?? [];
+  const commitments = (view.checkin?.commitments ?? []).filter(isCommitmentInstance);
   // Open commitments from earlier weeks carry here; each says the week whose check-in it lives in (write status back there).
   const open = [...commitments.filter((c) => c.status === "open").map((c) => ({ ...c, week: view.weekId })), ...view.carried].sort(byDue);
   const done = commitments.filter((c) => c.status === "done");

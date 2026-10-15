@@ -1,8 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { listEntries, readEntry } from "../store/read";
-import type { KindData } from "../store/schemas";
+import { CONVERSATION_TYPES, WEEKDAYS, type ConversationType, type KindData } from "../store/schemas";
 import { updateEntry } from "../store/update";
 import { loadCanvasDefs } from "./canvas";
+import { addDays } from "../core/week";
 
 export type Checkin = KindData<"checkin">;
 type ChoiceInput = { actionId: string; label: string; choice: "dismissed" | "deferred" | "replaced"; reason: string; until?: string | null; replacement?: string | null };
@@ -76,6 +77,46 @@ export async function appendCommitmentOnce(
   return saved;
 }
 
+/**
+ * Materialises weekly definitions into ordinary commitments in `weekId`. IDs are deterministic, so repeated Home or
+ * CLI reads are safe. Definitions stay in the check-in where the founder made them and never appear in Due themselves.
+ */
+export async function materializeRepeatingCommitments(weekId: string, weekStartsOn: string, today: string): Promise<void> {
+  const checkins = (await listEntries("checkin")).flatMap((entry) =>
+    entry.ok && weekOfCheckinPath(entry.path) <= weekId ? [{ week: weekOfCheckinPath(entry.path), commitments: entry.data.commitments }] : [],
+  );
+  const definitions = checkins.flatMap((source) => source.commitments.filter((commitment) => commitment.repeat && commitment.status === "open").map((commitment) => ({ sourceWeek: source.week, commitment })));
+  if (definitions.length === 0) return;
+
+  const target = (await loadCheckin(weekId)).data;
+  const missing = definitions.flatMap(({ sourceWeek, commitment }) => {
+    const repeat = commitment.repeat!;
+    const dueDay = commitment.due && WEEKDAYS.includes(commitment.due as (typeof WEEKDAYS)[number]) ? (commitment.due as (typeof WEEKDAYS)[number]) : null;
+    const datedDay = commitment.due && /^\d{4}-/.test(commitment.due) ? WEEKDAYS[(new Date(`${commitment.due}T00:00:00Z`).getUTCDay() + 6) % 7] : null;
+    const days = repeat.days ?? (dueDay || datedDay ? [dueDay ?? datedDay!] : [null]);
+    return days.flatMap((day) => {
+      const due = day ? addDays(weekStartsOn, WEEKDAYS.indexOf(day)) : null;
+      if (repeat.until && (due ?? weekStartsOn) > repeat.until) return [];
+      // A definition made during this week starts now; it does not manufacture work that was already late.
+      if (sourceWeek === weekId && due && due < today) return [];
+      const dayPart = days.length > 1 && day ? `-${day}` : "";
+      // IDs include the definition's week because commitment ids are only unique inside one check-in.
+      const id = `${commitment.id}-${sourceWeek}${dayPart}-${weekId}`;
+      return target.commitments.some((item) => item.id === id) ? [] : [{ id, text: commitment.text, due, link: commitment.link ?? null }];
+    });
+  });
+  // Home reads should be read-only after the week's instances have been created. This also avoids a data-events
+  // refresh loop: an atomic rewrite is itself an event, even when the serialised contents are unchanged.
+  if (missing.length === 0) return;
+
+  await update(weekId, (target) => {
+    for (const item of missing) {
+      if (target.commitments.some((commitment) => commitment.id === item.id)) continue;
+      target.commitments.push({ ...item, status: "open", reason: null });
+    }
+  });
+}
+
 export async function setCommitmentStatus(weekId: string, id: string, status: string, reason?: string): Promise<void> {
   if (status !== "open" && status !== "done" && status !== "dropped") throw new Error(`Unknown status: ${status}`);
   const why = status === "dropped" ? required(reason, "Say why you're dropping it.") : null;
@@ -118,20 +159,29 @@ const wholeNumber = (value: string, message: string): number => {
 };
 
 /** Adds one to this week's outreach: someone you reached out to, or someone who replied. */
-export async function bumpOutreach(weekId: string, which: string): Promise<void> {
+export async function bumpOutreach(weekId: string, which: string, audience: string = "customer"): Promise<void> {
   if (which !== "reached" && which !== "replied") throw new Error(`Unknown outreach count: ${which}`);
+  if (!CONVERSATION_TYPES.includes(audience as ConversationType)) throw new Error(`Unknown outreach audience: ${audience}`);
   return update(weekId, (c) => {
-    const o = c.outreach ?? { reached: 0, replied: 0 };
-    c.outreach = { ...o, [which]: o[which] + 1 };
+    const rows = c.outreach ?? [];
+    const row = rows.find((item) => item.audience === audience);
+    if (row) row[which] += 1;
+    else rows.push({ audience: audience as ConversationType, reached: which === "reached" ? 1 : 0, replied: which === "replied" ? 1 : 0 });
+    c.outreach = rows;
   });
 }
 
 /** Corrects this week's outreach by hand. Replied may be more than reached: people write to you first. */
-export async function setOutreach(weekId: string, reached: string, replied: string): Promise<void> {
+export async function setOutreach(weekId: string, reached: string, replied: string, audience: string = "customer"): Promise<void> {
   const r = wholeNumber(reached, "Reached needs a whole number, 0 or more.");
   const p = wholeNumber(replied, "Replied needs a whole number, 0 or more.");
+  if (!CONVERSATION_TYPES.includes(audience as ConversationType)) throw new Error(`Unknown outreach audience: ${audience}`);
   return update(weekId, (c) => {
-    c.outreach = { reached: r, replied: p };
+    const rows = c.outreach ?? [];
+    const row = rows.find((item) => item.audience === audience);
+    if (row) Object.assign(row, { reached: r, replied: p });
+    else rows.push({ audience: audience as ConversationType, reached: r, replied: p });
+    c.outreach = rows;
   });
 }
 

@@ -75,9 +75,19 @@ describe("venture test", () => {
 
 describe("decision", () => {
   it("applies defaults and needs a why and whether it's reversible", () => {
-    expect(decisionSchema.parse(decision())).toMatchObject({ evidence: [], alternatives: [] });
+    expect(decisionSchema.parse(decision())).toMatchObject({ status: "decided", evidence: [], alternatives: [] });
     expect(paths(decisionSchema, decision({ why: "" }))).toEqual(["why"]);
     expect(paths(decisionSchema, decision({ reversible: undefined }))).toEqual(["reversible"]);
+  });
+  it("allows an open question without a decision, then enforces decided fields", () => {
+    const open = { title: "Who pays?", date: "2026-10-15", status: "open", decideBy: "2026-10-29", alternatives: ["Founder", "Agency"] };
+    const parsed = decisionSchema.parse(open);
+    expect(parsed.status).toBe("open");
+    expect(parsed.decision).toBeUndefined();
+    expect(parsed.why).toBeUndefined();
+    expect(parsed.reversible).toBeUndefined();
+    expect(paths(decisionSchema, { ...open, decision: "Agency pays", why: "They benefit", reversible: true }).sort()).toEqual(["decision", "reversible", "why"]);
+    expect(paths(decisionSchema, { ...open, status: "decided" }).sort()).toEqual(["decision", "reversible", "why"]);
   });
 });
 

@@ -8,6 +8,7 @@ import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { confirmImportedAction } from "@/app/(workbook)/canvas/actions";
 import { loadBlockEvidence, loadCanvasBlock } from "@/commands/canvas";
 import { STATUS_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
+import { AgentEditReview } from "@/components/workbook/AgentEditReview";
 
 export default function CanvasBlockPage({ params }: PageProps<"/canvas/[id]">) {
   return (
@@ -53,6 +54,9 @@ async function BlockContent({ id }: { id: string }) {
               <span className="text-ink">This text was imported. Confirm it as yours, or edit it and save.</span>
               <ActionButton action={confirmImportedAction} fields={{ id }} label="Confirm imported text" variant="quiet" />
             </div>
+          )}
+          {block?.agentEdit && (
+            <AgentEditReview kind="canvasBlock" path={`canvas/${id}.md`} date={block.agentEdit.date} summary={block.agentEdit.summary} previous={block.agentEdit.previous} current={block.text} />
           )}
           <BlockForm id={id} initial={{ text: block?.text ?? "", status: block?.status ?? "untested", notes }} />
         </>

@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { addCommitment, recordChoice, setBlocker, setCommitmentStatus, setOutcome } from "@/commands/checkin";
+import { reviewAgentEdit, type AgentEditKind } from "@/commands/agent-edits";
 import { setHomeworkStatus } from "@/commands/homework";
 import { clearLogo, setLogo } from "@/commands/logo";
 import { LAST_STEP, parseSetupStep, saveSetupStep } from "@/commands/setup";
@@ -12,6 +13,13 @@ import { ValidationError } from "@/store/logo";
 import { field, run } from "./action-utils";
 
 const LOGO_SAVE_FAILED = "Couldn't save the logo. Try again.";
+
+export async function reviewAgentEditAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const kind = field(fd, "kind");
+  const choice = field(fd, "choice");
+  if ((kind !== "canvasBlock" && kind !== "conversation") || (choice !== "keep" && choice !== "revert")) return { status: "error", message: "That review action isn't valid. Reload the page." };
+  return run(() => reviewAgentEdit(kind as AgentEditKind, field(fd, "path"), choice));
+}
 
 /** The store's own validation (wrong file type, too big) is safe and useful to show; anything else — a filesystem
  *  or permission problem — gets a generic, friendly message instead of a raw error. */

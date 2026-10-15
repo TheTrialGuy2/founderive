@@ -14,7 +14,7 @@ import { field, run } from "../action-utils";
 export async function bumpOutreachAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   return run(async () => {
     await assertThisWeek(field(fd, "week"));
-    await bumpOutreach(field(fd, "week"), field(fd, "which"));
+    await bumpOutreach(field(fd, "week"), field(fd, "which"), field(fd, "audience") || "customer");
   });
 }
 
@@ -22,7 +22,7 @@ export async function saveOutreachAction(_prev: ActionState, fd: FormData): Prom
   const values = { reached: field(fd, "reached"), replied: field(fd, "replied") };
   return run(async () => {
     await assertThisWeek(field(fd, "week"));
-    await setOutreach(field(fd, "week"), values.reached, values.replied);
+    await setOutreach(field(fd, "week"), values.reached, values.replied, field(fd, "audience") || "customer");
   }, values);
 }
 

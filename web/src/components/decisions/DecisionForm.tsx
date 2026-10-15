@@ -12,7 +12,7 @@ const chip = "flex min-h-10 items-center gap-2 rounded-md border border-line bg-
 
 export function DecisionForm({ today, evidenceOptions, tests }: Props) {
   const [state, formAction, pending] = useActionState(createDecisionAction, IDLE);
-  const v: Record<string, string> = { date: today, ...state.values };
+  const v: Record<string, string> = { date: today, status: "decided", ...state.values };
   const err = state.errors ?? {};
   const chosen = new Set((v.evidence ?? "").split(",").filter(Boolean));
   const textArea = (name: string, label: string, opts: { placeholder?: string; hint?: string } = {}) => (
@@ -38,14 +38,31 @@ export function DecisionForm({ today, evidenceOptions, tests }: Props) {
           Decision recorded.
         </p>
       )}
+      <fieldset aria-describedby={err.status ? "status-error" : undefined}>
+        <legend className="mb-1 text-sm font-medium text-ink">What are you recording?</legend>
+        <div className="flex flex-wrap gap-2">
+          {[
+            ["open", "An open question"],
+            ["decided", "A decision already made"],
+          ].map(([value, label]) => (
+            <label key={value} className={chip}>
+              <input type="radio" name="status" value={value} defaultChecked={v.status === value} /> {label}
+            </label>
+          ))}
+        </div>
+        {err.status && <p id="status-error" className={errorText}>{err.status}</p>}
+      </fieldset>
       <div className="grid gap-4 sm:grid-cols-[1fr_11rem]">
         <Field id="title" label="Name the decision" error={err.title}>
           <input id="title" name="title" defaultValue={v.title} placeholder="e.g. Focus on agencies with 10–50 caregivers" className={inputClass} aria-invalid={!!err.title} aria-describedby={describedBy("title", err.title)} />
         </Field>
-        <Field id="date" label="Date" error={err.date}>
+        <Field id="date" label="Recorded on" error={err.date}>
           <input id="date" name="date" type="date" defaultValue={v.date} className={inputClass} aria-invalid={!!err.date} aria-describedby={describedBy("date", err.date)} />
         </Field>
       </div>
+      <Field id="decideBy" label="Decide by (optional)" error={err.decideBy}>
+        <input id="decideBy" name="decideBy" type="date" defaultValue={v.decideBy} className={inputClass} aria-invalid={!!err.decideBy} aria-describedby={describedBy("decideBy", err.decideBy)} />
+      </Field>
       <Field id="area" label="Part of the business (optional)" error={err.area}>
         <select id="area" name="area" defaultValue={v.area ?? ""} className={inputClass}>
           <option value="">None</option>
@@ -57,8 +74,8 @@ export function DecisionForm({ today, evidenceOptions, tests }: Props) {
         </select>
       </Field>
       {textArea("beliefBefore", "What you believed before (optional)", { placeholder: "e.g. Any home-care agency is a fit" })}
-      {textArea("decision", "What you decided", { placeholder: "e.g. Talk only to agencies with 10–50 caregivers this month" })}
-      {textArea("why", "Why", { hint: "Future you will want to know." })}
+      {textArea("decision", "What you decided (leave blank for an open question)", { placeholder: "e.g. Talk only to agencies with 10–50 caregivers this month" })}
+      {textArea("why", "Why (leave blank for an open question)", { hint: "Future you will want to know." })}
       {textArea("alternatives", "Alternatives you considered (optional, one per line)", { placeholder: "Large agencies\nIndependent caregivers" })}
       <fieldset aria-describedby={err.reversible ? "reversible-error" : undefined}>
         <legend className="mb-1 text-sm font-medium text-ink">Can you undo it easily?</legend>

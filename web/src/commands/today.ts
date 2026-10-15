@@ -8,13 +8,14 @@ import { conversationDate, DEFAULT_TALK_GOAL, talkedToInWeek, type PathView } fr
 import { currentWeek, weekFile } from "../core/program";
 import { slugOf } from "../core/slug";
 import { localISODate, resolveToday } from "../core/today";
+import { PAGE_SIZE } from "../lib/pagination";
 import { currentTest, type CurrentTest } from "../core/venture-tests";
 import { addDays, isoWeekId, weekStart } from "../core/week";
 import { checkData, type CheckReport } from "../store/check";
 import { dataDir } from "../store/paths";
 import { listEntries, readEntry, type Entry } from "../store/read";
 import type { KindData } from "../store/schemas";
-import { checkinPath, weekOfCheckinPath } from "./checkin";
+import { checkinPath, materializeRepeatingCommitments, weekOfCheckinPath } from "./checkin";
 import { loadGuideFacts, loadLoopRecords, type LoopRecords } from "./loop";
 import { loadPathFor } from "./path";
 
@@ -45,6 +46,8 @@ export type TodayView =
       talkedTo: { count: number; goal: number; reached: number; replied: number; lastWeekShort: number };
       /** Imported conversations (seeded) waiting for the founder to confirm them. They don't count as evidence until then. */
       importedWaiting: number;
+      /** Confirmed records changed by an agent and waiting for Keep or Revert. */
+      agentEditsWaiting: { count: number; href: string | null };
       /** Confirmed customer evidence waiting for the founder to say what it changes, oldest first. */
       changesWaiting: { path: string; person: string; date: string; href: string; areas: string[] }[];
       dueItems: DueItem[];
@@ -66,7 +69,13 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
   const f = founder.data;
   const today = resolveToday(f.today);
   const weekId = isoWeekId(today);
-  const checkinEntry = await readEntry("checkin", checkinPath(weekId));
+  // Preserve the existing flagged-file experience: an invalid current check-in is shown for repair, never hidden by
+  // a failed attempt to materialise repeats into it.
+  let checkinEntry = await readEntry("checkin", checkinPath(weekId));
+  if (!checkinEntry || checkinEntry.ok) {
+    await materializeRepeatingCommitments(weekId, weekStart(today), today);
+    checkinEntry = await readEntry("checkin", checkinPath(weekId));
+  }
   const checkin = checkinEntry?.ok ? checkinEntry.data : null;
   // Deferrals can run past the week they were made in, so every readable check-in is consulted.
   // The week each check-in belongs to comes from its FILE NAME, never its `week` field: actions write by file name, so
@@ -76,21 +85,32 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
   const carried: CarriedCommitment[] = checkins
     .filter((c) => c.week < weekId)
     .sort((a, b) => a.week.localeCompare(b.week))
-    .flatMap((c) => c.commitments.filter((x) => x.status === "open").map((x) => ({ ...x, week: c.week, path: c.path })));
+    .flatMap((c) => c.commitments.filter((x) => x.status === "open" && !x.repeat).map((x) => ({ ...x, week: c.week, path: c.path })));
 
   const inProgram = !!(f.programTitle && f.programStart && f.programWeeks);
   const programWeek = inProgram ? currentWeek({ programStart: f.programStart, today, totalWeeks: f.programWeeks ?? 1, override: f.currentWeek }) : null;
   const weekEntry = programWeek ? await readEntry("week", weekFile(programWeek)) : null;
-  const homework = weekEntry?.ok ? weekEntry.data.homework : [];
+  // Imported program content is a draft. It cannot become Due or Home's main action until the founder confirms it.
+  const homework = weekEntry?.ok && !weekEntry.data.seeded ? weekEntry.data.homework : [];
   const openHomework = homework.filter((h) => h.status === "open");
 
-  const commitments = checkin?.commitments ?? [];
+  const commitments = checkin?.commitments.filter((commitment) => !commitment.repeat) ?? [];
   const ranked = [...commitments.map((c) => ({ ...c, week: weekId })), ...carried];
   const records = preloaded ?? (await loadLoopRecords());
   const facts = await loadGuideFacts(f, records);
   const guide = guideStepForWeek(f.stage, facts, ranked);
   const report = await checkData();
   const followUps = dueFollowUps(records.conversations, today);
+  const decisionHorizon = addDays(today, 7);
+  const decisionRows = (await listEntries("decision"))
+    .flatMap((entry) => (entry.ok ? [entry] : []))
+    .sort((a, b) => b.data.date.localeCompare(a.data.date) || a.path.localeCompare(b.path));
+  const openDecisions = decisionRows.flatMap((entry, index) => {
+    if (entry.data.seeded || entry.data.status !== "open" || !entry.data.decideBy || entry.data.decideBy > decisionHorizon) return [];
+    const page = Math.floor(index / PAGE_SIZE) + 1;
+    const pageQuery = page > 1 ? `?page=${page}` : "";
+    return [{ id: entry.path, title: entry.data.title, decideBy: entry.data.decideBy, href: `/decisions${pageQuery}#${slugOf(entry.path)}` }];
+  });
 
   const next = nextStep({
     today,
@@ -115,21 +135,26 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
   const lastCheckin = checkins.find((c) => c.week === lastWeekId);
   const goal = checkin?.talkGoal ?? f.weeklyTalkGoal ?? DEFAULT_TALK_GOAL;
   const lastGoal = lastCheckin?.talkGoal ?? f.weeklyTalkGoal ?? DEFAULT_TALK_GOAL;
+  const customerOutreach = checkin?.outreach?.find((row) => row.audience === "customer");
   const talkedTo = {
     count: talkedToInWeek(records.conversations, weekId),
     goal,
-    reached: checkin?.outreach?.reached ?? 0,
-    replied: checkin?.outreach?.replied ?? 0,
+    reached: customerOutreach?.reached ?? 0,
+    replied: customerOutreach?.replied ?? 0,
     // Only a week the founder was using Founderive counts: Founderive keeps no setup date, so last week's check-in is
     // the sign. A founder in their first week has no shortfall.
     lastWeekShort: lastCheckin ? Math.max(0, lastGoal - talkedToInWeek(records.conversations, lastWeekId)) : 0,
   };
   const importedWaiting = records.conversations.filter((c) => c.data.seeded).length;
+  const editedBlocks = (await listEntries("canvasBlock")).flatMap((entry) => (entry.ok && entry.data.agentEdit ? [{ href: `/canvas/${entry.data.id}` }] : []));
+  const editedConversations = records.conversations.flatMap((entry) => (entry.data.agentEdit ? [{ href: `/conversations/${slugOf(entry.path)}` }] : []));
+  const pendingAgentEdits = [...editedBlocks, ...editedConversations];
+  const agentEditsWaiting = { count: pendingAgentEdits.length, href: pendingAgentEdits[0]?.href ?? null };
   const changesWaiting = records.conversations
     .filter((c) => needsInterpretation(c.data, c.notes))
     .sort((a, b) => conversationDate(a).localeCompare(conversationDate(b)) || a.path.localeCompare(b.path))
     .map((c) => ({ path: c.path, person: c.data.person, date: conversationDate(c), href: `/conversations/${slugOf(c.path)}`, areas: c.data.areas }));
-  const dueList = buildDueItems({ commitments: ranked, homework, followUps });
+  const dueList = buildDueItems({ commitments: ranked, homework, followUps, decisions: openDecisions });
   const action = homeAction({
     today,
     risk: next && next.tier === 1 ? { label: next.label, reason: next.reason, href: next.href ?? "/today" } : null,
@@ -165,6 +190,7 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
     path,
     talkedTo,
     importedWaiting,
+    agentEditsWaiting,
     changesWaiting,
     dueItems: dueList,
     action,

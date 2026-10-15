@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Badge, Card, formatDate, PageHeader } from "@/components/ui";
 import { DecisionForm } from "@/components/decisions/DecisionForm";
+import { ResolveDecisionForm } from "@/components/decisions/ResolveDecisionForm";
 import { BrokenLinks } from "@/components/workbook/BrokenLinks";
 import { SeededNote } from "@/components/workbook/SeededNote";
 import { CopyPrompt } from "@/components/workbook/CopyPrompt";
@@ -19,7 +20,7 @@ import { pageHref, pageNumber, paginate } from "@/lib/pagination";
 export default function DecisionsPage({ searchParams }: PageProps<"/decisions">) {
   return (
     <>
-      <PageHeader title="Decisions">Calls you made outside a test, with the reasoning kept. A test&apos;s own decision stays on the test.</PageHeader>
+      <PageHeader title="Decisions">Open questions and calls you made outside a test, with the reasoning kept. A test&apos;s own decision stays on the test.</PageHeader>
       <Suspense fallback={null}>
         {searchParams.then((sp) => (
           <DecisionsContent requestedPage={pageNumber(sp.page)} />
@@ -46,7 +47,7 @@ async function DecisionsContent({ requestedPage }: { requestedPage: number }) {
         </ul>
       )}
       {rows.length === 0 ? (
-        <EmptyState title="No decisions logged yet" detail="When you make a call that changes direction, write down what you believed, what you saw and why, using the form below.">
+        <EmptyState title="No questions or decisions logged yet" detail="Park an open question or record a call that changes direction using the form below.">
           <CopyPrompt prompts={{ fileChat: fillPrompt(SKILL_PROMPTS.decisions, promptVars) }} />
         </EmptyState>
       ) : (
@@ -59,7 +60,7 @@ async function DecisionsContent({ requestedPage }: { requestedPage: number }) {
         </ul>
       )}
       <Pagination {...paged} itemLabel="decisions" hrefForPage={(page) => pageHref("/decisions", {}, "page", page)} />
-      <Card title="Record a decision" className="mt-8">
+      <Card title="Record a question or decision" className="mt-8">
         <DecisionForm today={today} evidenceOptions={evidenceOptions} tests={tests} />
       </Card>
     </>
@@ -80,12 +81,12 @@ function RecordLink({ path, label }: { path: string; label: string }) {
 function DecisionCard({ row, labels }: { row: DecisionRow; labels: Map<string, string> }) {
   const d = row.data;
   return (
-    <article className="rounded-xl border border-line bg-paper p-5">
+    <article id={row.path.slice(row.path.lastIndexOf("/") + 1, -3)} className="rounded-xl border border-line bg-paper p-5">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="font-semibold text-navy">{d.title}</h2>
         <span className="text-sm text-muted">{formatDate(d.date)}</span>
         {d.area && <Badge>{AREA_LABELS[d.area]}</Badge>}
-        <Badge tone={d.reversible ? "neutral" : "warn"}>{d.reversible ? "Easy to undo" : "Hard to undo"}</Badge>
+        {d.status === "open" ? <Badge tone="warn">Open</Badge> : <Badge tone={d.reversible ? "neutral" : "warn"}>{d.reversible ? "Easy to undo" : "Hard to undo"}</Badge>}
       </div>
       {/* An imported decision is a draft until the founder confirms it as theirs (amendment §3.4). */}
       {d.seeded && (
@@ -99,20 +100,30 @@ function DecisionCard({ row, labels }: { row: DecisionRow; labels: Map<string, s
         </div>
       )}
       <dl className="mt-3 space-y-2 text-sm">
+        {d.status === "open" && d.decideBy && (
+          <div>
+            <dt className="font-medium text-ink">Decide by</dt>
+            <dd className="text-ink">{formatDate(d.decideBy)}</dd>
+          </div>
+        )}
         {d.beliefBefore && (
           <div>
             <dt className="font-medium text-ink">Believed before</dt>
             <dd className="text-muted">{d.beliefBefore}</dd>
           </div>
         )}
-        <div>
-          <dt className="font-medium text-ink">Decided</dt>
-          <dd className="text-ink">{d.decision}</dd>
-        </div>
-        <div>
-          <dt className="font-medium text-ink">Why</dt>
-          <dd className="text-muted">{d.why}</dd>
-        </div>
+        {d.status === "decided" && (
+          <>
+            <div>
+              <dt className="font-medium text-ink">Decided</dt>
+              <dd className="text-ink">{d.decision}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-ink">Why</dt>
+              <dd className="text-muted">{d.why}</dd>
+            </div>
+          </>
+        )}
         {d.alternatives.length > 0 && (
           <div>
             <dt className="font-medium text-ink">Alternatives considered</dt>
@@ -148,6 +159,7 @@ function DecisionCard({ row, labels }: { row: DecisionRow; labels: Map<string, s
           </div>
         )}
       </dl>
+      {d.status === "open" && <ResolveDecisionForm path={row.path} />}
     </article>
   );
 }

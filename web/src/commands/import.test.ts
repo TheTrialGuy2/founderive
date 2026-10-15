@@ -3,6 +3,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
+import { updateEntry } from "../store/update";
 import { setBlocker, setCommitmentStatus } from "./checkin";
 import { applyWeekUpdate, confirmImportedRecord, createImportDrafts, dismissBringWhatYouHave, importIdOf, weekUpdateIdOf } from "./import";
 
@@ -120,6 +121,15 @@ describe("applyWeekUpdate", () => {
     await applyWeekUpdate("2026-W42", "kept: c-1", T);
     const week = await readEntry("checkin", "checkins/2026-W42.md");
     expect(week?.ok && week.data).toMatchObject({ outcome: "Talk to five agency owners about scheduling", blocker: "No intros", helpNeeded: "Chris, for two intros" });
+  });
+  it("does not ask the founder to review a repeating schedule definition", async () => {
+    await updateEntry("checkin", "checkins/2026-W42.md", (data, body) => ({
+      data: { ...data!, commitments: [...data!.commitments, { id: "c-repeat", text: "Weekly post", due: "tue", status: "open", reason: null, link: null, repeat: { every: "week" as const } }] },
+      body,
+    }));
+    await expect(applyWeekUpdate("2026-W42", "kept: c-1", T)).resolves.toMatchObject({ status: "applied" });
+    const week = await readEntry("checkin", "checkins/2026-W42.md");
+    expect(week?.ok && week.data.commitments.find((item) => item.id === "c-repeat")?.status).toBe("open");
   });
   it("is all or nothing: a failure after the first change leaves the file exactly as it was", async () => {
     const before = await readFile(file(), "utf8");

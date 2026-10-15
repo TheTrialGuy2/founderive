@@ -132,11 +132,11 @@ export function weekPrompt(vars: Record<string, string>): string {
   return fillPrompt(PASTE_WEEK, vars);
 }
 
-type WeekCheckin = { outcome?: string | null; commitments: { id: string; text: string; due?: string | null; status: "open" | "done" | "dropped" }[] } | null;
+type WeekCheckin = { outcome?: string | null; commitments: { id: string; text: string; due?: string | null; status: "open" | "done" | "dropped"; repeat?: unknown }[] } | null;
 
 /** {outcome} and {commitments} for the weekly prompt: one line per open commitment, `id: text (due date or "no due date")`. */
 export function weekPromptVars(checkin: WeekCheckin): { outcome: string; commitments: string } {
-  const open = (checkin?.commitments ?? []).filter((c) => c.status === "open");
+  const open = (checkin?.commitments ?? []).filter((c) => c.status === "open" && !c.repeat);
   return {
     outcome: checkin?.outcome || NONE_YET,
     commitments: open.length ? open.map((c) => `${c.id}: ${c.text} (${c.due ?? "no due date"})`).join("\n") : NONE_OPEN,
