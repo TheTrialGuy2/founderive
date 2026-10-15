@@ -20,7 +20,7 @@ export function MarkDone({ step, nextStep, primary = false }: { step: PathStep; 
   }
   return (
     <details>
-      <summary className={`${primary ? buttonPrimary : buttonQuiet} cursor-pointer list-none`}>Mark step done{nextStep ? ` → ${nextStep.title}` : ""}</summary>
+      <summary className={`${primary ? buttonPrimary : buttonQuiet} cursor-pointer list-none`}>Mark step done</summary>
       <p className="mt-2 text-sm text-muted">You can reopen it anytime; your answer stays.</p>
       {/* After saving, the founder lands on the next step (or Home when this is the last one). */}
       <InlineForm action={markStepDoneAction} fields={nextStep ? { id: step.id, next: nextStep.href } : { id: step.id }} submit="Mark done">

@@ -3,10 +3,10 @@ import type { DueItem } from "./due";
 import { homeAction } from "./home";
 import type { PathStep, PathView } from "./path";
 
-const step = (over: Partial<PathStep> = {}): PathStep => ({ id: "problem", title: "Problem", meaning: "", doneWhen: "", done: false, doneOn: null, doneReason: null, discussed: 0, tested: false, planned: 0, href: "/path/problem", ...over });
+const step = (over: Partial<PathStep> = {}): PathStep => ({ id: "problem", title: "Problem", meaning: "", doneWhen: "", done: false, doneOn: null, doneReason: null, needsConfirmation: false, discussed: 0, tested: false, planned: 0, href: "/path/problem", ...over });
 const path = (current: PathStep | null, allDone = false): PathView => ({ steps: current ? [current] : [], current, doneCount: 0, total: 1, allDone });
 const item = (due: string | null): DueItem => ({ key: "commitment:2026-W42:c-1", kind: "commitment", id: "c-1", text: "Call Dana", due, week: "2026-W42" });
-const base = { today: "2026-10-14", risk: null, outcome: "Talk to three people", blocker: null, due: [] as DueItem[], importedWaiting: 0, path: path(step()) };
+const base = { today: "2026-10-14", risk: null, outcome: "Talk to three people", blocker: null, due: [] as DueItem[], importedWaiting: 0, changesWaiting: [] as { person: string; href: string }[], path: path(step()) };
 
 describe("homeAction", () => {
   it("puts a risk first", () => {
@@ -50,6 +50,16 @@ describe("homeAction", () => {
     expect(homeAction({ ...base, importedWaiting: 3 })).toEqual({ kind: "imports", label: "Review 3 imported conversations", reason: "Imported conversations don't count until you confirm them.", href: "/people?show=imported" });
     expect(homeAction({ ...base, importedWaiting: 1 })?.label).toBe("Review 1 imported conversation");
     expect(homeAction({ ...base, importedWaiting: 2, path: path(null, true) })?.kind).toBe("imports");
+  });
+  it("asks what confirmed evidence changes after imports and before the step", () => {
+    const changesWaiting = [{ person: "Dana", href: "/conversations/2026-10-08-dana" }];
+    expect(homeAction({ ...base, changesWaiting, importedWaiting: 2 })?.kind).toBe("imports");
+    expect(homeAction({ ...base, changesWaiting })).toEqual({
+      kind: "interpretation",
+      label: "Decide what this changes",
+      reason: "1 customer conversation has evidence you haven't connected to a change yet.",
+      href: "/conversations/2026-10-08-dana",
+    });
   });
   it("asks to choose a focus when every step is done", () => {
     expect(homeAction({ ...base, path: path(null, true) })).toMatchObject({ kind: "focus", label: "Choose this week's focus" });

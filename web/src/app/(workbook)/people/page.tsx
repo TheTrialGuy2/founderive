@@ -7,12 +7,14 @@ import { ConfirmAllImports } from "@/components/people/ConfirmAllImports";
 import { PlanConversation } from "@/components/people/PlanConversation";
 import { ActionButton } from "@/components/today/ActionButton";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
+import { Pagination } from "@/components/workbook/Pagination";
 import { archiveImportedConversationAction, confirmImportedConversationAction } from "@/app/(workbook)/people/actions";
 import { loadAreaOptions } from "@/commands/canvas";
 import { loadPeople, type PeopleFilter } from "@/commands/lists";
 import { loadFounderToday } from "@/commands/today";
 import { addDays, isoWeekId } from "@/core/week";
 import { areaLabel } from "@/lib/loop-labels";
+import { pageHref, pageNumber, paginate, type PageSlice } from "@/lib/pagination";
 
 export default function PeoplePage({ searchParams }: PageProps<"/people">) {
   return (
@@ -25,7 +27,7 @@ export default function PeoplePage({ searchParams }: PageProps<"/people">) {
           const show = filterOf(sp.show);
           return (
             <Suspense fallback={null}>
-              <People show={show} moved={show === "imported" ? movedOf(sp.moved) : null} />
+              <People show={show} moved={show === "imported" ? movedOf(sp.moved) : null} requestedPage={pageNumber(sp.page)} />
             </Suspense>
           );
         })}
@@ -45,10 +47,11 @@ async function Plan() {
   return <PlanConversation weekId={isoWeekId(today)} tomorrow={addDays(today, 1)} steps={steps} />;
 }
 
-async function People({ show, moved }: { show: PeopleFilter; moved: string | null }) {
+async function People({ show, moved, requestedPage }: { show: PeopleFilter; moved: string | null; requestedPage: number }) {
   await connection();
   const { cards, total, imported, flaggedImports } = await loadPeople(show);
-  // On the Imported filter, Confirm all is the one main action while anything waits, so logging goes quiet there.
+  const paged = paginate(cards, requestedPage);
+  // On the Imported filter, confirming the visible records is the one main action while anything waits, so logging goes quiet there.
   const confirming = show === "imported" && cards.length > 0;
   const tab = (href: string, label: string, on: boolean) => (
     <Link href={href} aria-current={on ? "page" : undefined} className={`rounded-md px-3 py-1 text-sm ${on ? "bg-navy font-semibold text-white" : "text-teal-dark hover:bg-aqua/45"}`}>
@@ -72,7 +75,7 @@ async function People({ show, moved }: { show: PeopleFilter; moved: string | nul
           {(waiting > 0 || show === "imported") && tab("/people?show=imported", importedLabel, show === "imported")}
         </nav>
         {show === "imported" ? (
-          <Imported cards={cards} flagged={flaggedImports} moved={moved} />
+          <Imported cards={paged.items} flagged={flaggedImports} moved={moved} page={paged} />
         ) : total === 0 ? (
           <>
             <p className="text-sm text-muted">Nobody logged yet. Every conversation you log shows here.</p>
@@ -93,12 +96,15 @@ async function People({ show, moved }: { show: PeopleFilter; moved: string | nul
           </p>
         ) : (
           <ul className="space-y-2">
-            {cards.map((c) => (
+            {paged.items.map((c) => (
               <li key={c.slug}>
                 <PersonLink c={c} />
               </li>
             ))}
           </ul>
+        )}
+        {show !== "imported" && (
+          <Pagination {...paged} itemLabel="conversations" hrefForPage={(page) => pageHref("/people", { show: show === "feedback" ? undefined : show }, "page", page)} />
         )}
       </section>
     </>
@@ -122,7 +128,7 @@ function PersonLink({ c }: { c: Card }) {
 }
 
 /** Imported conversations wait here until the founder confirms them; only then do they count as people talked to. */
-function Imported({ cards, flagged, moved }: { cards: Card[]; flagged: { path: string; error: string }[]; moved: string | null }) {
+function Imported({ cards, flagged, moved, page }: { cards: Card[]; flagged: { path: string; error: string }[]; moved: string | null; page: PageSlice<Card> }) {
   return (
     <>
       <p className="mb-3 text-sm text-muted">
@@ -133,7 +139,7 @@ function Imported({ cards, flagged, moved }: { cards: Card[]; flagged: { path: s
           Moved to <span className="font-mono text-xs">founder-data/{moved}</span>. To undo, move the file back to <span className="font-mono text-xs">founder-data/conversations/</span>.
         </p>
       )}
-      <ConfirmAllImports paths={cards.map((c) => c.path)} />
+      <ConfirmAllImports paths={cards.map((c) => c.path)} paginated={page.pageCount > 1} />
       {cards.length === 0 && flagged.length === 0 && (
         <p className="text-sm text-muted">
           {moved ? "Nothing else waits for you." : "Nothing waiting. Everything you imported is confirmed."}{" "}
@@ -153,6 +159,7 @@ function Imported({ cards, flagged, moved }: { cards: Card[]; flagged: { path: s
           ))}
         </ul>
       )}
+      <Pagination {...page} itemLabel="imported conversations" hrefForPage={(number) => pageHref("/people", { show: "imported" }, "page", number)} />
       {flagged.length > 0 && (
         <>
           <h2 className="mt-6 text-sm font-semibold text-navy">Imported files to fix · {flagged.length}</h2>

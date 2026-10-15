@@ -65,3 +65,131 @@ textarea::placeholder {
     width: var(--panel-w, 440px);
   }
 }
+
+/* Step navigation responds to the workbook's available width, including the space taken by the Claude panel. */
+.step-page {
+  container-type: inline-size;
+}
+
+.step-menu {
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-line);
+  padding-bottom: 0.75rem;
+}
+
+.step-menu-heading {
+  margin-bottom: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+  text-transform: uppercase;
+}
+
+.step-menu-list {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.step-menu-item {
+  flex: none;
+}
+
+.step-menu-link {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.step-menu-link:hover {
+  background: color-mix(in srgb, var(--color-aqua) 45%, transparent);
+}
+
+.step-menu-link-current {
+  background: var(--color-navy);
+  color: white;
+}
+
+.step-menu-link-current:hover {
+  background: var(--color-navy-light);
+}
+
+.step-menu-number {
+  width: 1rem;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.step-menu-link-current .step-menu-number,
+.step-menu-link-current .step-menu-status {
+  color: white;
+}
+
+.step-menu-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.step-menu-status {
+  font-size: 0.6875rem;
+  color: var(--color-teal-dark);
+}
+
+/* When the desktop terminal narrows the page, keep the compact step strip in view as the founder scrolls. */
+@media (min-width: 900px) {
+  .step-menu {
+    position: sticky;
+    top: 1rem;
+    z-index: 20;
+    border-radius: 0.75rem 0.75rem 0 0;
+    background: color-mix(in srgb, var(--color-canvas) 94%, transparent);
+    padding-top: 0.5rem;
+    backdrop-filter: blur(8px);
+  }
+}
+
+@container (min-width: 48rem) {
+  .step-page-grid {
+    display: grid;
+    grid-template-columns: 11.5rem minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .step-menu {
+    position: sticky;
+    top: 2rem;
+    margin-bottom: 0;
+    border-radius: 0;
+    border-right: 1px solid var(--color-line);
+    border-bottom: 0;
+    background: transparent;
+    padding-right: 1rem;
+    padding-top: 0;
+    padding-bottom: 0;
+    backdrop-filter: none;
+  }
+
+  .step-menu-list {
+    display: block;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .step-menu-item + .step-menu-item {
+    margin-top: 0.125rem;
+  }
+
+  .step-menu-link {
+    white-space: normal;
+  }
+
+}

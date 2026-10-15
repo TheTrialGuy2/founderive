@@ -26,6 +26,9 @@ export function hasEvidenceContent(c: EvidenceFields, notes: string): boolean {
  */
 export const isEvidenceEligible = (c: EvidenceFields, notes: string): boolean => countsAsEvidence(c) && hasEvidenceContent(c, notes);
 
+/** Confirmed customer evidence still needs the founder's interpretation before it can change the venture. */
+export const needsInterpretation = (c: EvidenceFields & { whatChangesConfirmed?: boolean }, notes: string): boolean => isEvidenceEligible(c, notes) && !c.whatChangesConfirmed;
+
 /** How a conversation linked to a test reads on that test. Only "evidence" counts. */
 export type LinkState = "evidence" | "advice" | "unconfirmed" | "no-content" | "needs-repair";
 export type ConversationRecord = { path: string; data: EvidenceFields & { relatedTests: string[] }; notes: string };

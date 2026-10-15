@@ -17,7 +17,7 @@ async function stepDef(id: string) {
 /** The path from what's on disk: the canvas steps and their done dates, plus the given records and open commitments. */
 export async function loadPathFor(input: { setupComplete: boolean; focus: string | null | undefined; openCommitments: { link?: string | null }[]; records: LoopRecords }): Promise<PathView> {
   const { defs } = await loadCanvasDefs();
-  const blocks = new Map((await listEntries("canvasBlock")).flatMap((e) => (e.ok ? [[e.data.id, { done: e.data.done, doneReason: e.data.doneReason }] as const] : [])));
+  const blocks = new Map((await listEntries("canvasBlock")).flatMap((e) => (e.ok ? [[e.data.id, { done: e.data.done, doneReason: e.data.doneReason, seeded: e.data.seeded }] as const] : [])));
   return buildPath({ defs, blocks, setupComplete: input.setupComplete, conversations: input.records.conversations, tests: input.records.tests, openCommitments: input.openCommitments, focus: input.focus });
 }
 

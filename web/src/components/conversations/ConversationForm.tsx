@@ -140,10 +140,6 @@ export function ConversationForm({ mode, initial, path, areaOptions, returnTo, p
               );
             })}
           </fieldset>
-          {textArea("whatChanges", "What this changes (optional)", 2, {
-            placeholder: "e.g. The price ceiling may be near $300 a month",
-            hint: "Your own reading of it. You can change it later.",
-          })}
         </>
       )}
 

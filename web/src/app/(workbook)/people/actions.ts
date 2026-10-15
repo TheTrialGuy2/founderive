@@ -3,11 +3,18 @@
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { archiveImportedConversation, confirmAllImportedConversations, confirmImportedConversation } from "@/commands/conversations";
+import { slugOf } from "@/core/slug";
 import type { ActionState } from "@/lib/action-state";
-import { field, run } from "../action-utils";
+import { field } from "../action-utils";
 
 export async function confirmImportedConversationAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  return run(() => confirmImportedConversation(field(fd, "path")));
+  const path = field(fd, "path");
+  try {
+    await confirmImportedConversation(path);
+  } catch (error) {
+    return { status: "error", message: error instanceof Error ? error.message : "Couldn't confirm it. Try again." };
+  }
+  redirect(`/conversations/${slugOf(path)}`);
 }
 
 /**

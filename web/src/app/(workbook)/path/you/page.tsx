@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 import { PageHeader } from "@/components/ui";
+import { NextStepLink, StepPageFrame } from "@/components/path/StepNavigation";
 import { LogoRow } from "@/components/workbook/LogoRow";
 import { logoVersion } from "@/commands/logo";
 import { loadToday } from "@/commands/today";
@@ -47,8 +48,9 @@ async function YouContent() {
     { label: "Hours a week", step: 4, content: f.hoursPerWeek != null ? String(f.hoursPerWeek) : <Empty /> },
   ];
   const logoV = await logoVersion();
+  const nextStep = view.path.steps[1] ?? null;
   return (
-    <>
+    <StepPageFrame steps={view.path.steps} currentId="you">
       <Link href="/today" className="text-sm text-teal-dark hover:text-navy">
         ← Your path · Step 1 of {view.path.total}
       </Link>
@@ -79,6 +81,9 @@ async function YouContent() {
           </Link>
         </p>
       </section>
-    </>
+      <footer className="mt-12 flex justify-end border-t border-line pt-6">
+        <NextStepLink nextStep={nextStep} />
+      </footer>
+    </StepPageFrame>
   );
 }

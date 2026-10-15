@@ -1,10 +1,10 @@
 import { capacityWarning } from "../core/capacity";
-import { dueFollowUps } from "../core/conversations";
+import { dueFollowUps, needsInterpretation } from "../core/conversations";
 import { dueItems as buildDueItems, type DueItem } from "../core/due";
 import { guideProgress, guideStepForWeek, type GuideStep } from "../core/guide";
 import { homeAction, type HomeAction } from "../core/home";
 import { activeChoices, nextStep, type Candidate } from "../core/next-step";
-import { DEFAULT_TALK_GOAL, talkedToInWeek, type PathView } from "../core/path";
+import { conversationDate, DEFAULT_TALK_GOAL, talkedToInWeek, type PathView } from "../core/path";
 import { currentWeek, weekFile } from "../core/program";
 import { slugOf } from "../core/slug";
 import { localISODate, resolveToday } from "../core/today";
@@ -45,6 +45,8 @@ export type TodayView =
       talkedTo: { count: number; goal: number; reached: number; replied: number; lastWeekShort: number };
       /** Imported conversations (seeded) waiting for the founder to confirm them. They don't count as evidence until then. */
       importedWaiting: number;
+      /** Confirmed customer evidence waiting for the founder to say what it changes, oldest first. */
+      changesWaiting: { path: string; person: string; date: string; href: string; areas: string[] }[];
       dueItems: DueItem[];
       action: HomeAction | null;
     };
@@ -123,6 +125,10 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
     lastWeekShort: lastCheckin ? Math.max(0, lastGoal - talkedToInWeek(records.conversations, lastWeekId)) : 0,
   };
   const importedWaiting = records.conversations.filter((c) => c.data.seeded).length;
+  const changesWaiting = records.conversations
+    .filter((c) => needsInterpretation(c.data, c.notes))
+    .sort((a, b) => conversationDate(a).localeCompare(conversationDate(b)) || a.path.localeCompare(b.path))
+    .map((c) => ({ path: c.path, person: c.data.person, date: conversationDate(c), href: `/conversations/${slugOf(c.path)}`, areas: c.data.areas }));
   const dueList = buildDueItems({ commitments: ranked, homework, followUps });
   const action = homeAction({
     today,
@@ -131,6 +137,7 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
     blocker: checkin?.blocker,
     due: dueList,
     importedWaiting,
+    changesWaiting,
     path,
   });
 
@@ -158,6 +165,7 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
     path,
     talkedTo,
     importedWaiting,
+    changesWaiting,
     dueItems: dueList,
     action,
   };

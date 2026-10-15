@@ -12,7 +12,7 @@ const plural = (n: number) => `${n} conversation${n === 1 ? "" : "s"}`;
  * the page loaded isn't confirmed unseen. Its message stays after the list empties; a file that turned unreadable is
  * pointed to the "Imported files to fix" list rather than listed twice, and a file that couldn't be saved is named.
  */
-export function ConfirmAllImports({ paths }: { paths: string[] }) {
+export function ConfirmAllImports({ paths, paginated = false }: { paths: string[]; paginated?: boolean }) {
   const [state, formAction, pending] = useActionState(confirmAllImportedAction, IDLE);
   const saved = state.status === "saved";
   const confirmed = saved ? Number(state.result?.confirmed ?? 0) : 0;
@@ -26,7 +26,7 @@ export function ConfirmAllImports({ paths }: { paths: string[] }) {
             <input key={p} type="hidden" name="path" value={p} />
           ))}
           <button type="submit" disabled={pending} className={buttonPrimary}>
-            {pending ? "Confirming…" : `Confirm all ${paths.length}`}
+            {pending ? "Confirming…" : paginated ? `Confirm this page · ${paths.length}` : `Confirm all ${paths.length}`}
           </button>
         </form>
       )}

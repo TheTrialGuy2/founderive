@@ -3,7 +3,9 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { formatDate, PageHeader } from "@/components/ui";
 import { buttonQuiet, inputClass } from "@/components/workbook/form";
+import { Pagination } from "@/components/workbook/Pagination";
 import { loadLogged } from "@/commands/lists";
+import { pageHref, pageNumber, paginate } from "@/lib/pagination";
 
 const KIND_LABELS = { conversation: "Conversation", test: "Test", decision: "Decision" } as const;
 
@@ -13,16 +15,17 @@ export default function LoggedPage({ searchParams }: PageProps<"/logged">) {
       <PageHeader title="Everything logged">Your conversations, tests and decisions, newest first.</PageHeader>
       <Suspense fallback={null}>
         {searchParams.then((sp) => (
-          <Logged type={typeof sp.type === "string" ? sp.type : ""} q={typeof sp.q === "string" ? sp.q : ""} />
+          <Logged type={typeof sp.type === "string" ? sp.type : ""} q={typeof sp.q === "string" ? sp.q : ""} requestedPage={pageNumber(sp.page)} />
         ))}
       </Suspense>
     </>
   );
 }
 
-async function Logged({ type, q }: { type: string; q: string }) {
+async function Logged({ type, q, requestedPage }: { type: string; q: string; requestedPage: number }) {
   await connection();
   const { rows, total } = await loadLogged({ type, q });
+  const paged = paginate(rows, requestedPage);
   const filtered = !!type || !!q;
   return (
     <>
@@ -63,7 +66,7 @@ async function Logged({ type, q }: { type: string; q: string }) {
         </p>
       ) : (
         <ul className="divide-y divide-line rounded-xl border border-line bg-paper">
-          {rows.map((r, i) => (
+          {paged.items.map((r, i) => (
             <li key={`${r.kind}-${r.href}-${i}`} className="flex flex-wrap items-baseline gap-3 px-4 py-3">
               <span className="w-28 text-xs text-muted">{KIND_LABELS[r.kind]}</span>
               <Link href={r.href} className="flex-1 font-medium text-navy hover:text-teal-dark">
@@ -74,6 +77,7 @@ async function Logged({ type, q }: { type: string; q: string }) {
           ))}
         </ul>
       )}
+      <Pagination {...paged} itemLabel="records" hrefForPage={(page) => pageHref("/logged", { type: type || undefined, q: q || undefined }, "page", page)} />
       <p className="mt-6 text-sm text-muted">
         Full lists:{" "}
         <Link href="/conversations" className="text-teal-dark hover:text-navy">
