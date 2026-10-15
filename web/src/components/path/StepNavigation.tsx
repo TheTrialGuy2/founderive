@@ -20,11 +20,11 @@ function StepNavigation({ steps, currentId }: { steps: PathStep[]; currentId: st
   return (
     <nav className="step-menu" aria-label="Path steps">
       <p className="step-menu-heading">Steps</p>
-      <ol className="step-menu-list">
+      <ol className="step-menu-list flex max-w-full flex-nowrap gap-1 overflow-x-auto pb-1">
         {steps.map((step, index) => {
           const current = step.id === currentId;
           return (
-            <li key={step.id} className="step-menu-item">
+            <li key={step.id} className="step-menu-item shrink-0">
               <Link href={step.href} aria-current={current ? "step" : undefined} className={`step-menu-link ${current ? "step-menu-link-current" : ""}`}>
                 <span className="step-menu-number" aria-hidden>
                   {index + 1}

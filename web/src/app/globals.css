@@ -156,7 +156,7 @@ textarea::placeholder {
   }
 }
 
-@container (min-width: 48rem) {
+@container (min-width: 36rem) {
   .step-page-grid {
     display: grid;
     grid-template-columns: 11.5rem minmax(0, 1fr);
