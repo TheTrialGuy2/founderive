@@ -20,15 +20,41 @@ describe("path fields", () => {
   });
   it("keeps this week's talk goal, outreach and focus on the check-in", () => {
     const r = checkinSchema.safeParse({ week: "2026-W42", talkGoal: 4, outreach: { reached: 14, replied: 4 }, focus: "revenue" });
-    expect(r.success && r.data.outreach).toEqual({ reached: 14, replied: 4 });
+    expect(r.success && r.data.outreach).toEqual([{ audience: "customer", reached: 14, replied: 4 }]);
     expect(checkinSchema.safeParse({ week: "2026-W42", outreach: { reached: -1, replied: 0 } }).success).toBe(false);
     expect(checkinSchema.safeParse({ week: "2026-W42", talkGoal: 0 }).success).toBe(false);
   });
   it("allows replied to be more than reached (people write to you first)", () => {
     expect(checkinSchema.safeParse({ week: "2026-W42", outreach: { reached: 1, replied: 3 } }).success).toBe(true);
   });
+  it("keeps outreach audiences separate and rejects unknown or duplicate audiences", () => {
+    const rows = [
+      { audience: "customer", reached: 1, replied: 0 },
+      { audience: "partner", reached: 3, replied: 1 },
+    ];
+    expect(checkinSchema.parse({ week: "2026-W42", outreach: rows }).outreach).toEqual(rows);
+    expect(checkinSchema.safeParse({ week: "2026-W42", outreach: [...rows, rows[0]] }).success).toBe(false);
+    expect(checkinSchema.safeParse({ week: "2026-W42", outreach: [{ audience: "vendor", reached: 1, replied: 0 }] }).success).toBe(false);
+  });
+  it("accepts weekly repeating commitments only with valid, unique weekdays", () => {
+    const base = { week: "2026-W42", commitments: [{ id: "post", text: "Post", status: "open", repeat: { every: "week", days: ["tue", "thu"] } }] };
+    expect(checkinSchema.safeParse(base).success).toBe(true);
+    expect(checkinSchema.safeParse({ ...base, commitments: [{ ...base.commitments[0], repeat: { every: "week", days: ["tue", "tue"] } }] }).success).toBe(false);
+    expect(checkinSchema.safeParse({ week: "2026-W42", commitments: [{ id: "x", text: "X", due: "sun" }] }).success).toBe(false);
+    expect(checkinSchema.safeParse({ week: "2026-W42", commitments: [{ id: "x", text: "X", due: "sun", repeat: { every: "week" } }] }).success).toBe(true);
+  });
   it("keeps a weekly talk goal on the founder", () => {
     expect(founderSchema.safeParse({ weeklyTalkGoal: 5 }).success).toBe(true);
     expect(founderSchema.safeParse({ weeklyTalkGoal: 0 }).success).toBe(false);
+  });
+  it("validates nested goal counts against their named parent", () => {
+    const goals = [
+      { id: "testers", text: "People test", target: 10, count: 4 },
+      { id: "finishers", text: "People finish", target: 10, count: 1, of: "testers" },
+    ];
+    expect(founderSchema.safeParse({ goals }).success).toBe(true);
+    const result = founderSchema.safeParse({ goals: [goals[0], { ...goals[1], count: 5 }] });
+    expect(result.success).toBe(false);
+    expect(!result.success && result.error.issues[0].message).toContain("finishers count cannot exceed parent testers count");
   });
 });

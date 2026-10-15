@@ -2,7 +2,7 @@ import { mkdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useTempData } from "../store/test-helpers";
-import { addCommitment, appendCommitmentOnce, loadCheckin, recordChoice, setBlocker, setCommitmentStatus, setOutcome } from "./checkin";
+import { addCommitment, appendCommitmentOnce, loadCheckin, materializeRepeatingCommitments, recordChoice, setBlocker, setCommitmentStatus, setOutcome } from "./checkin";
 
 let env: Awaited<ReturnType<typeof useTempData>>;
 beforeEach(async () => (env = await useTempData()));
@@ -64,5 +64,31 @@ describe("check-in commands", () => {
     expect(await appendCommitmentOnce("2026-W45", { ...item, id: "c-other" }, isIt)).toEqual(saved);
     expect((await stat(file)).mtimeMs).toBe(before);
     expect((await loadCheckin("2026-W45")).data.commitments).toEqual([saved]);
+  });
+  it("materialises weekly repeats once with concrete dates and leaves the definition open", async () => {
+    await writeFile(
+      path.join(env.dir, "checkins/2026-W42.md"),
+      "---\nweek: 2026-W42\ncommitments:\n  - id: c-post\n    text: LinkedIn personal post\n    status: open\n    repeat: { every: week, days: [tue, thu] }\n  - id: c-dms\n    text: Three DMs\n    due: sun\n    status: open\n    repeat: { every: week }\n---\n",
+    );
+    await materializeRepeatingCommitments("2026-W43", "2026-10-19", "2026-10-19");
+    const file = path.join(env.dir, "checkins/2026-W43.md");
+    const before = (await stat(file)).mtimeMs;
+    await new Promise((r) => setTimeout(r, 20));
+    await materializeRepeatingCommitments("2026-W43", "2026-10-19", "2026-10-19");
+    expect((await stat(file)).mtimeMs).toBe(before);
+    const current = (await loadCheckin("2026-W43")).data.commitments;
+    expect(current).toEqual([
+      { id: "c-post-2026-W42-tue-2026-W43", text: "LinkedIn personal post", due: "2026-10-20", status: "open", reason: null, link: null },
+      { id: "c-post-2026-W42-thu-2026-W43", text: "LinkedIn personal post", due: "2026-10-22", status: "open", reason: null, link: null },
+      { id: "c-dms-2026-W42-2026-W43", text: "Three DMs", due: "2026-10-25", status: "open", reason: null, link: null },
+    ]);
+    expect((await loadCheckin("2026-W42")).data.commitments.every((item) => item.status === "open" && !!item.repeat)).toBe(true);
+  });
+  it("starts a repeat made mid-week without creating already-overdue instances", async () => {
+    await writeFile(path.join(env.dir, "checkins/2026-W43.md"), "---\nweek: 2026-W43\ncommitments:\n  - id: c-post\n    text: Weekly posts\n    status: open\n    repeat: { every: week, days: [tue, fri] }\n---\n");
+    await materializeRepeatingCommitments("2026-W43", "2026-10-19", "2026-10-22");
+    expect((await loadCheckin("2026-W43")).data.commitments.filter((item) => !item.repeat)).toEqual([
+      { id: "c-post-2026-W43-fri-2026-W43", text: "Weekly posts", due: "2026-10-23", status: "open", reason: null, link: null },
+    ]);
   });
 });

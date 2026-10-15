@@ -19,6 +19,7 @@ import { isCustomerEvidence, isEvidenceEligible } from "@/core/conversations";
 import { canUnlink, linkableTests } from "@/core/venture-tests";
 import { areaLabel, STATUS_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
 import { safeReturnTo } from "@/lib/return-to";
+import { AgentEditReview } from "@/components/workbook/AgentEditReview";
 
 export default function ConversationPage({ params, searchParams }: PageProps<"/conversations/[slug]">) {
   return (
@@ -87,6 +88,9 @@ async function ConversationContent({ slug, returnTo }: { slug: string; returnTo:
           badge="Imported, not yet confirmed"
           note={isCustomerEvidence(c.type) ? "It doesn't count as evidence until you do." : undefined}
         />
+      )}
+      {c.agentEdit && (
+        <AgentEditReview kind="conversation" path={view.path} date={c.agentEdit.date} summary={c.agentEdit.summary} previous={c.agentEdit.previous} current={view.notes} />
       )}
 
       <div className="grid gap-4 md:grid-cols-2">

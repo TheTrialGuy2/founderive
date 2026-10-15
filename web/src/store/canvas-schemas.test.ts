@@ -32,4 +32,10 @@ describe("canvas kinds", () => {
     expect(paths(canvasBlockSchema, { id: "customer", status: "proven" })).toEqual(["status"]);
     expect(paths(canvasBlockSchema, { id: "customer", history: [{ date: "2026-13-01", text: "x" }] })).toEqual(["history.0.date"]);
   });
+  it("keeps an agent edit separate from an imported draft", () => {
+    const parsed = canvasBlockSchema.parse({ id: "customer", text: "New wording", agentEdit: { date: "2026-10-15", summary: "Added the pilot", previous: "Old wording" } });
+    expect(parsed.agentEdit?.previous).toBe("Old wording");
+    expect(parsed.seeded).toBeUndefined();
+    expect(paths(canvasBlockSchema, { id: "customer", text: "New", seeded: true, agentEdit: { date: "2026-10-15", summary: "Changed it", previous: "Old" } })).toEqual(["agentEdit"]);
+  });
 });

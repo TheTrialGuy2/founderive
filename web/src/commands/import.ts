@@ -134,7 +134,7 @@ export async function dismissBringWhatYouHave(): Promise<void> {
   });
 }
 
-const CONFIRMABLE = ["conversation", "test", "decision", "canvasBlock"] as const;
+const CONFIRMABLE = ["conversation", "test", "decision", "canvasBlock", "week"] as const;
 type Confirmable = (typeof CONFIRMABLE)[number];
 
 /**
@@ -187,7 +187,7 @@ export async function applyWeekUpdate(weekId: string, text: string, today: strin
     await updateEntry("checkin", checkinPath(weekId), (data, body) => {
       if (data?.appliedUpdates?.includes(op)) throw new AlreadyApplied(ALREADY_APPLIED);
       const c: KindData<"checkin"> = data ? structuredClone(data) : { week: weekId, commitments: [], nextStepLog: [] };
-      const plan = parseWeekBlock(text, c.commitments.filter((x) => x.status === "open"));
+      const plan = parseWeekBlock(text, c.commitments.filter((x) => x.status === "open" && !x.repeat));
       if (plan.errors.length > 0) throw new Error(`Nothing was changed. Fix these lines first: ${plan.errors.join(" ")}`);
       if (plan.notReviewed.length > 0)
         throw new Error(`Nothing was changed. Every open commitment needs a kept, done or dropped line. Not reviewed: ${plan.notReviewed.map((x) => x.text).join("; ")}.`);

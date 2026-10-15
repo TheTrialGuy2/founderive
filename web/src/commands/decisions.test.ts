@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
 import { createConversation } from "./conversations";
-import { createDecision, loadDecisions, parseDecisionForm } from "./decisions";
+import { createDecision, loadDecisions, parseDecisionForm, resolveDecision } from "./decisions";
 import { confirmImportedRecord } from "./import";
 import { DANA, MENTOR } from "./test-inputs";
 
@@ -47,6 +47,18 @@ describe("decision log", () => {
     expect(rel).toBe("decisions/2026-10-09-focus-on-small-agencies.md");
     const e = await readEntry("decision", rel);
     expect(e?.ok && e.data).toMatchObject({ area: "customer", reversible: true, evidence: [c], alternatives: ["Large agencies", "Independent caregivers"], relatedTest: null });
+  });
+  it("parks an open question and resolves the same file in place", async () => {
+    const conflict = parseDecisionForm(form({ title: "Who pays?", date: "2026-10-15", status: "open", decision: "stale", why: "stale", reversible: "yes" }));
+    expect(!conflict.ok && Object.keys(conflict.errors).sort()).toEqual(["decision", "reversible", "why"]);
+    const parsed = parseDecisionForm(form({ title: "Who pays?", date: "2026-10-15", status: "open", decideBy: "2026-10-29", alternatives: "Founder\nAgency" }));
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.errors));
+    const rel = await createDecision(parsed.input);
+    let entry = await readEntry("decision", rel);
+    expect(entry?.ok && entry.data).toMatchObject({ status: "open", decideBy: "2026-10-29", decision: null, why: null, reversible: null });
+    await resolveDecision(rel, { decision: "Agency pays", why: "They receive the value", reversible: "yes" });
+    entry = await readEntry("decision", rel);
+    expect(entry?.ok && entry.data).toMatchObject({ status: "decided", decision: "Agency pays", why: "They receive the value", reversible: true });
   });
   it("the related test must be a test; evidence may be any record", async () => {
     const c = await createConversation(DANA);

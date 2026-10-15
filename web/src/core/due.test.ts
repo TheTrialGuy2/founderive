@@ -33,6 +33,13 @@ describe("dueItems", () => {
     expect(items[0]).toMatchObject({ kind: "homework", key: "homework:h-1", week: null });
     expect(items[1]).toMatchObject({ kind: "commitment", key: "commitment:2026-W42:c-2" });
   });
+  it("includes an open decision once with its decide-by date and link", () => {
+    expect(
+      dueItems({ commitments: [], homework: [], decisions: [{ id: "decisions/2026-10-15-who-pays.md", title: "Who pays?", decideBy: "2026-10-20", href: "/decisions#2026-10-15-who-pays" }] }),
+    ).toEqual([
+      { key: "decision:decisions/2026-10-15-who-pays.md", kind: "decision", id: "decisions/2026-10-15-who-pays.md", text: "Decide: Who pays?", due: "2026-10-20", week: null, href: "/decisions#2026-10-15-who-pays" },
+    ]);
+  });
 });
 
 describe("dueItems with follow-ups", () => {

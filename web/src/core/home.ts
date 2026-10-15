@@ -36,7 +36,13 @@ export function homeAction(input: {
   if (input.blocker) return { kind: "blocker", label: `Work through your blocker: ${input.blocker}`, reason: "It's stopping this week's outcome." };
   // The earliest-dated item past its date, whatever order the list came in.
   const late = input.due.filter((d) => !!d.due && d.due < input.today).reduce<DueItem | null>((min, d) => (!min || (d.due as string) < (min.due as string) ? d : min), null);
-  if (late) return { kind: "overdue", label: late.text, reason: `It's ${dueWords(late, input.today)}. Finish it, or drop it with a reason.`, key: late.key };
+  if (late)
+    return {
+      kind: "overdue",
+      label: late.text,
+      reason: late.kind === "decision" ? `It's ${dueWords(late, input.today)}. Make the call or change its decide-by date.` : `It's ${dueWords(late, input.today)}. Finish it, or drop it with a reason.`,
+      key: late.key,
+    };
   if (input.importedWaiting > 0) {
     const n = input.importedWaiting;
     return { kind: "imports", label: `Review ${n} imported conversation${n === 1 ? "" : "s"}`, reason: "Imported conversations don't count until you confirm them.", href: "/people?show=imported" };

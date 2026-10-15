@@ -51,13 +51,22 @@ describe("check-in effort fields", () => {
     await bumpOutreach("2026-W42", "reached");
     await bumpOutreach("2026-W42", "reached");
     await bumpOutreach("2026-W42", "replied");
-    expect((await loadCheckin("2026-W42")).data.outreach).toEqual({ reached: 2, replied: 1 });
+    expect((await loadCheckin("2026-W42")).data.outreach).toEqual([{ audience: "customer", reached: 2, replied: 1 }]);
     await expect(bumpOutreach("2026-W42", "sent")).rejects.toThrow();
   });
   it("corrects outreach by hand; replied may exceed reached", async () => {
     await setOutreach("2026-W42", "3", "5");
-    expect((await loadCheckin("2026-W42")).data.outreach).toEqual({ reached: 3, replied: 5 });
+    expect((await loadCheckin("2026-W42")).data.outreach).toEqual([{ audience: "customer", reached: 3, replied: 5 }]);
     await expect(setOutreach("2026-W42", "-1", "0")).rejects.toThrow(/whole number/);
+  });
+  it("updates one outreach audience without mixing the rows", async () => {
+    await setOutreach("2026-W42", "1", "0", "customer");
+    await setOutreach("2026-W42", "3", "1", "partner");
+    await bumpOutreach("2026-W42", "replied", "partner");
+    expect((await loadCheckin("2026-W42")).data.outreach).toEqual([
+      { audience: "customer", reached: 1, replied: 0 },
+      { audience: "partner", reached: 3, replied: 2 },
+    ]);
   });
   it("sets this week's talk goal", async () => {
     await setTalkGoal("2026-W42", "4");

@@ -40,6 +40,32 @@ describe("loadToday", () => {
     expect(view).toMatchObject({ status: "flagged", path: "founder.md" });
     expect(view.status === "flagged" && view.error).toMatch(/^today: /);
   });
+  it("shows an invalid current check-in for repair instead of trying to materialise repeats into it", async () => {
+    await writeFile(path.join(env.dir, "checkins/2026-W41.md"), "---\nweek: 2026-W41\ncommitments:\n  - id: c-weekly\n    text: Weekly post\n    status: open\n    repeat: { every: week, days: [tue] }\n---\n");
+    await writeFile(path.join(env.dir, "checkins/2026-W42.md"), "---\nweek: nope\n---\n");
+    const view = await ready();
+    expect(view.checkinEntry?.ok).toBe(false);
+  });
+  it("links a due decision to its actual page and ignores imported open questions", async () => {
+    await mkdir(path.join(env.dir, "decisions"), { recursive: true });
+    for (let day = 23; day >= 14; day--) {
+      const date = `2026-10-${day}`;
+      await writeFile(path.join(env.dir, `decisions/${date}-decided-${day}.md`), `---\ntitle: Decided ${day}\ndate: ${date}\ndecision: Continue\nwhy: Evidence\nreversible: true\n---\n`);
+    }
+    await writeFile(path.join(env.dir, "decisions/2026-10-01-who-pays.md"), "---\ntitle: Who pays?\ndate: 2026-10-01\nstatus: open\ndecideBy: 2026-10-15\n---\n");
+    await writeFile(path.join(env.dir, "decisions/2026-10-24-imported.md"), "---\nseeded: true\nsource: notes\ntitle: Imported question\ndate: 2026-10-24\nstatus: open\ndecideBy: 2026-10-14\n---\n");
+    const decisions = (await ready()).dueItems.filter((item) => item.kind === "decision");
+    expect(decisions).toEqual([expect.objectContaining({ text: "Decide: Who pays?", href: "/decisions?page=2#2026-10-01-who-pays" })]);
+  });
+  it("does not put imported program homework in Due before the founder confirms the week", async () => {
+    await mkdir(path.join(env.dir, "program"), { recursive: true });
+    await writeFile(path.join(env.dir, "program/week-05.md"), "---\nseeded: true\nsource: program deck\nweek: 5\ntitle: Pricing\nstatus: not-started\nexercises: []\nhomework:\n  - id: hw-price\n    title: Draft prices\n    due: 2026-10-12\n    status: open\n---\n");
+    const before = await ready();
+    expect(before.dueItems.some((item) => item.id === "hw-price")).toBe(false);
+    await confirmImportedRecord("program/week-05.md");
+    const after = await ready();
+    expect(after.dueItems).toContainEqual(expect.objectContaining({ id: "hw-price", kind: "homework" }));
+  });
   it("keeps last week's deferral in force until its date", async () => {
     await clearLoopRecords(env.dir);
     // Last week's open commitment would carry into this week at tier 4; this test is about the deferral alone.

@@ -32,7 +32,7 @@ async function HomeContent() {
       </>
     );
   }
-  const { founder: f, today, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, carried, path, talkedTo, importedWaiting, changesWaiting, dueItems, action } = view;
+  const { founder: f, today, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, carried, path, talkedTo, importedWaiting, agentEditsWaiting, changesWaiting, dueItems, action } = view;
   const stepIndex = path.current ? path.steps.findIndex((s) => s.id === path.current?.id) + 1 : null;
   const logoV = await logoVersion();
 
@@ -102,17 +102,27 @@ async function HomeContent() {
           </Link>
         </section>
       )}
+      {agentEditsWaiting.count > 0 && agentEditsWaiting.href && (
+        <p className="mb-4 text-sm text-muted">
+          <Link href={agentEditsWaiting.href} className="font-medium text-teal-dark hover:text-navy">
+            Review {agentEditsWaiting.count} agent edit{agentEditsWaiting.count === 1 ? "" : "s"}
+          </Link>
+        </p>
+      )}
       <div className="grid gap-4 md:grid-cols-3">
         <OutcomeTile
           weekId={weekId}
           outcome={checkin?.outcome}
+          outcome30={f.outcome30}
+          goals={f.goals}
           primary={action?.kind === "outcome"}
           stuck={action?.kind === "blocker" ? undefined : { blocker: checkin?.blocker ?? "", help: checkin?.helpNeeded ?? "" }}
         />
         <TalkedToTile weekId={weekId} count={talkedTo.count} goal={talkedTo.goal} lastWeekShort={talkedTo.lastWeekShort} importedWaiting={action?.kind === "imports" ? 0 : importedWaiting} />
-        <OutreachTile weekId={weekId} reached={talkedTo.reached} replied={talkedTo.replied} />
+        <OutreachTile weekId={weekId} outreach={checkin?.outreach} />
       </div>
       <div className="mt-4">
+        {programWeek && <p className="mb-2 text-sm"><Link href={`/program/${programWeek}`} className="font-medium text-teal-dark hover:text-navy">{f.programTitle} · Week {programWeek}</Link></p>}
         <DueList
           weekId={weekId}
           today={today}

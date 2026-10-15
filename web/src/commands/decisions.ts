@@ -4,6 +4,7 @@ import { existingPaths, listEntries } from "../store/read";
 import { AREAS, kindOf, type Area, type KindData } from "../store/schemas";
 import { createDated } from "./create";
 import { all, isRealDate, lines, oneOf, orNull, text, type Parsed } from "./form";
+import { updateEntry } from "../store/update";
 
 export type Decision = KindData<"decision">;
 export type DecisionRow = { path: string; data: Decision; broken: BrokenLink[] };
@@ -12,28 +13,37 @@ export const DECISIONS_DIR = "decisions";
 export type DecisionInput = {
   title: string;
   date: string;
+  status: "open" | "decided";
+  decideBy: string | null;
   area: Area | null;
   beliefBefore: string | null;
   evidence: string[];
   alternatives: string[];
-  decision: string;
-  why: string;
-  reversible: boolean;
+  decision: string | null;
+  why: string | null;
+  reversible: boolean | null;
   relatedTest: string | null;
 };
 
 export function parseDecisionForm(fd: FormData): Parsed<DecisionInput> {
   const values: Record<string, string> = {};
-  for (const k of ["title", "date", "area", "beliefBefore", "alternatives", "decision", "why", "reversible", "relatedTest"]) values[k] = text(fd, k);
+  for (const k of ["title", "date", "status", "decideBy", "area", "beliefBefore", "alternatives", "decision", "why", "reversible", "relatedTest"]) values[k] = text(fd, k);
+  values.status ||= "decided";
   const evidence = all(fd, "evidence").filter(Boolean);
   values.evidence = evidence.join(",");
   const errors: Record<string, string> = {};
   if (!values.title) errors.title = "Name the decision in a few words.";
-  if (!isRealDate(values.date)) errors.date = "Add the date you decided.";
+  if (!isRealDate(values.date)) errors.date = "Add the date you recorded it.";
+  if (values.status !== "open" && values.status !== "decided") errors.status = "Choose open or decided.";
+  if (values.decideBy && !isRealDate(values.decideBy)) errors.decideBy = "Use a real decide-by date.";
   if (values.area && !oneOf(AREAS, values.area)) errors.area = "Pick an area from the list, or none.";
-  if (!values.decision) errors.decision = "Say what you decided.";
-  if (!values.why) errors.why = "Say why. Future you will want to know.";
-  if (values.reversible !== "yes" && values.reversible !== "no") errors.reversible = "Say whether this is easy to undo.";
+  if (values.status === "decided" && !values.decision) errors.decision = "Say what you decided.";
+  if (values.status === "decided" && !values.why) errors.why = "Say why. Future you will want to know.";
+  if (values.status === "decided" && values.reversible !== "yes" && values.reversible !== "no") errors.reversible = "Say whether this is easy to undo.";
+  const openConflict = "Choose ‘A decision already made,’ or clear this for an open question.";
+  if (values.status === "open" && values.decision) errors.decision = openConflict;
+  if (values.status === "open" && values.why) errors.why = openConflict;
+  if (values.status === "open" && values.reversible) errors.reversible = openConflict;
   if (Object.keys(errors).length > 0) return { ok: false, errors, values };
   return {
     ok: true,
@@ -41,13 +51,15 @@ export function parseDecisionForm(fd: FormData): Parsed<DecisionInput> {
     input: {
       title: values.title,
       date: values.date,
+      status: values.status as "open" | "decided",
+      decideBy: orNull(values.decideBy),
       area: values.area ? (values.area as Area) : null,
       beliefBefore: orNull(values.beliefBefore),
       evidence,
       alternatives: lines(values.alternatives),
-      decision: values.decision,
-      why: values.why,
-      reversible: values.reversible === "yes",
+      decision: values.status === "decided" ? orNull(values.decision) : null,
+      why: values.status === "decided" ? orNull(values.why) : null,
+      reversible: values.status === "decided" ? (values.reversible === "yes" ? true : false) : null,
       relatedTest: orNull(values.relatedTest),
     },
   };
@@ -61,6 +73,20 @@ export async function createDecision(input: DecisionInput): Promise<string> {
   if (unknown) throw new Error(`founder-data/${unknown} isn't there anymore. Reload the page and pick the evidence again.`);
   const data: Decision = { ...input };
   return createDated("decision", DECISIONS_DIR, input.date, input.title, data);
+}
+
+/** Resolves an open question in place so its original date, alternatives and evidence stay together. */
+export async function resolveDecision(path: string, input: { decision: string; why: string; reversible: string }): Promise<void> {
+  const decision = input.decision.trim();
+  const why = input.why.trim();
+  if (!decision) throw new Error("Say what you decided.");
+  if (!why) throw new Error("Say why. Future you will want to know.");
+  if (input.reversible !== "yes" && input.reversible !== "no") throw new Error("Say whether this is easy to undo.");
+  await updateEntry("decision", path, (data, body) => {
+    if (!data) throw new Error("That decision no longer exists. Reload the page.");
+    if (data.status !== "open") throw new Error("That question has already been decided. Reload the page.");
+    return { data: { ...data, status: "decided", decision, why, reversible: input.reversible === "yes" }, body };
+  });
 }
 
 /** Decisions newest first with their broken links, plus the records a new decision can cite. */

@@ -34,6 +34,7 @@ describe("browser-chat prompts", () => {
         { id: "c-1", text: "Email the two agencies", due: "2026-10-12", status: "open" },
         { id: "c-2", text: "Draft questions", status: "done" },
         { id: "c-3", text: "Call Lee", status: "open" },
+        { id: "c-repeat", text: "Weekly definition", due: "tue", status: "open", repeat: { every: "week" } },
       ],
     });
     const p = weekPrompt({ ...vars, ...week });

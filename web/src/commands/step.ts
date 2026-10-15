@@ -5,6 +5,7 @@ import type { TestStatus } from "../store/schemas";
 import { TYPE_LABELS } from "../lib/loop-labels";
 import { loadLoopRecords } from "./loop";
 import { loadToday } from "./today";
+import { isCommitmentInstance } from "../core/commitments";
 
 export type StepCard = { slug: string; person: string; role: string; date: string | null; line: string | null; changed: string | null };
 /** An open conversation planned for this step: a commitment linked `step:<id>`, in the check-in it lives in. */
@@ -36,7 +37,7 @@ export async function loadStep(id: string): Promise<
         changed: c.data.whatChangesConfirmed ? (c.data.whatChanges ?? null) : null,
       }),
     );
-  const planned = [...(view.checkin?.commitments ?? []).map((c) => ({ ...c, week: view.weekId })), ...view.carried]
+  const planned = [...(view.checkin?.commitments ?? []).filter(isCommitmentInstance).map((c) => ({ ...c, week: view.weekId })), ...view.carried]
     .filter((c) => c.status === "open" && c.link === `step:${id}`)
     .map((c): PlannedConversation => ({ week: c.week, id: c.id, text: c.text, due: c.due ?? null }))
     .sort((a, b) => (a.due ?? "9999-12-31").localeCompare(b.due ?? "9999-12-31") || a.week.localeCompare(b.week));

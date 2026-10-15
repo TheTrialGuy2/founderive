@@ -6,6 +6,7 @@ import { CommitmentList } from "@/components/today/CommitmentList";
 import { dueWords, type DueItem } from "@/core/due";
 import { commitmentFields } from "@/lib/commitment-fields";
 import type { KindData } from "@/store/schemas";
+import { buttonPrimary, buttonQuiet } from "@/components/workbook/form";
 
 type Props = {
   weekId: string;
@@ -20,7 +21,8 @@ type Props = {
 };
 
 /** What Done sends for each kind of item: a commitment to its own week's check-in, homework to its program week, a follow-up to its conversation. */
-function doneAction(i: DueItem, weekId: string, programWeek: number | null): { action: typeof saveCommitmentStatus; fields: Record<string, string> } {
+function doneAction(i: DueItem, weekId: string, programWeek: number | null): { action: typeof saveCommitmentStatus; fields: Record<string, string> } | null {
+  if (i.kind === "decision") return null;
   if (i.kind === "commitment") return { action: saveCommitmentStatus, fields: commitmentFields({ id: i.id, week: i.week ?? weekId }, weekId, "done") };
   if (i.kind === "followup") {
     const at = i.id.lastIndexOf("#");
@@ -45,7 +47,7 @@ export function DueList({ weekId, today, items, primaryKey, commitments, carried
       ) : (
         <ul className="mt-2 space-y-2">
           {top.map((i) => {
-            const { action, fields } = doneAction(i, weekId, programWeek);
+            const done = doneAction(i, weekId, programWeek);
             return (
               <li key={i.key} className="flex items-start justify-between gap-3">
                 <span className="text-sm text-ink">
@@ -58,13 +60,11 @@ export function DueList({ weekId, today, items, primaryKey, commitments, carried
                   )}
                   {dueWords(i, today) && <span className="text-muted"> · {dueWords(i, today)}</span>}
                 </span>
-                <ActionButton
-                  action={action}
-                  fields={fields}
-                  label="Done"
-                  variant={i.key === primaryKey ? "primary" : "quiet"}
-                  ariaLabel={`Done: ${i.text}`}
-                />
+                {done ? (
+                  <ActionButton action={done.action} fields={done.fields} label="Done" variant={i.key === primaryKey ? "primary" : "quiet"} ariaLabel={`Done: ${i.text}`} />
+                ) : (
+                  <Link href={i.href ?? "/decisions"} className={i.key === primaryKey ? buttonPrimary : buttonQuiet}>Decide</Link>
+                )}
               </li>
             );
           })}
