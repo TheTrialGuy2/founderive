@@ -38,6 +38,13 @@ describe("conversation", () => {
     expect(paths(conversationSchema, conversation({ whatChangesConfirmed: true }))).toEqual(["whatChangesConfirmed"]);
     expect(paths(conversationSchema, conversation({ whatChanges: "Price ceiling near $300", whatChangesConfirmed: true }))).toEqual([]);
   });
+  it("takes a stance of supports, challenges or neither, and nothing else", () => {
+    for (const stance of ["supports", "challenges", "neither"]) expect(paths(conversationSchema, conversation({ stance }))).toEqual([]);
+    expect(paths(conversationSchema, conversation({ stance: "against" }))).toEqual(["stance"]);
+  });
+  it("an older confirmed record without a stance stays valid and reads as not said yet", () => {
+    expect(conversationSchema.parse(conversation({ whatChanges: "Price ceiling near $300", whatChangesConfirmed: true })).stance).toBeUndefined();
+  });
   it("follow-ups are open or done", () => {
     expect(paths(conversationSchema, conversation({ followUps: [{ id: "f-1", text: "Send one-pager", due: "2026-10-12" }] }))).toEqual([]);
     expect(paths(conversationSchema, conversation({ followUps: [{ id: "f-1", text: "Send", status: "dropped" }] }))).toEqual(["followUps.0.status"]);

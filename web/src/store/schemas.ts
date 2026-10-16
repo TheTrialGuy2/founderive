@@ -50,12 +50,14 @@ export const TEST_STATUSES = ["planned", "running", "complete", "abandoned"] as 
 export const TEST_RESULTS = ["supported", "contradicted", "inconclusive"] as const;
 export const TEST_DECISIONS = ["continue", "revise", "pause", "stop"] as const;
 export const EVIDENCE_STRENGTHS = ["none", "weak", "moderate", "strong"] as const;
+export const STANCES = ["supports", "challenges", "neither"] as const;
 export type Area = (typeof AREAS)[number];
 export type ConversationType = (typeof CONVERSATION_TYPES)[number];
 export type TestStatus = (typeof TEST_STATUSES)[number];
 export type TestResult = (typeof TEST_RESULTS)[number];
 export type TestDecision = (typeof TEST_DECISIONS)[number];
 export type EvidenceStrength = (typeof EVIDENCE_STRENGTHS)[number];
+export type Stance = (typeof STANCES)[number];
 
 /** Conversations with people who might buy are customer evidence; the other types are advice (amendment §5.3). */
 export const CUSTOMER_TYPES: readonly ConversationType[] = ["customer", "prospect"];
@@ -295,6 +297,9 @@ export const conversationSchema = z
     areas: z.array(blockId).default([]), // canvas block ids (path steps); the seven shipped areas are block ids too
     whatChanges: z.string().nullish(),
     whatChangesConfirmed: z.boolean().default(false),
+    // The founder's call on the conversation as a whole: does it support what they believe about the steps it's tagged
+    // with, challenge it, or neither yet. Set with whatChanges, only through the app's form. Absent on older records.
+    stance: z.enum(STANCES).nullish(),
   })
   .refine((conversation) => !(conversation.seeded && conversation.agentEdit), { path: ["agentEdit"], message: "an agent edit belongs only on a confirmed conversation" })
   .refine((c) => !c.whatChangesConfirmed || !!c.whatChanges?.trim(), { message: "say what changes before confirming it", path: ["whatChangesConfirmed"] });
