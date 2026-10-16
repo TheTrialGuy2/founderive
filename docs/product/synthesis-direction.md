@@ -4,6 +4,10 @@ Customer discovery is only worth the notes it leaves behind if the notes change 
 
 What it is not: a main action, a new file kind, a score, or a tag on every conversation. The founder decides what counts as a pattern; the agent counts and drafts.
 
+## The UI budget
+
+This feature adds one quiet button to Home and nothing else. No new page, no new form, no new field on any record. The work happens in the Claude panel, in the founder's words, one question per turn. The result lands on the Decisions page the founder already uses, shaped like every other decision. If a later version wants a Patterns view, that is a separate brief with its own budget.
+
 ## Home: synthesize
 
 ### Who it is for
@@ -42,8 +46,8 @@ A conversation qualifies when it is customer or prospect, confirmed (`seeded` ab
 ### Steps
 
 1. **Find the data folder.** `pnpm -s data-dir` from `web/`, as every skill does.
-2. **Read the conversations.** The last five that qualify (see "What counts"), newest first by `date`, falling back to the file-name date. Read each one's frontmatter and body. Say who they were in one line ("Dana, Marcus, a clinic owner, Priya and Tom, 2 Oct to 14 Oct"). Fewer than three qualifying: say so, say what would make one count (confirm it on People, or add a quote, a number or notes), and stop.
-3. **Draft three themes.** For each: a short name in the founder's kind of words, "heard from N of 5", and the exact quotes, numbers or observed behavior behind it, each attributed to its person. A theme needs at least two people. Anything heard once goes in a separate "heard once" list so the founder sees it but doesn't build on it. Prefer what people did or paid over what they said; say which kind each piece of evidence is.
+2. **Read the conversations.** The last five that qualify (see "What counts"), newest first by `date`, falling back to the file-name date. Read each one's frontmatter and body. Say who they were in one line, with companies counted ("Dana, Marcus, a clinic owner, Priya and Tom, 2 Oct to 14 Oct, at 3 companies"). Fewer than three qualifying: say so, say what would make one count (confirm it on People, or add a quote, a number or notes), and stop.
+3. **Draft three themes.** For each: a short name in the founder's kind of words, "heard from N of 5 at M companies" (distinct `org`; a conversation with no `org` counts as its own), and the exact quotes, numbers or observed behavior behind it, each attributed to its person. A theme needs at least two people. Anything heard once goes in a separate "heard once" list so the founder sees it but doesn't build on it. Anything that cuts against the Customer step's current text, or against another theme, goes in a "what contradicts" list, with the same attribution, so negative cases are never dropped. Prefer what people did or paid over what they said; say which kind each piece of evidence is. When every person behind a theme is at one company, or the founder's notes say they all came through one introduction, say so in one sentence beside the theme ("All three are at Bright Home Care, so this is one account's view").
 4. **Confirm the themes, one turn each.** For each theme ask whether to keep it, rename it or drop it. Keep the founder's wording. Don't propose a fourth unless they drop one and ask.
 5. **Implications and the message.** Draft two product implications from the confirmed themes and one message to test this week, in customer language taken from the quotes. One turn each. The founder confirms or rewrites.
 6. **Next decision and decide-by.** Ask what decision these themes now put in front of them, in one line, and when they'll make it. That line becomes the record's title.
@@ -62,14 +66,16 @@ A conversation qualifies when it is customer or prospect, confirmed (`seeded` ab
      - conversations/2026-10-12-marcus.md
      - …
    alternatives:
-     - "Workflow pain (4 of 5): the schedule is rebuilt by hand every week"
-     - "Budget owner (3 of 5): the owner pays, not the office manager"
-     - "Switching friction (2 of 5): the spreadsheet is shared with payroll"
+     - "Workflow pain (4 of 5, 3 companies): the schedule is rebuilt by hand every week"
+     - "Budget owner (3 of 5, 2 companies): the owner pays, not the office manager"
+     - "Switching friction (2 of 5, 1 company): the spreadsheet is shared with payroll"
    seeded: true
    source: synthesize draft <today>
    ---
    ## What we heard most often
-   …
+   <each theme with its quotes, attributed; a one-source note where it applies>
+   ## What contradicts
+   <evidence against the Customer step's text or against a theme, attributed; "Nothing in these five" when empty>
    ## What surprised us
    …
    ## What we should change
@@ -85,7 +91,7 @@ A conversation qualifies when it is customer or prospect, confirmed (`seeded` ab
    `alternatives` holds the themes because the schema has no themes field and this is what the founder is choosing between. `area` is `customer`: the decision schema limits `area` to seven shipped ids (customer, problem, solution, channel, revenue, cost, feasibility), so a founder with their own `canvas/blocks.md` gets `area` omitted. The record is `seeded` because the agent drafted it; the app shows it as imported until the founder confirms it on Decisions. `status` stays `open`: the founder resolves it in the app, which asks for the decision, why and whether it's reversible. The skill never writes those.
 
 8. **Offer a follow-up, don't force it.** Either turn the message into a test (`/new-test`, following that skill) or add a commitment to this week's check-in: `{ id, text: "Test: <message>", due, status: open, link: "decisions/<the file>" }`. Only if the founder says yes.
-9. **Run `pnpm check-data`** from `web/` and fix what it flags. Close with one short summary: the three themes with their counts, the message, the decide-by date, and that the record waits on Decisions.
+9. **Run `pnpm check-data`** from `web/` and fix what it flags. Close with one short summary: the three themes with their counts and companies, what contradicts (or that nothing did), the message, the decide-by date, and that the record waits on Decisions.
 
 ### What the skill never does
 
@@ -117,7 +123,7 @@ Three changes to `AGENTS.md`:
 - `core/conversations.test.ts`: `synthesizable` counts customer and prospect only, excludes `seeded`, excludes a conversation with no content, orders newest first, and caps nothing (the cap of five is the skill's).
 - `commands/today.test.ts`: the JSON carries `synthesizable`.
 - Home: the button is absent at two qualifying conversations, present at three with "your 3 conversations", and says "last 5" at five or more.
-- The skill is prose. After it's written, run it once in the panel against a data folder with six confirmed conversations and check: it reads five, every theme cites two or more people, the record passes `check-data`, and Decisions shows it as imported with the themes under alternatives.
+- The skill is prose. After it's written, run it once in the panel against a data folder with six confirmed conversations, two of them at the same company and one that cuts against the Customer step, and check: it reads five, every theme cites two or more people and names its company count, the same-company theme carries the one-source note, the contradicting conversation appears under "What contradicts", the record passes `check-data`, and Decisions shows it as imported with the themes under alternatives.
 
 ## Later, if it earns its place
 
