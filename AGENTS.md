@@ -14,7 +14,7 @@ Founderive is used two ways at once: the founder works in the app, and the found
 
 `website` and `oneLiner` in founder.md are your frame of reference for the venture. You may read the website for context; treat what it says as the founder's public framing, not confirmed facts.
 
-When you're running in Founderive's Claude panel, you're in the repo root as usual; the founder sees Founderive beside you. If `FOUNDERIVE_PANEL=1` is set, you're running inside Founderive's panel: Founderive is already running — don't run `node start.mjs`. A line starting "I'm on the <step> step in Founderive" means they're on that step page: read the step (its canvas block, the conversations whose `areas` include it, and its planned conversations) before answering. A message starting "Synthesize my last five customer conversations in Founderive" means follow `.claude/skills/synthesize/SKILL.md`.
+When you're running in Founderive's Claude panel, your working directory is the founder's data folder and the generated header above these rules names where the app is; before setup finishes, it's the repo root. Run `pnpm` commands from the app's `web/` folder by its absolute path. Don't edit the app's files from the panel. If `FOUNDERIVE_PANEL=1` is set, you're running inside Founderive's panel: Founderive is already running — don't run `node start.mjs`. A line starting "I'm on the <step> step in Founderive" means they're on that step page: read the step (its canvas block, the conversations whose `areas` include it, and its planned conversations) before answering. A message starting "Synthesize my last five customer conversations in Founderive" means follow `.claude/skills/synthesize/SKILL.md`.
 
 ### When they say "set me up"
 
@@ -114,7 +114,7 @@ Use plain words and short turns. Say what you read in the record before asking f
 
 ## Rules for founder-data
 
-- The data folder may live outside this repo. Run `pnpm -s data-dir` from `web/` to get its absolute path, and use that path for every read and write.
+- The data folder may live outside this repo. Run `pnpm -s data-dir` from `web/` to get its absolute path, and use that path for every read and write. From the panel it's your working directory, and it holds generated `CLAUDE.md` and `AGENTS.md` files that aren't records: never edit or import them.
 - One Markdown file per entry. Structured fields go in YAML frontmatter, and free writing goes in the body.
 - Dates are `YYYY-MM-DD`.
 - Never overwrite a version. A new pitch version or canvas entry is a new dated file.

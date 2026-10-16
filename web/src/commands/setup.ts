@@ -1,5 +1,6 @@
 import { weekFile } from "../core/program";
 import { US_STATES } from "../lib/us-states";
+import { writeAgentHome } from "../store/agent-home";
 import { initData } from "../store/init";
 import { BUSINESS_MODELS, COFOUNDERS, COMMITMENTS, EVIDENCE_LEVELS, STAGES, type KindData } from "../store/schemas";
 import { updateEntry } from "../store/update";
@@ -146,5 +147,9 @@ export async function saveSetupStep(step: number, patch: StepPatch): Promise<{ w
       await createEntryIfAbsent("week", weekFile(n), { week: n, title: `Week ${n}`, status: "not-started", exercises: [], homework: [] });
     }
   }
+
+  // The panel's agent reads CLAUDE.md / AGENTS.md from the data folder; write them as soon as setup completes so the
+  // first session after setup has them. The terminal rewrites them on every start.
+  if (step === LAST_STEP) await writeAgentHome();
   return { wasComplete };
 }
