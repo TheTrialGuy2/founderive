@@ -355,6 +355,8 @@ export const decisionSchema = z
     why: z.string().nullish(),
     reversible: z.boolean().nullish(),
     relatedTest: z.string().nullish(),
+    revisitOn: isoDate.nullish(), // the day Home asks what happened; only on a decided record
+    revisitedOn: isoDate.nullish(), // the day the founder recorded the outcome (## Outcome in the body); needs revisitOn
   })
   .superRefine((d, ctx) => {
     if (d.against.some((p) => d.evidence.includes(p))) ctx.addIssue({ code: "custom", path: ["against"], message: "a record can be for or against, not both" });
@@ -362,11 +364,14 @@ export const decisionSchema = z
       if (d.decision != null) ctx.addIssue({ code: "custom", path: ["decision"], message: "an open question does not have a decision yet" });
       if (d.why != null) ctx.addIssue({ code: "custom", path: ["why"], message: "an open question does not have a reason yet" });
       if (d.reversible != null) ctx.addIssue({ code: "custom", path: ["reversible"], message: "an open question is not classified as reversible yet" });
+      if (d.revisitOn != null) ctx.addIssue({ code: "custom", path: ["revisitOn"], message: "an open question has no revisit date yet" });
+      if (d.revisitedOn != null) ctx.addIssue({ code: "custom", path: ["revisitedOn"], message: "an open question has no outcome yet" });
       return;
     }
     if (!d.decision?.trim()) ctx.addIssue({ code: "custom", path: ["decision"], message: "a decided record needs the decision" });
     if (!d.why?.trim()) ctx.addIssue({ code: "custom", path: ["why"], message: "a decided record needs why" });
     if (d.reversible == null) ctx.addIssue({ code: "custom", path: ["reversible"], message: "a decided record needs reversible" });
+    if (d.revisitedOn && !d.revisitOn) ctx.addIssue({ code: "custom", path: ["revisitedOn"], message: "revisitedOn needs a revisitOn" });
   });
 
 /** A beta tester's feedback, kept locally. It holds only what they typed, the page and the app version. */
