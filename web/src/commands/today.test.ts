@@ -132,6 +132,14 @@ describe("loadToday with the loop", () => {
     const view = await ready();
     expect(view.next).toMatchObject({ id: "guide:problem-conversations", detail: "2 of 5 customer conversations logged" });
   });
+  it("counts confirmed customer conversations with content as synthesizable, never advice or imports", async () => {
+    await clearLoopRecords(env.dir);
+    await createConversation({ ...DANA, followUps: [] });
+    await createConversation({ ...DANA, person: "Lee Park", org: null, followUps: [] });
+    await createConversation({ ...DANA, person: "Priya", followUps: [] }, { seeded: true, source: "import test" });
+    await createConversation(MENTOR);
+    expect((await ready()).synthesizable).toBe(2);
+  });
   it("counts customer conversations on the current test, never advice", async () => {
     const testRel = await createTest(PILOT, "2026-10-13");
     await linkEvidence(testRel, await createConversation({ ...DANA, followUps: [] }));

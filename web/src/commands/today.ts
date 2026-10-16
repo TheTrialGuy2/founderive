@@ -1,5 +1,6 @@
 import { capacityWarning } from "../core/capacity";
 import { dueFollowUps, needsInterpretation } from "../core/conversations";
+import { synthesizable } from "../core/synthesis";
 import { dueItems as buildDueItems, type DueItem } from "../core/due";
 import { guideProgress, guideStepForWeek, type GuideStep } from "../core/guide";
 import { homeAction, type HomeAction } from "../core/home";
@@ -46,6 +47,8 @@ export type TodayView =
       talkedTo: { count: number; goal: number; reached: number; replied: number; lastWeekShort: number };
       /** Imported conversations (seeded) waiting for the founder to confirm them. They don't count as evidence until then. */
       importedWaiting: number;
+      /** Confirmed customer conversations that record something: what a synthesis would read. Home shows the button from 3. */
+      synthesizable: number;
       /** Confirmed records changed by an agent and waiting for Keep or Revert. */
       agentEditsWaiting: { count: number; href: string | null };
       /** Confirmed customer evidence waiting for the founder to say what it changes, oldest first. */
@@ -146,6 +149,7 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
     lastWeekShort: lastCheckin ? Math.max(0, lastGoal - talkedToInWeek(records.conversations, lastWeekId)) : 0,
   };
   const importedWaiting = records.conversations.filter((c) => c.data.seeded).length;
+  const synthesizableCount = synthesizable(records.conversations).length;
   const editedBlocks = (await listEntries("canvasBlock")).flatMap((entry) => (entry.ok && entry.data.agentEdit ? [{ href: `/canvas/${entry.data.id}` }] : []));
   const editedConversations = records.conversations.flatMap((entry) => (entry.data.agentEdit ? [{ href: `/conversations/${slugOf(entry.path)}` }] : []));
   const pendingAgentEdits = [...editedBlocks, ...editedConversations];
@@ -190,6 +194,7 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
     path,
     talkedTo,
     importedWaiting,
+    synthesizable: synthesizableCount,
     agentEditsWaiting,
     changesWaiting,
     dueItems: dueList,
