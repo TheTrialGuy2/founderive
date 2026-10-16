@@ -95,6 +95,7 @@ Then use it in one of two ways:
   and say **"set me up"**. Claude starts Founderive for you, then asks what you want to be true by the end of the week. The instructions it follows are in [AGENTS.md](AGENTS.md).
 
 - **Use the Claude panel inside Founderive.** Start Founderive with `node start.mjs`, click **Open Claude** in the corner of any workbook page, then **Start Claude** (or **Start Codex**). The first time, Claude asks you to sign in, right in the panel.
+  - Claude starts in your Founderive folder (your record) from the first session, even before setup, with the app alongside as a tool it can read; Claude's file tools can't change it, and a shell command that would change it still asks you first. A data folder inside the app is only allowed at `founder-data/`; anywhere else in the app, the panel won't start until you move it.
   - Inside the terminal every key goes to Claude. Press **F6** (fn+F6 on most Mac laptops) to leave the terminal.
   - Escape closes the panel when focus is outside the terminal, or anywhere in the panel when nothing is running.
   - On a step page, **Ask Claude about this step** types a starter line for you to send. If Claude isn't running yet, the panel keeps the line until you start Claude and type it in.
@@ -132,6 +133,8 @@ cp founderive.local.example.json founderive.local.json
 
 `founderive.local.json` is gitignored too. `node start.mjs` prints where your data lives each time it starts.
 
+`_reference/` inside your data folder is yours: put documents there for Claude to read, and Founderive never writes to it. Founderive also writes two generated files, `CLAUDE.md` and `AGENTS.md`, into your data folder on every start; they carry the agent's rules and are ignored by your data folder's git.
+
 Founderive doesn't send your records anywhere. It runs only on your computer, at `127.0.0.1`.
 
 ## Useful commands (from `web/`)
@@ -153,6 +156,10 @@ Founderive is an early beta. The core loop works: setup, Home, your path, people
 In the app, choose **Send feedback** in the menu. It saves a copy in your data folder under `feedback/`, then shows exactly what will be sent, with a link to email it to hello@founderive.com. Nothing from your records is sent unless you paste it in yourself.
 
 Comfortable with GitHub? [Open an issue](https://github.com/TheTrialGuy2/founderive/issues/new). Issues are public, so never paste your own records into one.
+
+## If you also work on Founderive's code
+
+Run the app from one clone kept on `main`, and develop in another. Point the running clone's `founderive.local.json` at your data folder. Then the Claude panel never inherits a working branch, and `git pull` in the running clone is the same update step every founder does.
 
 ## Contributing
 

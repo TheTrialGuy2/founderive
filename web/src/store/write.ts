@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { link, mkdir, rename, unlink, writeFile } from "node:fs/promises";
+import { link, lstat, mkdir, readlink, rename, symlink, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { stringifyFrontmatter } from "./frontmatter";
 import { resolveInData } from "./paths";
@@ -76,4 +76,36 @@ export async function archiveEntry(rel: string): Promise<string> {
     }
   }
   throw new Error(`Failed to archive ${rel} after 5 attempts`);
+}
+
+/**
+ * Moves any data-folder file (not only a record) to `_archive/<rel>`, adding `-2`, `-3`, … before the extension when
+ * that name is taken. Atomic and never overwrites: the file is linked into place, then the original removed.
+ */
+export async function archiveFile(rel: string): Promise<string> {
+  const from = resolveInData(rel);
+  const ext = path.extname(rel);
+  const stem = rel.slice(0, rel.length - ext.length);
+  for (let n = 1; n < 1000; n++) {
+    const target = `_archive/${n === 1 ? rel : `${stem}-${n}${ext}`}`;
+    const to = resolveInData(target);
+    await mkdir(path.dirname(to), { recursive: true });
+    try {
+      // A symlink is archived as the link itself: link() would follow it (macOS does) and hard-link its target.
+      const st = await lstat(from);
+      if (st.isSymbolicLink()) await symlink(await readlink(from), to);
+      else await link(from, to);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "EEXIST") continue;
+      throw err;
+    }
+    try {
+      await unlink(from);
+    } catch (unlinkErr) {
+      await unlink(to).catch(() => {});
+      throw unlinkErr;
+    }
+    return target;
+  }
+  throw new Error(`Failed to archive ${rel}: too many archived copies`);
 }

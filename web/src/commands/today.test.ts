@@ -9,6 +9,7 @@ import { addCommitment, recordChoice, setCommitmentStatus, setOutcome } from "./
 import { createConversation } from "./conversations";
 import { confirmImportedRecord } from "./import";
 import { DANA, MENTOR, PILOT } from "./test-inputs";
+import { repoRoot } from "../store/paths";
 import { loadFounderToday, loadPromptContext, loadToday } from "./today";
 import { abandonTest, completeTest, createTest, linkEvidence } from "./venture-tests";
 
@@ -310,5 +311,5 @@ describe("loadFounderToday", () => {
 
 describe("loadPromptContext", () => {
   it("fills the data folder, venture and today on the server", async () =>
-    expect(await loadPromptContext()).toEqual({ dataDir: env.dir, venture: "Lantern", today: "2026-10-13" }));
+    expect(await loadPromptContext()).toEqual({ dataDir: env.dir, repo: repoRoot(), venture: "Lantern", today: "2026-10-13" }));
 });

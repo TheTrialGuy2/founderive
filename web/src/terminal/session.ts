@@ -1,6 +1,13 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { promisify } from "node:util";
 import type { IPty } from "node-pty";
+import { writeAgentHome } from "../store/agent-home";
+import { initData } from "../store/init";
+import { dataDir, dataFolderIsSafe, realPathOf } from "../store/paths";
+import { readEntry } from "../store/read";
+import { claudeArgs, panelHome, shellQuote, unsafeDataFolderMessage, writeLaunchSettings, type Home } from "./guardrails";
 import { TOOLS, type Tool } from "./protocol";
 
 const SCROLLBACK_BYTES = 200_000;
@@ -47,10 +54,12 @@ function killGroup(pid: number, signal: NodeJS.Signals): void {
 const execFileAsync = promisify(execFile);
 
 export type Launcher = {
-  command: (tool: Tool) => { file: string; args: string[] };
+  /** The program to run for `tool`, given where it will run. May write files the program needs (the generated rules, the launch settings). */
+  command: (tool: Tool, home: Home) => Promise<{ file: string; args: string[] }>;
   /** Whether each tool is installed. Async so the server never blocks the event loop to find out. */
   available: () => Promise<Record<Tool, boolean>>;
-  cwd: string;
+  /** Where the next program runs, resolved fresh each time and read-only: always the data folder (`exists: false` if it isn't there yet), or `unsafe`. */
+  home: () => Promise<Home>;
   platform: "supported" | "windows";
   /** Loads the terminal library. Defaults to node-pty; a test can stand in a missing or fake one. */
   loadPty?: () => Promise<PtyModule>;
@@ -75,8 +84,12 @@ export async function commandExists(tool: string, shell = process.env.SHELL || "
   }
 }
 
-/** Runs the founder's own CLI through their login shell (so their PATH and sign-in are theirs), in the repo root. */
-export function loginShellLauncher(cwd: string, opts: { shell?: string; now?: () => number } = {}): Launcher {
+/**
+ * Runs the founder's own CLI through their login shell (so their PATH and sign-in are theirs), always in the founder's
+ * data folder, with the app repo reachable as an added directory and a settings file that keeps the app's files and
+ * git push out of reach. A data folder setting that is the app folder, is inside it (anywhere but founder-data/) or contains it starts nothing.
+ */
+export function loginShellLauncher(repo: string, opts: { shell?: string; now?: () => number } = {}): Launcher {
   const shell = opts.shell || process.env.SHELL || "/bin/zsh";
   const now = opts.now ?? Date.now;
   let cache: { at: number; value: Record<Tool, boolean> } | null = null;
@@ -89,14 +102,54 @@ export function loginShellLauncher(cwd: string, opts: { shell?: string; now?: ()
     return value;
   };
 
+  /**
+   * Read-only: the server calls it on every page connect, so it never creates anything. A missing data folder is
+   * `setup` with `exists: false, hasRecord: false`; Start (`command`) creates it. An existing folder without
+   * `founder.md` is `setup` with `exists: true, hasRecord: false`; Start creates the record in it too. Throws when
+   * the data folder setting itself is invalid (founderive.local.json); the panel shows that message.
+   */
+  const home = async (): Promise<Home> => {
+    const dir = dataDir();
+    if (!dataFolderIsSafe(repo, dir)) return panelHome({ repo, data: dir, safe: false, exists: false, hasRecord: false, setupComplete: false });
+    if (!existsSync(dir)) return panelHome({ repo, data: dir, safe: true, exists: false, hasRecord: false, setupComplete: false });
+    const founder = await readEntry("founder", "founder.md");
+    return panelHome({ repo, data: dir, safe: true, exists: true, hasRecord: founder !== null, setupComplete: !!(founder?.ok && founder.data.setupComplete) });
+  };
+
+  /**
+   * On Start, a data folder whose `founder.md` is missing gets the record created from the starter (initData never
+   * overwrites), exactly what setup's first save does — whether the folder itself is missing or already exists but
+   * is empty (a founder ran `mkdir` and pointed founderive.local.json at it, say). Checked fresh on disk, not from
+   * the home passed in, since the folder may have changed since it was read. Only the default `<repo>/founder-data`,
+   * the folder itself existing, or a folder whose parent exists: a configured folder on a drive that isn't connected
+   * is refused rather than recreated somewhere the founder won't look.
+   */
+  const ensureDataFolder = async (dir: string): Promise<void> => {
+    if (existsSync(path.join(dir, "founder.md"))) return;
+    const isDefault = realPathOf(dir) === path.join(realPathOf(repo), "founder-data");
+    if (!isDefault && !existsSync(dir) && !existsSync(path.dirname(path.resolve(dir)))) {
+      throw new Error(`Your data folder isn't there (${dir}). Check its drive is connected, or fix founderive.local.json, then start again.`);
+    }
+    await initData();
+  };
+
   return {
-    command: (tool) => ({ file: shell, args: ["-l", "-c", tool] }),
+    command: async (tool, h) => {
+      if (h.mode === "unsafe" || !h.data) throw new Error(unsafeDataFolderMessage(h.refused ?? h.cwd));
+      // Checked fresh, not only from `h.exists`/`h.hasRecord`: the folder (or its record) may have changed since the home was read.
+      await ensureDataFolder(h.data);
+      // The rules are useful before setup too. writeAgentHome checks the data folder is safe again on its own.
+      await writeAgentHome();
+      // Codex gets no flags: it runs in the data folder and relies on its own default workspace sandbox to keep the repo read-only, which a founder running it with a permissive sandbox turns off.
+      const extra = tool === "claude" ? claudeArgs(repo, await writeLaunchSettings(repo, h.data)) : [];
+      return { file: shell, args: ["-l", "-c", [tool, ...extra.map(shellQuote)].join(" ")] };
+    },
     available: () => {
       if (cache && now() - cache.at < AVAILABILITY_CACHE_MS) return Promise.resolve(cache.value);
       if (!inFlight) inFlight = refresh().finally(() => (inFlight = null));
       return inFlight;
     },
-    cwd,
+    home,
     platform: process.platform === "win32" ? "windows" : "supported",
   };
 }
@@ -105,6 +158,7 @@ export function loginShellLauncher(cwd: string, opts: { shell?: string; now?: ()
 export class TerminalSession {
   private pty: IPty | null = null;
   private tool: Tool | null = null;
+  private currentHome: Home | null = null;
   private buffer = "";
   private endTimer: ReturnType<typeof setTimeout> | null = null;
   private outputListeners = new Set<(data: string) => void>();
@@ -121,6 +175,11 @@ export class TerminalSession {
 
   get running(): Tool | null {
     return this.tool;
+  }
+
+  /** Where the running program lives, or null when nothing runs. */
+  get home(): Home | null {
+    return this.currentHome;
   }
 
   get scrollback(): string {
@@ -160,9 +219,14 @@ export class TerminalSession {
         throw new Error(PTY_MISSING);
       }
       if (cancelled) return;
-      const { file, args } = this.launcher.command(tool);
+      const home = await this.launcher.home();
+      if (cancelled) return;
+      if (home.mode === "unsafe") throw new Error(unsafeDataFolderMessage(home.refused ?? home.cwd));
+      const { file, args } = await this.launcher.command(tool, home);
+      if (cancelled) return;
       // Only mark the tool as running once spawn actually succeeds, so a failed spawn doesn't leave `running` set.
-      const pty = spawn(file, args, { name: "xterm-256color", cols, rows, cwd: this.launcher.cwd, env: programEnv() });
+      const pty = spawn(file, args, { name: "xterm-256color", cols, rows, cwd: home.cwd, env: programEnv() });
+      this.currentHome = home;
       this.size = { cols, rows };
       this.ending = false;
       this.buffer = "";
@@ -182,6 +246,7 @@ export class TerminalSession {
         this.ending = false;
         this.pty = null;
         this.tool = null;
+        this.currentHome = null;
         for (const fn of this.exitListeners) fn(exitCode ?? null);
       });
     } finally {

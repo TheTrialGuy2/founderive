@@ -1,8 +1,8 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { dataDir, OutsideDataDirError, resolveInData } from "./paths";
+import { dataDir, dataFolderIsSafe, OutsideDataDirError, resolveInData } from "./paths";
 import { useTempData } from "./test-helpers";
 
 /** Puts an env var back exactly as it was (assigning undefined would store the string "undefined"). */
@@ -146,5 +146,71 @@ describe("under the test runner", () => {
     await env.cleanup();
     expect(process.env.FOUNDER_DATA_DIR).toBe(sandbox);
     expect(() => dataDir()).not.toThrow();
+  });
+});
+
+describe("dataFolderIsSafe", () => {
+  let tmp: string;
+  let repo: string;
+  let outside: string;
+  beforeEach(() => {
+    tmp = mkdtempSync(path.join(os.tmpdir(), "founderive-safe-"));
+    repo = path.join(tmp, "app");
+    outside = path.join(tmp, "Lantern");
+    mkdirSync(path.join(repo, "web"), { recursive: true });
+    mkdirSync(path.join(repo, "founderive-mvp"));
+    mkdirSync(outside);
+  });
+  afterEach(() => rmSync(tmp, { recursive: true, force: true }));
+
+  it("accepts a folder outside the repo, existing or not", () => {
+    expect(dataFolderIsSafe(repo, outside)).toBe(true);
+    expect(dataFolderIsSafe(repo, path.join(tmp, "not-yet", "Lantern"))).toBe(true);
+    expect(dataFolderIsSafe(repo, path.join(tmp, "app-data"))).toBe(true);
+  });
+
+  it("accepts exactly <repo>/founder-data, existing or not", () => {
+    expect(dataFolderIsSafe(repo, path.join(repo, "founder-data"))).toBe(true);
+    mkdirSync(path.join(repo, "founder-data"));
+    expect(dataFolderIsSafe(repo, path.join(repo, "founder-data"))).toBe(true);
+    expect(dataFolderIsSafe(repo, `${path.join(repo, "founder-data")}/`)).toBe(true);
+  });
+
+  it("refuses anything else inside the repo, the repo itself, and a folder that contains it", () => {
+    expect(dataFolderIsSafe(repo, path.join(repo, "web", "founder-data"))).toBe(false);
+    expect(dataFolderIsSafe(repo, path.join(repo, "founderive-mvp"))).toBe(false);
+    expect(dataFolderIsSafe(repo, path.join(repo, "founder-data", "inner"))).toBe(false);
+    expect(dataFolderIsSafe(repo, path.join(repo, "..data"))).toBe(false);
+    expect(dataFolderIsSafe(repo, repo)).toBe(false);
+    expect(dataFolderIsSafe(repo, `${repo}/`)).toBe(false);
+    expect(dataFolderIsSafe(repo, tmp)).toBe(false);
+    expect(dataFolderIsSafe(repo, "/")).toBe(false);
+  });
+
+  it("follows symlinks: a link inside the repo to web/ is refused, a link to a folder outside is fine", () => {
+    symlinkSync(path.join(repo, "web"), path.join(repo, "records"));
+    expect(dataFolderIsSafe(repo, path.join(repo, "records"))).toBe(false);
+    symlinkSync(path.join(repo, "web"), path.join(tmp, "elsewhere"));
+    expect(dataFolderIsSafe(repo, path.join(tmp, "elsewhere"))).toBe(false);
+    symlinkSync(outside, path.join(tmp, "to-lantern"));
+    expect(dataFolderIsSafe(repo, path.join(tmp, "to-lantern"))).toBe(true);
+  });
+
+  it("sees a symlinked parent of a data folder that doesn't exist yet", () => {
+    symlinkSync(path.join(repo, "web"), path.join(tmp, "via"));
+    expect(dataFolderIsSafe(repo, path.join(tmp, "via", "founder-data"))).toBe(false);
+  });
+
+  it("follows a symlink whose target doesn't exist yet", () => {
+    symlinkSync(path.join(repo, "web", "not-yet"), path.join(tmp, "dangling"));
+    expect(dataFolderIsSafe(repo, path.join(tmp, "dangling"))).toBe(false);
+    symlinkSync(path.join(repo, "founder-data"), path.join(tmp, "to-founder-data"));
+    expect(dataFolderIsSafe(repo, path.join(tmp, "to-founder-data"))).toBe(true);
+  });
+
+  it("compares real paths when the repo is reached through a symlink", () => {
+    symlinkSync(repo, path.join(tmp, "app-link"));
+    expect(dataFolderIsSafe(path.join(tmp, "app-link"), path.join(repo, "web"))).toBe(false);
+    expect(dataFolderIsSafe(path.join(tmp, "app-link"), path.join(repo, "founder-data"))).toBe(true);
   });
 });

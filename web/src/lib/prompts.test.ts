@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultFamily, fileChatPrompt, FILE_CHAT_ENDINGS, fillPrompt, importPrompt, weekPrompt, weekPromptVars } from "./prompts";
+import { defaultFamily, fileChatPrompt, FILE_CHAT_ENDINGS, fillPrompt, importFolderPrompt, importPrompt, weekPrompt, weekPromptVars } from "./prompts";
 
 const vars = { dataDir: "/Users/sam/Lantern", venture: "Lantern", today: "2026-10-13" };
 const leftover = /\{(dataDir|venture|today|outcome|commitments)\}/;
@@ -50,6 +50,16 @@ describe("browser-chat prompts", () => {
   });
   it("uses the app fills when there's no outcome or nothing open", () => {
     expect(weekPromptVars(null)).toEqual({ outcome: "none yet", commitments: "none open" });
+  });
+});
+
+describe("importFolderPrompt", () => {
+  it("names the skill and the data folder by full path, and leaves the documents folder for the founder", () => {
+    const p = importFolderPrompt({ repo: "/Users/sam/Founderive/app", dataDir: "/Users/sam/Founderive/Lantern" });
+    expect(p).toContain("Follow /Users/sam/Founderive/app/.claude/skills/import-folder/SKILL.md");
+    expect(p).toContain("My Founderive data folder is /Users/sam/Founderive/Lantern");
+    expect(p).toContain("pnpm -s data-dir in /Users/sam/Founderive/app/web prints the same path");
+    expect(p.endsWith("The folder to read is: <the folder with your documents>")).toBe(true);
   });
 });
 

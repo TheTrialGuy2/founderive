@@ -2,6 +2,13 @@
 export type Tool = "claude" | "codex";
 export const TOOLS: readonly Tool[] = ["claude", "codex"];
 
+/**
+ * Where the program runs, always the founder's data folder: `record` once setup is complete, `setup` before that.
+ * `unsafe` when the data folder setting is the app folder, is inside it (anywhere but founder-data/) or contains it: nothing starts.
+ */
+export type HomeMode = "record" | "setup" | "unsafe";
+export type PanelHome = { name: string; mode: HomeMode };
+
 export type ClientMessage =
   | { type: "start"; tool: Tool; cols: number; rows: number }
   | { type: "input"; data: string }
@@ -9,7 +16,7 @@ export type ClientMessage =
   | { type: "end" };
 
 export type ServerMessage =
-  | { type: "state"; running: Tool | null; available: Record<Tool, boolean>; platform: "supported" | "windows" }
+  | { type: "state"; running: Tool | null; available: Record<Tool, boolean>; platform: "supported" | "windows"; home: PanelHome | null }
   | { type: "output"; data: string }
   | { type: "exit"; code: number | null }
   | { type: "error"; message: string };

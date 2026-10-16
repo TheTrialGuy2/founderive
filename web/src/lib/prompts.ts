@@ -111,6 +111,11 @@ export const SKILL_PROMPTS = {
   decisions: "I decided <what you decided>. Log it in my Founderive data folder at {dataDir} under decisions/, with what I believed before, the evidence, the alternatives I considered, why, and whether it's easy to undo. Run pnpm -s check-data from the repo's web/ folder when you're done.",
 } as const;
 
+/** The Import a folder ask, with every path written out so it works from the panel (home is the data folder) and from any terminal. */
+export function importFolderPrompt(v: { repo: string; dataDir: string }): string {
+  return `Import my documents into Founderive. Follow ${v.repo}/.claude/skills/import-folder/SKILL.md. My Founderive data folder is ${v.dataDir} (pnpm -s data-dir in ${v.repo}/web prints the same path). The folder to read is: <the folder with your documents>`;
+}
+
 /** App fills for the weekly prompt. The week parser never reads them as data. */
 export const NONE_YET = "none yet";
 export const NONE_OPEN = "none open";

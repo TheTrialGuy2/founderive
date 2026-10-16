@@ -2,6 +2,7 @@ import { access } from "node:fs/promises";
 import { canvasBlocks } from "../core/canvas";
 import { looksLikeContactDetails } from "../core/privacy";
 import { brokenLinks, describeBrokenLink, linksOf } from "../core/links";
+import { AGENT_HOME_FILES } from "./agent-home";
 import { resolveInData } from "./paths";
 import { readEntry } from "./read";
 import { AREAS, kindOf, type KindData } from "./schemas";
@@ -46,6 +47,7 @@ export async function checkData(): Promise<CheckReport> {
   for (const rel of rels) {
     const kind = kindOf(rel);
     if (!kind) {
+      if ((AGENT_HOME_FILES as readonly string[]).includes(rel)) continue; // generated for the panel's agent, not a record
       const folder = rel.includes("/") ? rel.slice(0, rel.indexOf("/")) : "";
       const expected = FOLDER_NAMES[folder];
       if (expected) {

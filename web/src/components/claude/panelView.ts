@@ -20,16 +20,26 @@ export type PanelView =
   | { kind: "connecting"; status: "Connecting" }
   | { kind: "lost"; status: "Unavailable" }
   | { kind: "not-installed"; status: "Not started" }
-  | { kind: "start"; status: "Not started" | "Stopped"; stopped: boolean; tools: Tool[] }
-  | { kind: "running"; status: `Running · ${Tool}`; tool: Tool };
+  | { kind: "start"; status: "Not started" | "Stopped"; stopped: boolean; tools: Tool[]; note: string | null }
+  | { kind: "running"; status: `Running · ${Tool}${string}`; tool: Tool };
+
+const NOTE: Record<"record" | "setup" | "unsafe", string | null> = {
+  record: null,
+  setup: "Finish setup in the app. Claude already works in your record.",
+  unsafe: "Your data folder setting is the Founderive app folder, is inside it, or contains it. Move it, or use founder-data/, then start Claude.",
+};
 
 export function panelView({ terminal, platform, conn, state, exited }: PanelInput): PanelView {
   if (platform === "windows" || state?.platform === "windows") return { kind: "windows", status: "Not available" };
   if (!terminal) return { kind: "no-server", status: "Not started" };
   if (conn === "refused" || conn === "closed") return { kind: "lost", status: "Unavailable" };
   if (conn === "connecting" || !state) return { kind: "connecting", status: "Connecting" };
-  if (state.running) return { kind: "running", status: `Running · ${state.running}`, tool: state.running };
+  if (state.running) {
+    const where = state.home ? ` · in ${state.home.name}` : "";
+    return { kind: "running", status: `Running · ${state.running}${where}`, tool: state.running };
+  }
   const tools = TOOLS.filter((t) => state.available[t]);
   if (tools.length === 0) return { kind: "not-installed", status: "Not started" };
-  return exited ? { kind: "start", status: "Stopped", stopped: true, tools } : { kind: "start", status: "Not started", stopped: false, tools };
+  const note = state.home ? NOTE[state.home.mode] : null;
+  return exited ? { kind: "start", status: "Stopped", stopped: true, tools, note } : { kind: "start", status: "Not started", stopped: false, tools, note };
 }

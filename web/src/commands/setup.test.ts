@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -128,6 +129,12 @@ describe("saveSetupStep", () => {
     await saveSetupStep(4, withProgram.patch);
     const w = await readEntry("week", "program/week-02.md");
     expect(w?.ok && w.data.title).toBe("Week 2");
+  });
+  it("the last step leaves the panel agent's CLAUDE.md in the data folder", async () => {
+    for (const step of [1, 2, 3]) await saveSetupStep(step, patch(step));
+    expect(existsSync(path.join(env.dir, "CLAUDE.md"))).toBe(false);
+    await saveSetupStep(4, patch(4));
+    expect(existsSync(path.join(env.dir, "CLAUDE.md"))).toBe(true);
   });
   it("editing an early step later keeps setup complete", async () => {
     for (const step of [1, 2, 3, 4]) await saveSetupStep(step, patch(step));

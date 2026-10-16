@@ -1,0 +1,171 @@
+# Panel home direction brief
+
+Today the Claude panel starts Claude Code or Codex in the app's repo root. That's where the rules (`AGENTS.md`), the skills (`.claude/skills/`) and the `pnpm` scripts live, so the agent knows what Founderive is. It also means the agent's home is the app's source code: it sees the repo's branch and remote, and in a permissive mode it can edit the app or push. For the founder who is also the app's developer, the panel inherits whatever branch is checked out. For a new founder, the panel sits in a clone of a public repo they can't push to, with their record tucked in a gitignored subfolder.
+
+This brief moves the panel's home to the founder's record. The app becomes a tool the agent can reach, not the place it lives.
+
+## What was verified (2026-10-16, Claude Code 2.1)
+
+Started from a scratch data folder with the repo passed as `--add-dir`:
+
+- The working directory was the data folder.
+- All six Founderive skills under the repo's `.claude/skills/` were available. Skills load from an added directory.
+- The repo was accessible as an additional working directory.
+- A `CLAUDE.md` `@import` of a file outside the folder did not expand in a non-interactive run, as an absolute path, a `~/` path or a relative path. The docs explain why: an import that resolves outside the working directory is "external" and Claude Code shows an approval dialog the first time it meets one. That dialog would land on every founder's first panel session, and `AGENTS.md` is never loaded through an import or an added directory. So the app writes the rules into the data folder itself.
+- From the docs (code.claude.com/docs, permissions and memory pages): an added directory contributes skills and file access, not settings or instructions; `--settings <file>` overrides keys for the session; deny rules for files use `Edit(...)` (a `Write` rule is accepted but never consulted) and an absolute path starts with `//`.
+- Codex reads `AGENTS.md` from the git root down to the working directory, deeper files taking precedence. A generated `AGENTS.md` in the data folder is read whether the folder is its own git repo or the gitignored `founder-data/` inside the app's.
+- With the default `founder-data/` inside the repo, Claude Code also loads the repo's `CLAUDE.md` from the parent folder, so the rules load twice. That's harmless.
+
+## The design
+
+### Home
+
+The panel always spawns the agent with the founder's data folder as its working directory, resolved at spawn time by the same rule the app uses (`dataDir()` in `web/src/store/paths.ts`: env, then `founderive.local.json`, then `founder-data/`). The repo is never the working directory. The repo root is passed as an added directory for Claude (`--add-dir <repo>`). Codex runs with the data folder as its working directory and its default workspace sandbox, which keeps the repo read-only.
+
+There are three modes (`HomeMode` in `web/src/terminal/protocol.ts`):
+
+- **record**: the data folder exists, is safe (below), and `founder.md` has `setupComplete: true`.
+- **setup**: the data folder is safe, and `founder.md` is missing or `setupComplete` is false. The agent still starts in the data folder. The home also reports `hasRecord` (`founder.md` exists); if the folder doesn't exist yet, `exists` and `hasRecord` are both false. The record is created from the starter on the first Start when `founder.md` is missing, whether the folder is absent or empty (`initData()`, with its own git; it never overwrites), which is exactly what setup's first save would do. Reading the home never creates anything: the server reads it on every page connect, and re-checks `founder.md` fresh each time rather than trusting a home read earlier. Start creates the record whenever `founder.md` is missing and either the folder is the default `<repo>/founder-data`, the folder itself already exists, or its parent exists; otherwise (a configured folder on a drive that isn't connected, say) Start fails with "Your data folder isn't there (<path>). Check its drive is connected, or fix founderive.local.json, then start again." and creates nothing. The start view says "Finish setup in the app. Claude already works in your record."
+- **unsafe**: the configured data folder fails `dataFolderIsSafe`. Nothing is spawned. Start fails with "The data folder setting is the Founderive app folder, is inside it, or contains it (<path>). Move it outside the app folder, or use founder-data/, then start again.", and the start view says "Your data folder setting is the Founderive app folder, is inside it, or contains it. Move it, or use founder-data/, then start Claude."
+
+An invalid `founderive.local.json` makes home resolution fail; Start then shows the same message the app shows for it.
+
+**Which data folders are safe** (`dataFolderIsSafe(repo, data)` in `web/src/store/paths.ts`): both paths are resolved to their real paths (symlinks followed, including a link whose target doesn't exist yet; for a folder that doesn't exist yet, its nearest existing ancestor is resolved and the rest appended). The data folder is safe when it is entirely outside the repo (not the repo, not inside it, not a folder that contains it), or exactly `<repo>/founder-data`. Nothing else inside the repo is safe. There is no list of app folder names: a tracked folder like `founderive-mvp/` is refused like `web/`.
+
+### Instructions
+
+Right before each spawn, the app writes two generated files into the data folder:
+
+- `CLAUDE.md`, read by Claude Code.
+- `AGENTS.md`, read by Codex.
+
+Both hold the same text: a short generated header, then the full current contents of the repo's `AGENTS.md`. The header:
+
+```markdown
+<!-- Generated by Founderive on every start. Don't edit; edit AGENTS.md in the app repo instead. -->
+# Founderive panel
+
+This folder is the founder's data folder (`<data path>`). The Founderive app is at `<repo path>`. Run its commands from `<repo path>/web` (for example `pnpm -s data-dir`, `pnpm -s today --json`, `pnpm -s check-data`). Paths in these rules such as `.claude/skills/…` and `web/` are relative to the app at `<repo path>`. You are in the founder's record; the app is a tool. Don't edit the app's files.
+```
+
+The repo's `AGENTS.md` stays the one source of truth. The sentence in it that says "you're in the repo root as usual" changes to say the panel starts in the data folder and names where the app is. Regenerating on every start means the files never go stale after `git pull`.
+
+The two files are ignored by `check-data` (it skips unknown kinds at the root; `CLAUDE.md` and `AGENTS.md` are not record kinds) and are added to the data folder's `.gitignore` as `/CLAUDE.md` and `/AGENTS.md` (anchored, so a same-named file deeper in, like `_reference/CLAUDE.md`, stays tracked). The `.gitignore` is created if it doesn't exist and left alone if it already lists them, anchored or bare. Setup also writes them, so the first panel session after setup has them without a restart; a failure there doesn't fail setup, since the terminal rewrites them on every start.
+
+A file is rewritten only when its text would change. A `CLAUDE.md` or `AGENTS.md` already in the data folder that doesn't start with the generated header is the founder's own: it moves to `_archive/CLAUDE.md` (or `_archive/AGENTS.md`; `-2`, `-3`, … when that name is taken) before the generated file takes its place. Nothing is deleted.
+
+`web/src/store/` is the only code that reads or writes founder-data, so the writer lives there (`store/agent-home.ts`) and the terminal server calls it.
+
+### Guardrails
+
+Claude Code starts with a settings file the app generates per launch (see below for where it lives), passed as `--settings <file>`, in both `record` and `setup` mode. Because the data folder is either outside the repo or exactly `<repo>/founder-data`, the deny list has one of two shapes.
+
+**Data folder outside the repo:**
+
+```json
+{ "permissions": { "deny": ["Edit(//<repo>/**)", "Edit(//<settings folder>/**)", "Bash(git push *)", "Bash(git push:*)"] } }
+```
+
+**Data folder at `<repo>/founder-data`:**
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Edit(//<repo>/web/**)", "Edit(//<repo>/.claude/**)", "Edit(//<repo>/LICENSE)", "…every existing top-level entry except founder-data…",
+      "Edit(//<repo>/founderive.local.json)", "Edit(//<repo>/CLAUDE.md)", "Edit(//<repo>/AGENTS.md)",
+      "Edit(//<repo>/start.mjs)", "Edit(//<repo>/package.json)", "Edit(//<repo>/README.md)",
+      "Edit(//<repo>/*.*)",
+      "Edit(//<settings folder>/**)", "Bash(git push *)", "Bash(git push:*)"
+    ]
+  }
+}
+```
+
+Existing entries follow their real type (`Edit(//<path>)` for a file, `Edit(//<path>/**)` for a folder). The named root files are denied whether or not they exist, so Claude's file tools can't create `founderive.local.json` to move the data folder on the next start. `Edit(//<repo>/*.*)` covers any new root file with a dot in its name; `founder-data` has none.
+
+Why not one `Edit(//<repo>/*)` for every root file: Read and Edit rules use gitignore syntax (code.claude.com/docs/en/permissions, "Read and Edit"). `*` matches within one path segment, but under gitignore semantics a pattern that matches a folder covers everything inside it, so `<repo>/*` matches `<repo>/founder-data` and denies the whole record. Checked against Claude Code (2026-10-16): with that one rule, a Write to `founder-data/note.md` was denied; with the rules above, writes to `founder-data/note.md` and `founder-data/checkins/…` succeeded and writes to `../new.json`, `../founderive.local.json` and `../web/y.ts` were denied.
+
+Rules are written for the repo path as given and, when it differs, its real path. The `//` prefix makes a path absolute (a single slash would anchor it to the settings file's folder).
+
+**The guard hook.** Deny rules can only name paths that exist or are named in advance, so the same settings file also carries a PreToolUse hook for `Edit|Write|NotebookEdit|MultiEdit`:
+
+```json
+{ "hooks": { "PreToolUse": [ { "matcher": "Edit|Write|NotebookEdit|MultiEdit", "hooks": [ { "type": "command",
+  "command": "FOUNDERIVE_GUARD_REPO='<real repo>' FOUNDERIVE_GUARD_DATA='<real data folder>' FOUNDERIVE_GUARD_SETTINGS='<settings folder>' node '<real repo>/web/scripts/panel-guard.mjs'" } ] } ] } }
+```
+
+Every path is shell-quoted. `web/scripts/panel-guard.mjs` reads the tool call from stdin, takes `tool_input.file_path` (or `notebook_path`), resolves it against the call's `cwd` and then to a real path through its nearest existing ancestor, so a symlink that leads into the app is seen. It refuses a path inside the repo that isn't inside the data folder, and anything in the settings folder, with "Founderive keeps the app's files read-only from the panel. Write inside your data folder (<path>) instead."; it allows everything else. Hooks run in every permission mode, bypass included. If its input or environment is unexpected (malformed stdin, no `FOUNDERIVE_GUARD_REPO`, no path field in the tool call, or any other error the whole decision's top-level try/catch catches) it denies, with "Founderive's write guard couldn't check this write (malformed input | missing guard settings | no file path). Nothing in the app can be written from the panel until it can."; the deny rules still apply as well. The script lives under `web/`, which the deny rules cover, so the agent can't change it. It covers Claude's file tools only, not shell commands. Checked against Claude Code 2.1 (2026-10-16): with the data folder at `<repo>/founder-data` of a scratch repo, a Write to `<repo>/NEWFILE` (no deny rule names it) was refused by the hook with that reason, and a Write to `notes/ok.md` in the data folder succeeded.
+
+What the rules cover: Claude Code's Edit, Write, NotebookEdit and MultiEdit tools on those paths (an `Edit` rule covers all four), the file commands Claude Code recognizes in Bash, and the two `git push` spellings as command prefixes. With the guard hook, Claude's file tools can't write anywhere in the repo outside the data folder, including a new root folder or a new root file. What they don't cover:
+
+- A shell command that writes to the repo without naming the file. In the default permission mode it still asks the founder first; in a bypass mode it runs.
+- Codex gets no flags and relies on its own default workspace sandbox; a founder running Codex with a permissive sandbox turns that off.
+- A founder whose own Claude settings set `disableAllHooks` turns the guard off; the deny rules still apply.
+
+The agent's home files are written only to a safe data folder, checked on real paths, so a symlinked data folder that resolves into the app is never written to. A symlinked `CLAUDE.md` or `AGENTS.md` in the data folder is the founder's: the link itself is archived (never followed) and a regular file is written in its place by rename. A symlinked `.gitignore` is refused before anything is written.
+
+The settings file lives in one `founderive-panel-*` folder under the OS temp directory per terminal-server process. It's rewritten for each launch, the folder is recreated if the OS cleans it out, and it's removed when the server closes. The rules and the guard hook deny edits to that folder too.
+
+### What the founder sees
+
+- Nothing new on Home or in the panel's buttons.
+- The panel's header line gains the home folder name once a program is running: "Running · claude · in Lantern". That's the one visible change.
+- Before setup, the start view says Claude already works in the record; with an unsafe data folder setting, it says what to change.
+
+### The creator who is also a user
+
+The design separates the two roles by folder. Founder side: the data folder is home, the repo is a read-only tool. Creator side: a terminal in the repo, on a branch. One recommendation in the README's developer notes: run Founderive from a second clone kept on `main`, develop in another, and point the run clone's `founderive.local.json` at the data folder. Then the panel never inherits a working branch, and `git pull` in the run clone is the same "update" step every founder does.
+
+### Bringing in what they already have
+
+A new founder usually has notes, documents and spreadsheets on their computer already. The "Import a folder" page and the import-folder skill exist for that: the agent reads a folder, drafts records marked "Imported — confirm", and never touches the originals. Two things change with the panel's new home:
+
+- **The page's prompt.** Today it says "paste this into Claude Code or Codex, opened in the Founderive folder" and points at the skill as "in this repo". It becomes an "Ask Claude" button that types the prompt into the panel, the way Home's synthesize button does, with the skill path and the data path written out in full. The copy-to-clipboard prompt stays for a founder using Claude elsewhere, with the same full paths.
+- **Where the documents can be.** The page names two ways, simplest first. Put the documents, or copies, in `_reference/` inside the Founderive folder: that's their private reference folder, the agent can read it without asking, and the app never writes there. Or name any folder on the computer: the agent asks once for permission to read it, because it's outside its home, and the founder says yes. Either way the originals are never changed.
+
+The first-run empty states already point at "Import a folder"; the page's own copy is the only text that changes.
+
+## Agent instructions
+
+`AGENTS.md`:
+
+- "When you're running in Founderive's Claude panel, your working directory is always the founder's data folder, before setup too, and the generated header above these rules names where the app is. Run `pnpm` commands from the app's `web/` folder by its absolute path. Don't edit the app's files from the panel."
+- "Rules for founder-data": `pnpm -s data-dir` still prints the data folder; from the panel it equals the working directory.
+- Every skill's "Find the data folder" section stays as is; the header makes "the repo's `web/` folder" resolvable.
+
+## Code
+
+- `web/src/store/paths.ts`: `dataFolderIsSafe(repo, data): boolean` and `realPathOf(p): string` (real path, for a path that may not exist yet).
+- `web/src/store/agent-home.ts`: `agentHomeFiles(rules: string, repo: string, data: string): { claude: string; agents: string }` (pure), `ensureIgnored(dir, names): Promise<boolean>` (refuses a symlinked `.gitignore`) and `writeAgentHome(): Promise<void>` (returns early unless `dataFolderIsSafe(repoRoot(), dataDir())`; archives a founder's own file or symlink, writes both files when they'd change and the `.gitignore` lines; idempotent). `archiveFile(rel)` in `store/write.ts` moves any data-folder file to `_archive/`, a symlink as the link itself.
+- `web/src/terminal/session.ts`: `Launcher.home: () => Promise<Home>` evaluated per spawn, where `Home` is `{ cwd, mode: "record" | "setup" | "unsafe", name, data, exists, hasRecord, refused? }`: `cwd` is the data folder (the repo only in `unsafe`, for the name), `data` is the safe data folder or null when unsafe, `name` its basename (the repo's when unsafe), `refused` the refused setting, `exists` whether the data folder is there, `hasRecord` whether `founder.md` is in it (always false when `exists` is false). `home()` is read-only. `command(tool, home)` creates the record with `initData()` whenever `founder.md` is missing, re-checked fresh on disk — whether the folder itself is missing or already exists empty (only the default `<repo>/founder-data`, the folder existing, or one whose parent exists; otherwise it throws the "isn't there" message) — writes the agent's home files and returns the shell command, every argument quoted: for `claude`, `--add-dir <repo> --settings <generated path>`; for `codex`, none; it throws in `unsafe` mode. `TerminalSession.start()` throws the unsafe message before spawning.
+- `web/src/terminal/guardrails.ts`: `panelHome({ repo, data, safe, exists, hasRecord, setupComplete })`, `unsafeDataFolderMessage(path)`, `ROOT_FILES`, `denyRules(repo, rootEntries: DirEntry[] | null): string[]` (pure; null is the outside shape), `guardHook({ repo, data, settings })` (the PreToolUse hook that runs `web/scripts/panel-guard.mjs`), `claudeSettingsFor(rules, hooks?): string`, `writeLaunchSettings(repo, data: string | null): Promise<string>` (reads the repo's top level with `readdir` for the founder-data shape, writes to the temp folder), `removeLaunchSettings()`, `claudeArgs(repo, settingsFile)` and `shellQuote(s)`.
+- `web/src/terminal/protocol.ts`, `panelView.ts` and `ClaudePanel.tsx`: the `state` message carries `home: { name: string; mode: "record" | "setup" | "unsafe" }`; the header shows "Running · <tool> · in <name>" and the start view shows the setup or unsafe note.
+- `scripts/terminal.mts`: unchanged apart from the launcher now taking the repo root and resolving home itself.
+- `web/src/app/(workbook)/import/folder/page.tsx`: the prompt gains full paths; an `AskClaude`-style button types it into the panel; the copy names `_reference/` and the one-time permission for another folder.
+- `README.md`: a developer note on the two-clone setup; the Claude panel section says where the agent starts; the Import section names `_reference/`.
+
+## Tests
+
+- `agentHomeFiles` puts the header first, the rules verbatim after, and names both paths.
+- `writeAgentHome` creates `.gitignore` with the two names when missing, appends when present without them, and leaves it alone when they're listed.
+- `dataFolderIsSafe`: outside → safe; `<repo>/founder-data`, existing or not → safe; `<repo>/web/founder-data`, `<repo>/founderive-mvp`, the repo, a parent of the repo → unsafe; a symlink inside the repo to `web/`, a dangling symlink into the repo → unsafe; a symlink to a folder outside → safe.
+- Home resolution: `setupComplete: true` → mode `record`, `hasRecord: true`; `setupComplete: false` or no `founder.md` → mode `setup`, still in the data folder; a missing data folder is reported with `exists: false, hasRecord: false` and not created; an existing but empty configured folder is reported with `exists: true, hasRecord: false` and not created; Start creates a missing `<repo>/founder-data` from the starter, creates the record in an existing but empty configured folder too (`home()` then reports `hasRecord: true`), and refuses (creating nothing) a configured folder whose parent is missing; an unsafe setting → mode `unsafe`, nothing spawned, nothing written.
+- `panel-guard.mjs`, with the data folder inside the repo and outside it: a write under the data folder (absolute, relative to `cwd`, or in a new subfolder) is allowed; `<repo>/NEWFILE`, `<repo>/new-folder/file.ts`, an app file, a symlink from the data folder into the app and the settings folder are refused; a write outside both is allowed; malformed stdin prints nothing and exits 0. The generated settings carry the hook with every path quoted.
+- Deny rules: the outside shape denies `Edit(//<repo>/**)`; the founder-data shape never mentions `founder-data`, denies `LICENSE` as a file, `web/**`, `founderive.local.json` whether or not it exists, and the settings folder; both deny `git push` in both spellings.
+- `writeAgentHome`: a symlinked `CLAUDE.md` is archived as a link and replaced by a regular file; a symlinked `.gitignore` makes it throw before writing; a symlinked data folder that resolves into the app gets nothing.
+- Session: the spawn receives the resolved cwd and, for Claude, the `--add-dir` and `--settings` args (the existing session tests stub the pty).
+- The import prompt carries the absolute skill path and data path (a pure prompt builder with a test).
+- Manual, once: start the panel after setup, run `pwd` and `pnpm -s data-dir` from the agent, confirm both are the data folder; ask the agent to edit a file under `web/` and confirm it's refused; ask it to list its skills and confirm the six are there.
+
+## Later, if it earns its place
+
+An OS-level sandbox for shell commands (Claude Code's `sandbox.filesystem` settings), so a shell command can't write to the app either. Today a shell command that would change the app asks first in the default permission mode and runs in a bypass mode; that's a documented limit, not an enforced boundary.
+
+Live check 2026-10-16 (Claude Code 2.1.280, driven through the real terminal server and a headless Claude session on scratch data; the on-screen header and note were not eyeballed): in record mode the server reported home as the data folder, Claude started and ended there, `CLAUDE.md`, `AGENTS.md` and an anchored `.gitignore` were written, and the settings file carried the hook and the repo-wide deny. With the generated settings, a Write to `<repo>/NEWFILE` was refused and `notes/ok.md` in the data folder was written. Before setup, connecting a page created nothing; Start on an empty configured folder created the starter record with its own git and reported mode `setup`. One gap found and fixed during the check: Start used to create the record only when the folder itself was missing, not when it existed empty.
+
+## Out of scope
+
+- Moving the skills into the data folder. They stay in the repo and load through the added directory.
+- A Windows panel. It isn't available there today; this brief doesn't change that.
+- Any change to the data folder's own git history beyond the two `.gitignore` lines.
