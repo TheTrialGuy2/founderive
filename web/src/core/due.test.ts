@@ -40,6 +40,15 @@ describe("dueItems", () => {
       { key: "decision:decisions/2026-10-15-who-pays.md", kind: "decision", id: "decisions/2026-10-15-who-pays.md", text: "Decide: Who pays?", due: "2026-10-20", week: null, href: "/decisions#2026-10-15-who-pays" },
     ]);
   });
+  it("includes a decision whose revisit date has come, keyed by its path, linking to it, sorted with the rest", () => {
+    const items = dueItems({
+      commitments: [{ id: "c-1", text: "Fri", due: "2026-10-16", status: "open", week: "2026-W42" }],
+      homework: [],
+      revisits: [{ id: "decisions/2026-10-09-focus.md", title: "Focus on small agencies", href: "/decisions#2026-10-09-focus", revisitOn: "2026-10-12" }],
+    });
+    expect(items[0]).toEqual({ key: "revisit:decisions/2026-10-09-focus.md", kind: "revisit", id: "decisions/2026-10-09-focus.md", text: "What happened after: Focus on small agencies?", due: "2026-10-12", week: null, href: "/decisions#2026-10-09-focus" });
+    expect(items.map((i) => i.text)).toEqual(["What happened after: Focus on small agencies?", "Fri"]);
+  });
 });
 
 describe("dueItems with follow-ups", () => {
