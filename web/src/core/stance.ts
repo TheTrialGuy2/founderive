@@ -36,11 +36,11 @@ const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
 /**
  * The step chip. A supported test still outranks talk. Otherwise the people count, then each stance lane that has
  * anyone in it ("4 people discussed this · 3 support · 1 challenges"); with no stances it reads as it always did.
- * Only the Customer step (`conversations`) says when nobody has discussed it yet.
+ * Only the Customer step (`isCustomerStep`) says when nobody has discussed it yet.
  */
-export function chipText(discussed: number, counts: StanceCounts, tested: boolean, conversations: boolean): string {
+export function chipText(discussed: number, counts: StanceCounts, tested: boolean, isCustomerStep: boolean): string {
   if (tested) return "Tested · supported";
-  if (discussed === 0) return conversations ? "Your guess · not discussed yet" : "Your guess";
+  if (discussed === 0) return isCustomerStep ? "Your guess · not discussed yet" : "Your guess";
   const parts = [`${count(discussed, "person", "people")} discussed this`];
   if (counts.supports > 0) parts.push(count(counts.supports, "supports", "support"));
   if (counts.challenges > 0) parts.push(count(counts.challenges, "challenges", "challenge"));

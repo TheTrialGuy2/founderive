@@ -99,7 +99,7 @@ async function ConversationContent({ slug, returnTo }: { slug: string; returnTo:
             <>
               <p className="text-ink">{c.stance ? `${STANCE_LABELS[c.stance]} · ${c.whatChanges}` : c.whatChanges}</p>
               {/* A record confirmed before stances existed. It counts as "discussed" as before; the founder adds the stance under Change it. */}
-              {!c.stance && <p className="mt-1 text-sm text-muted">Say whether it supports or challenges what you believe. Open “Change it” to add it.</p>}
+              {!c.stance && <p className="mt-1 text-sm text-muted">Say whether it supports or challenges what you believe.</p>}
               <details className="mt-3 text-sm">
                 <summary className="cursor-pointer text-teal-dark">Change it</summary>
                 <div className="mt-2">
