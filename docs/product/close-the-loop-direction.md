@@ -4,6 +4,19 @@ A founder records a decision and its reasons, and then nothing asks what came of
 
 What it is not: a verdict or a score on the decision, a second revisit, a "what level does this challenge" select, or a change to tests or steps. The founder says what happened in their words. The app reminds and keeps it.
 
+## What was verified (2026-10-16)
+
+Run against a scratch copy of `web/test-data` (pinned `today: 2026-10-13`) with two decided decisions added, one with `revisitOn: 2026-10-10` and one with `revisitOn: 2026-10-20`, on the running app at `114bf3b`. No browser was connected, so pages were read as rendered HTML and the writes went through the app's commands; the on-submit paths rest on the command and parser tests.
+
+1. Home: Due lists "What happened after: Only agencies still on spreadsheets?" with "from last week" and a "Say what happened" link. It is the main action, with the reason "It's from last week. Say what happened, in a line." The Oct 20 decision is not listed.
+2. Decisions: the Oct 10 card shows the "What happened?" form with "Record what happened" and no "Revisit on" line (the form says what's due); the Oct 20 card shows "Revisit on Oct 20" and no form. The create form has "Revisit on (optional)" with its hint after "Can you undo it easily?".
+3. Recording: empty text is refused with "Say what happened, even if it's 'nothing yet'." After "Two of five signed; the third said price, not the tool." the card shows an Outcome section with that text and "Revisited Oct 13", and the form is gone. Home no longer lists it; its main action falls back to the next past-due commitment.
+4. A revisit date before the decision's date is refused with "Pick a revisit date on or after the decision's date." and an open question with a revisit date gets the open-conflict message. Resolving an open question with a revisit date shows "Revisit on Nov 13" on its card.
+5. `pnpm -s check-data` on the scratch folder: all files valid. The outcome file holds `revisitOn`, `revisitedOn: 2026-10-13` and `## Outcome` after the frontmatter.
+6. `pnpm -s today --json`: one `kind: revisit` item before recording, none after.
+
+Decided during the build: the loop-open rule lives in one predicate (`revisitDue` in `core/due.ts`) used by Home and the card, so an imported decision never shows the form and `recordOutcome` refuses one. A trailing question mark on a title is folded into the prompt, so "Who pays?" reads "What happened after: Who pays?". The refusal copy says "on or after", which is what the rule does. "Revisit on <date>" shows only until the date comes.
+
 ## The UI budget
 
 One optional date field on two forms that already exist (the create form's decided branch and the resolve-an-open-question form), one due item kind on Home, and one textarea with one button on a decided decision's card once its date has passed. No new page, no new file kind.
