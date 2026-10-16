@@ -7,7 +7,7 @@ export class OutsideDataDirError extends Error {}
 const INVALID_CONFIG_MESSAGE = 'founderive.local.json is invalid: expected { "dataDir": "/path/to/your/data" }';
 
 /** Repo root, resolved from process.cwd() the same way the founder-data default always has (cwd is web/ for next and scripts). */
-function repoRoot(): string {
+export function repoRoot(): string {
   return path.resolve(process.cwd(), "..");
 }
 
