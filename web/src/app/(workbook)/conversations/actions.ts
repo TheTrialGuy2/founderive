@@ -45,6 +45,7 @@ export async function setFollowUpStatusAction(_prev: ActionState, fd: FormData):
 }
 
 export async function confirmWhatChangesAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const values = { whatChanges: field(fd, "whatChanges") };
-  return run(() => confirmWhatChanges(field(fd, "path"), values.whatChanges), values);
+  // Both fields come back on an error, so the founder keeps the text they typed and the stance they picked.
+  const values = { whatChanges: field(fd, "whatChanges"), stance: field(fd, "stance") };
+  return run(() => confirmWhatChanges(field(fd, "path"), values.whatChanges, values.stance), values);
 }

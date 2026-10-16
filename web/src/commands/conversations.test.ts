@@ -3,7 +3,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
-import { addFollowUp, archiveImportedConversation, confirmAllImportedConversations, confirmImportedConversation, confirmWhatChanges, createConversation, loadConversation, loadConversations, parseConversationForm, setFollowUpStatus, updateConversation } from "./conversations";
+import { addFollowUp, archiveImportedConversation, confirmAllImportedConversations, confirmImportedConversation, confirmWhatChanges, createConversation, loadConversation, loadConversations, parseConversationForm, setFollowUpStatus, STANCE_MESSAGE, updateConversation } from "./conversations";
 import { CONTACT_DETAILS_MESSAGE } from "../core/privacy";
 import { checkData } from "../store/check";
 import { CONTACT_SAMPLES, DANA, MENTOR } from "./test-inputs";
@@ -45,10 +45,10 @@ describe("parseConversationForm", () => {
       org: null,
     });
   });
-  it("marks 'what this changes' typed on the founder's form as theirs", () => {
+  it("never confirms 'what this changes' on create; the founder confirms on the conversation page, with a stance", () => {
     const base = { type: "customer", person: "Dana Ortiz", date: "2026-10-08" };
     const typed = parseConversationForm(form({ ...base, whatChanges: "Price ceiling near $300" }));
-    expect(typed.ok && typed.input).toMatchObject({ whatChanges: "Price ceiling near $300", whatChangesConfirmed: true });
+    expect(typed.ok && typed.input).toMatchObject({ whatChanges: "Price ceiling near $300", whatChangesConfirmed: false });
     const blank = parseConversationForm(form({ ...base, whatChanges: "" }));
     expect(blank.ok && blank.input.whatChangesConfirmed).toBe(false);
   });
@@ -116,12 +116,24 @@ describe("conversation commands", () => {
     expect(e?.ok && e.data.followUps[0].status).toBe("open");
     await expect(setFollowUpStatus(rel, "f-nope", "done")).rejects.toThrow(/no longer exists/);
   });
-  it("confirms what this changes only with text", async () => {
+  it("confirms what this changes only with text and a stance, and writes both", async () => {
     const rel = await createConversation(DANA);
-    await expect(confirmWhatChanges(rel, "")).rejects.toThrow(/changes/);
-    await confirmWhatChanges(rel, "Owners feel it every week");
+    expect(await readFile(path.join(env.dir, rel), "utf8")).not.toMatch(/stance/); // logging never sets one
+    await expect(confirmWhatChanges(rel, "", "supports")).rejects.toThrow(/changes/);
+    await expect(confirmWhatChanges(rel, "Owners feel it every week", "")).rejects.toThrow(STANCE_MESSAGE);
+    await expect(confirmWhatChanges(rel, "Owners feel it every week", "against")).rejects.toThrow(STANCE_MESSAGE);
+    let e = await readEntry("conversation", rel);
+    expect(e?.ok && e.data).toMatchObject({ whatChangesConfirmed: false });
+    await confirmWhatChanges(rel, "Owners feel it every week", "challenges");
+    e = await readEntry("conversation", rel);
+    expect(e?.ok && e.data).toMatchObject({ whatChanges: "Owners feel it every week", stance: "challenges", whatChangesConfirmed: true });
+  });
+  it("editing details keeps the stance", async () => {
+    const rel = await createConversation(DANA);
+    await confirmWhatChanges(rel, "Owners feel it every week", "supports");
+    await updateConversation(rel, { ...DANA, person: "Dana" });
     const e = await readEntry("conversation", rel);
-    expect(e?.ok && e.data).toMatchObject({ whatChanges: "Owners feel it every week", whatChangesConfirmed: true });
+    expect(e?.ok && e.data).toMatchObject({ person: "Dana", stance: "supports", whatChangesConfirmed: true });
   });
 });
 

@@ -31,7 +31,7 @@ A conversation qualifies when all three hold:
    - the exact quotes, numbers or observed behavior behind it, each attributed to its person, and each labelled as what they said, what they do, or what they paid or committed. Prefer did and paid over said.
    - A theme needs at least two people. Anything heard once goes in a separate "heard once" list so the founder sees it but doesn't build on it.
    - When every person behind a theme is at one company, or the founder's notes say they all came through one introduction, say so in one sentence beside the theme: "All three are at Bright Home Care, so this is one account's view."
-   - Anything that cuts against the Customer step's text, or against another theme, goes in a "what contradicts" list with the same attribution. Never drop a negative case.
+   - Anything that cuts against the Customer step's text, or against another theme, goes in a "what contradicts" list with the same attribution. Conversations the founder marked `stance: challenges` go first, each labelled "the founder marked this as challenging"; then anything else you find. Never drop a negative case.
 4. **Confirm the themes, one turn each.** For each theme ask: keep it, rename it, or drop it? Keep the founder's wording. Don't propose a fourth unless they drop one and ask for another.
 5. **Implications and the message, one turn each.** From the confirmed themes, draft two product implications and one message to test this week, in customer language taken from the quotes. The founder confirms or rewrites each.
 6. **What surprised you?** Ask it as one turn. Keep the founder's words for the record.
@@ -51,8 +51,9 @@ A conversation qualifies when all three hold:
      - conversations/2026-10-14-dana.md
      - conversations/2026-10-12-marcus.md
      - conversations/2026-10-10-clinic-owner.md
-     - conversations/2026-10-06-priya.md
      - conversations/2026-10-02-tom.md
+   against:
+     - conversations/2026-10-06-priya.md
    alternatives:
      - "Workflow pain (4 of 5, 3 companies): the schedule is rebuilt by hand every week"
      - "Budget owner (3 of 5, 2 companies): the owner pays, not the office manager"
@@ -85,6 +86,7 @@ A conversation qualifies when all three hold:
    Rules for the record:
    - `area` is `customer` only when the founder uses the shipped canvas. A founder with their own `canvas/blocks.md` gets no `area` line, because the decision schema accepts only the seven shipped ids (customer, problem, solution, channel, revenue, cost, feasibility).
    - `alternatives` holds the themes because the schema has no themes field and the themes are what the founder is choosing between.
+   - `against` holds the paths of the conversations among the five that carry `stance: challenges`, and those paths are left out of `evidence` (a record is for or against, never both). Leave `against` out when none of the five has that stance. Anything else in "What contradicts" is your reading, not the founder's, so it stays in `evidence` and in the body only.
    - `status` stays `open`. Never write `decision`, `why` or `reversible`; the founder resolves it on Decisions.
    - `seeded: true` because you drafted it. The app shows it as "Imported — confirm" until the founder confirms it. Never clear it.
 10. **Offer a follow-up, don't force it.** Ask once: turn the message into a test (`.claude/skills/new-test/SKILL.md`), or add a commitment to this week's check-in `{ id, text: "Test: <message>", due, status: open, link: "decisions/<the file name>" }`? Only if the founder says yes.

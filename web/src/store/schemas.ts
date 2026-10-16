@@ -50,12 +50,14 @@ export const TEST_STATUSES = ["planned", "running", "complete", "abandoned"] as 
 export const TEST_RESULTS = ["supported", "contradicted", "inconclusive"] as const;
 export const TEST_DECISIONS = ["continue", "revise", "pause", "stop"] as const;
 export const EVIDENCE_STRENGTHS = ["none", "weak", "moderate", "strong"] as const;
+export const STANCES = ["supports", "challenges", "neither"] as const;
 export type Area = (typeof AREAS)[number];
 export type ConversationType = (typeof CONVERSATION_TYPES)[number];
 export type TestStatus = (typeof TEST_STATUSES)[number];
 export type TestResult = (typeof TEST_RESULTS)[number];
 export type TestDecision = (typeof TEST_DECISIONS)[number];
 export type EvidenceStrength = (typeof EVIDENCE_STRENGTHS)[number];
+export type Stance = (typeof STANCES)[number];
 
 /** Conversations with people who might buy are customer evidence; the other types are advice (amendment §5.3). */
 export const CUSTOMER_TYPES: readonly ConversationType[] = ["customer", "prospect"];
@@ -295,9 +297,13 @@ export const conversationSchema = z
     areas: z.array(blockId).default([]), // canvas block ids (path steps); the seven shipped areas are block ids too
     whatChanges: z.string().nullish(),
     whatChangesConfirmed: z.boolean().default(false),
+    // The founder's call on the conversation as a whole: does it support what they believe about the steps it's tagged
+    // with, challenge it, or neither yet. Set with whatChanges, only through the app's form. Absent on older records.
+    stance: z.enum(STANCES).nullish(),
   })
   .refine((conversation) => !(conversation.seeded && conversation.agentEdit), { path: ["agentEdit"], message: "an agent edit belongs only on a confirmed conversation" })
-  .refine((c) => !c.whatChangesConfirmed || !!c.whatChanges?.trim(), { message: "say what changes before confirming it", path: ["whatChangesConfirmed"] });
+  .refine((c) => !c.whatChangesConfirmed || !!c.whatChanges?.trim(), { message: "say what changes before confirming it", path: ["whatChangesConfirmed"] })
+  .refine((c) => !c.stance || c.whatChangesConfirmed, { message: "a stance belongs only on a confirmed what-this-changes", path: ["stance"] });
 
 /** A venture test (amendment §5.4) with the adopted split: `result` is what the evidence showed, `decision` is what the founder chose. */
 export const testSchema = z
@@ -343,6 +349,7 @@ export const decisionSchema = z
     area: z.enum(AREAS).nullish(),
     beliefBefore: z.string().nullish(),
     evidence: links,
+    against: links, // records that cut against the decision. A broken one is a warning, like evidence. Never also in evidence (the form refuses it)
     alternatives: z.array(z.string().min(1)).default([]),
     decision: z.string().nullish(),
     why: z.string().nullish(),
@@ -350,6 +357,7 @@ export const decisionSchema = z
     relatedTest: z.string().nullish(),
   })
   .superRefine((d, ctx) => {
+    if (d.against.some((p) => d.evidence.includes(p))) ctx.addIssue({ code: "custom", path: ["against"], message: "a record can be for or against, not both" });
     if (d.status === "open") {
       if (d.decision != null) ctx.addIssue({ code: "custom", path: ["decision"], message: "an open question does not have a decision yet" });
       if (d.why != null) ctx.addIssue({ code: "custom", path: ["why"], message: "an open question does not have a reason yet" });

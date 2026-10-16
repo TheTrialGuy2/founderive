@@ -56,7 +56,7 @@ describe("loadToday path fields", () => {
     expect(v.action).toMatchObject({ kind: "interpretation", label: "Decide what this changes", href: expect.stringMatching(/^\/conversations\//) });
     expect(formatToday(v)).toMatch(/^Changes waiting for you: 1 conversation$/m);
 
-    await confirmWhatChanges(rel, "Focus the problem on rebuilding weekly schedules");
+    await confirmWhatChanges(rel, "Focus the problem on rebuilding weekly schedules", "supports");
     v = await loadToday();
     if (v.status !== "ready") throw new Error(v.status);
     expect(v.changesWaiting).toEqual([]);
@@ -160,7 +160,7 @@ describe("closing a planned conversation", () => {
     v = await loadToday();
     if (v.status !== "ready") throw new Error(v.status);
     expect(v.action).toMatchObject({ kind: "interpretation", label: "Decide what this changes" });
-    await confirmWhatChanges(v.changesWaiting[0].path, "Agency owners rebuild schedules every week");
+    await confirmWhatChanges(v.changesWaiting[0].path, "Agency owners rebuild schedules every week", "supports");
     v = await loadToday();
     if (v.status !== "ready") throw new Error(v.status);
     expect(v.action).toMatchObject({ kind: "step", stepId: "customer", mode: "open" });

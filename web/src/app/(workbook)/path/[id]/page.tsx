@@ -15,8 +15,9 @@ import { Pagination } from "@/components/workbook/Pagination";
 import { buttonPrimary } from "@/components/workbook/form";
 import { confirmImportedAction } from "@/app/(workbook)/canvas/actions";
 import { loadCanvasBlock } from "@/commands/canvas";
-import { loadStep } from "@/commands/step";
+import { loadStep, type StepCard } from "@/commands/step";
 import { CONVERSATION_STEP } from "@/core/home";
+import { chipText } from "@/core/stance";
 import { addDays } from "@/core/week";
 import { STATUS_LABELS } from "@/lib/loop-labels";
 import { pageHref, pageNumber, paginate } from "@/lib/pagination";
@@ -30,10 +31,6 @@ export default function StepPage({ params, searchParams }: PageProps<"/path/[id]
     </Suspense>
   );
 }
-
-/** Only the Customer step is about conversations, so only it says when nobody has discussed it yet. */
-const chip = (discussed: number, tested: boolean, conversations: boolean) =>
-  tested ? "Tested · supported" : discussed > 0 ? `${discussed} ${discussed === 1 ? "person" : "people"} discussed this` : conversations ? "Your guess · not discussed yet" : "Your guess";
 
 async function StepContent({ id, requestedPeoplePage }: { id: string; requestedPeoplePage: number }) {
   await connection();
@@ -52,7 +49,7 @@ async function StepContent({ id, requestedPeoplePage }: { id: string; requestedP
       </>
     );
   }
-  const { step, steps, index, total, nextStep, weekId, today, people, planned, tests, importedCustomers } = view;
+  const { step, steps, index, total, nextStep, weekId, today, people, counts, challengers, planned, tests, importedCustomers } = view;
   const block = await loadCanvasBlock(id);
   const tomorrow = addDays(today, 1);
   const history = block.status === "ready" ? [...(block.block?.history ?? [])].reverse() : [];
@@ -90,7 +87,7 @@ async function StepContent({ id, requestedPeoplePage }: { id: string; requestedP
             )}
             <p className="whitespace-pre-wrap text-ink">{(block.status === "ready" && block.block?.text) || "Nothing written yet. A rough guess is fine."}</p>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <span className="text-xs text-muted">{chip(step.discussed, step.tested, conversations)}</span>
+              <span className="text-xs text-muted">{chipText(step.discussed, counts, step.tested, conversations)}</span>
               <details className="w-full text-sm">
                 <summary className={writeIsMain ? `${buttonPrimary} cursor-pointer list-none` : "cursor-pointer text-teal-dark"}>{answered ? "Edit" : "Write your answer"}</summary>
                 <div className="mt-3">
@@ -118,6 +115,22 @@ async function StepContent({ id, requestedPeoplePage }: { id: string; requestedP
         </section>
       )}
 
+      {/* Shown only when someone cuts against the belief. It's a list, not a warning: the heading carries the meaning. */}
+      {challengers.length > 0 && (
+        <section aria-labelledby="challenges-heading" className="mt-10">
+          <h2 id="challenges-heading" className="font-semibold text-navy">
+            What challenges this · {challengers.length}
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {challengers.map((p) => (
+              <li key={p.slug}>
+                <PersonCard p={p} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {(conversations || people.length > 0) && (
         <section aria-labelledby="people-heading" className="mt-10">
           <h2 id="people-heading" className="font-semibold text-navy">
@@ -137,14 +150,7 @@ async function StepContent({ id, requestedPeoplePage }: { id: string; requestedP
             <ul className="mt-3 space-y-2">
               {pagedPeople.items.map((p) => (
                 <li key={p.slug}>
-                  <Link href={`/conversations/${p.slug}`} className="block rounded-xl border border-line bg-paper p-4 hover:border-teal-dark">
-                    <span className="font-medium text-navy">{p.person}</span>{" "}
-                    <span className="text-sm text-muted">
-                      · {p.role} · {p.date ? formatDate(p.date) : "date unknown"}
-                    </span>
-                    {p.line && <span className="mt-1 block text-sm text-ink italic">&ldquo;{p.line}&rdquo;</span>}
-                    {p.changed && <span className="mt-1 block text-sm text-ink">What it changed: {p.changed}</span>}
-                  </Link>
+                  <PersonCard p={p} />
                 </li>
               ))}
             </ul>
@@ -203,5 +209,19 @@ async function StepContent({ id, requestedPeoplePage }: { id: string; requestedP
         <NextStepLink nextStep={nextStep} />
       </footer>
     </StepPageFrame>
+  );
+}
+
+/** One person who discussed the step, as a link to their conversation. The same card lists challengers and everyone. */
+function PersonCard({ p }: { p: StepCard }) {
+  return (
+    <Link href={`/conversations/${p.slug}`} className="block rounded-xl border border-line bg-paper p-4 hover:border-teal-dark">
+      <span className="font-medium text-navy">{p.person}</span>{" "}
+      <span className="text-sm text-muted">
+        · {p.role} · {p.date ? formatDate(p.date) : "date unknown"}
+      </span>
+      {p.line && <span className="mt-1 block text-sm text-ink italic">&ldquo;{p.line}&rdquo;</span>}
+      {p.changed && <span className="mt-1 block text-sm text-ink">What it changed: {p.changed}</span>}
+    </Link>
   );
 }

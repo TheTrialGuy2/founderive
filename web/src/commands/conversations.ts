@@ -3,7 +3,7 @@ import { CONTACT_DETAILS_MESSAGE, looksLikeContactDetails } from "../core/privac
 import { brokenLinks, linksOf, type BrokenLink } from "../core/links";
 import { pathForSlug, slugOf } from "../core/slug";
 import { existingPaths, listEntries, readEntry } from "../store/read";
-import { BLOCK_ID_PATTERN, CONVERSATION_TYPES, KINDS, type ConversationType, type KindData, type TestStatus } from "../store/schemas";
+import { BLOCK_ID_PATTERN, CONVERSATION_TYPES, KINDS, STANCES, type ConversationType, type KindData, type TestStatus } from "../store/schemas";
 import { archiveEntry, ValidationError } from "../store/write";
 import { updateEntry } from "../store/update";
 import { newId } from "./checkin";
@@ -84,7 +84,7 @@ export function parseConversationForm(fd: FormData): Parsed<ConversationInput> {
       areas,
       followUps,
       whatChanges: orNull(values.whatChanges),
-      whatChangesConfirmed: !!values.whatChanges, // typed by the founder on their own form
+      whatChangesConfirmed: false, // creating never confirms; the founder confirms on the conversation page, with a stance
       notes: values.notes,
     },
   };
@@ -180,12 +180,20 @@ export async function setFollowUpStatus(rel: string, id: string, status: string)
   });
 }
 
-/** Records the founder's own reading of what this conversation changes. Claude may draft it; only this confirms it. */
-export async function confirmWhatChanges(rel: string, whatChanges: string): Promise<void> {
+export const STANCE_MESSAGE = "Say whether it supports or challenges what you believe, or neither yet.";
+
+/**
+ * Records the founder's own reading of what this conversation changes and which way it cuts. Claude may draft the
+ * text; only this confirms it, and a confirmation always carries a stance (supports, challenges or neither yet), so
+ * every interpretation confirmed from now on has a direction. Older confirmed records without one stay as they are
+ * until the founder changes them here.
+ */
+export async function confirmWhatChanges(rel: string, whatChanges: string, stance: string): Promise<void> {
   const t = required(whatChanges, "Say what this conversation changes, even if it's “nothing yet”.");
+  if (!oneOf(STANCES, stance)) throw new Error(STANCE_MESSAGE);
   await updateEntry("conversation", rel, (data, body) => {
     if (!data) throw missing(rel);
-    return { data: { ...data, whatChanges: t, whatChangesConfirmed: true }, body };
+    return { data: { ...data, whatChanges: t, stance, whatChangesConfirmed: true }, body };
   });
 }
 

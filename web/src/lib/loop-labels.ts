@@ -1,4 +1,4 @@
-import type { Area, CanvasStatus, ConversationType, EvidenceStrength, TestDecision, TestResult, TestStatus } from "../store/schemas";
+import type { Area, CanvasStatus, ConversationType, EvidenceStrength, Stance, TestDecision, TestResult, TestStatus } from "../store/schemas";
 
 /** [value, label] pairs in declaration order, for radios and selects. */
 export function options<K extends string>(labels: Record<K, string>): [K, string][] {
@@ -13,6 +13,7 @@ export const CANVAS_STATUS_HELP: Record<CanvasStatus, string> = {
 };
 
 export const TYPE_LABELS: Record<ConversationType, string> = { customer: "Customer", prospect: "Prospect", mentor: "Mentor", partner: "Partner", investor: "Investor", other: "Other" };
+export const STANCE_LABELS: Record<Stance, string> = { supports: "Supports it", challenges: "Challenges it", neither: "Neither yet" };
 export const AREA_LABELS: Record<Area, string> = {
   customer: "Customer",
   problem: "Problem",

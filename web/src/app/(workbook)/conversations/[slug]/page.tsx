@@ -17,7 +17,7 @@ import { loadConversation, type Conversation } from "@/commands/conversations";
 import { loadFounderToday } from "@/commands/today";
 import { isCustomerEvidence, isEvidenceEligible } from "@/core/conversations";
 import { canUnlink, linkableTests } from "@/core/venture-tests";
-import { areaLabel, STATUS_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
+import { areaLabel, STANCE_LABELS, STATUS_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
 import { safeReturnTo } from "@/lib/return-to";
 import { AgentEditReview } from "@/components/workbook/AgentEditReview";
 
@@ -97,18 +97,20 @@ async function ConversationContent({ slug, returnTo }: { slug: string; returnTo:
         <Card title="What this changes" className="md:col-span-2">
           {confirmed ? (
             <>
-              <p className="text-ink">{c.whatChanges}</p>
+              <p className="text-ink">{c.stance ? `${STANCE_LABELS[c.stance]} · ${c.whatChanges}` : c.whatChanges}</p>
+              {/* A record confirmed before stances existed. It counts as "discussed" as before; the founder adds the stance under Change it. */}
+              {!c.stance && <p className="mt-1 text-sm text-muted">Say whether it supports or challenges what you believe. Open “Change it” to add it.</p>}
               <details className="mt-3 text-sm">
                 <summary className="cursor-pointer text-teal-dark">Change it</summary>
                 <div className="mt-2">
-                  <WhatChangesForm path={view.path} initial={c.whatChanges ?? ""} confirmed />
+                  <WhatChangesForm path={view.path} initial={c.whatChanges ?? ""} initialStance={c.stance ?? null} confirmed />
                 </div>
               </details>
             </>
           ) : (
             <>
               {c.whatChanges && <p className="mb-2 text-sm text-muted">A draft you haven&apos;t confirmed yet. Edit it until it says what you believe.</p>}
-              <WhatChangesForm path={view.path} initial={c.whatChanges ?? ""} confirmed={false} />
+              <WhatChangesForm path={view.path} initial={c.whatChanges ?? ""} initialStance={null} confirmed={false} />
             </>
           )}
           {confirmed && returnTo && (
