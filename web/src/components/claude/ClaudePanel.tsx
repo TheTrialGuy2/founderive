@@ -416,7 +416,7 @@ export function ClaudePanel({ terminal, platform = "supported" }: Props) {
                 </button>
               ))}
             </div>
-            <p className="text-xs text-muted">It runs in the Founderive folder with your own sign-in, like any terminal.</p>
+            <p className="text-xs text-muted">{view.note ?? "It runs in your Founderive folder with your own sign-in, like any terminal."}</p>
           </div>
         ) : view.kind === "not-installed" ? (
           <div className="space-y-2 border-b border-line p-4 text-sm">

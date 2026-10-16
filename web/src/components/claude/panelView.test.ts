@@ -5,7 +5,7 @@ const ready: PanelInput = {
   terminal: true,
   platform: "supported",
   conn: "open",
-  state: { running: null, available: { claude: true, codex: true }, platform: "supported", home: null },
+  state: { running: null, available: { claude: true, codex: true }, platform: "supported", home: { name: "Lantern", mode: "record" } },
   exited: false,
 };
 
@@ -33,12 +33,12 @@ describe("panelView", () => {
   });
 
   it("with nothing running, offers to start what's installed, Claude first", () => {
-    expect(panelView(ready)).toEqual({ kind: "start", status: "Not started", stopped: false, tools: ["claude", "codex"] });
+    expect(panelView(ready)).toEqual({ kind: "start", status: "Not started", stopped: false, tools: ["claude", "codex"], note: null });
     expect(panelView({ ...ready, state: { ...ready.state!, available: { claude: false, codex: true } } })).toMatchObject({ kind: "start", tools: ["codex"] });
   });
 
   it("after the program stops, says Stopped and offers to start again", () => {
-    expect(panelView({ ...ready, exited: true })).toEqual({ kind: "start", status: "Stopped", stopped: true, tools: ["claude", "codex"] });
+    expect(panelView({ ...ready, exited: true })).toEqual({ kind: "start", status: "Stopped", stopped: true, tools: ["claude", "codex"], note: null });
   });
 
   it("when neither tool is installed, says how to install Claude Code", () => {
@@ -46,6 +46,20 @@ describe("panelView", () => {
   });
 
   it("while a program runs, names it", () => {
-    expect(panelView({ ...ready, exited: true, state: { ...ready.state!, running: "codex" } })).toEqual({ kind: "running", status: "Running · codex", tool: "codex" });
+    expect(panelView({ ...ready, exited: true, state: { ...ready.state!, running: "codex" } })).toEqual({ kind: "running", status: "Running · codex · in Lantern", tool: "codex" });
+  });
+
+  it("names the folder the program runs in", () => {
+    expect(panelView({ ...ready, state: { ...ready.state!, running: "codex" } })).toMatchObject({ kind: "running", status: "Running · codex · in Lantern" });
+  });
+
+  it("before setup, says Claude will start in the record once setup is done", () => {
+    const before = panelView({ ...ready, state: { ...ready.state!, home: { name: "app", mode: "repo" } } });
+    expect(before).toMatchObject({ kind: "start", note: "Finish setup, then Claude starts in your record." });
+    expect(panelView(ready)).toMatchObject({ kind: "start", note: null });
+  });
+
+  it("falls back to the plain status when the server didn't say where", () => {
+    expect(panelView({ ...ready, state: { ...ready.state!, running: "claude", home: null } })).toMatchObject({ status: "Running · claude" });
   });
 });
