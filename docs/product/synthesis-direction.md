@@ -6,7 +6,7 @@ What it is not: a main action, a new file kind, a score, or a tag on every conve
 
 ## The UI budget
 
-This feature adds one quiet button to Home and nothing else. No new page, no new form, no new field on any record. The work happens in the Claude panel, in the founder's words, one question per turn. The result lands on the Decisions page the founder already uses, shaped like every other decision. If a later version wants a Patterns view, that is a separate brief with its own budget.
+This feature adds one quiet button to Home, and the Decisions page shows a decision's notes under its card, read-only, so the synthesis can be read where it lands. No new page, no new form, no new field on any record. The work happens in the Claude panel, in the founder's words, one question per turn. The result lands on the Decisions page the founder already uses, shaped like every other decision. If a later version wants a Patterns view, that is a separate brief with its own budget.
 
 ## Home: synthesize
 
@@ -25,7 +25,7 @@ None added. Home keeps its one main action from `homeAction()`. Synthesis never 
 ### Secondary actions
 
 - **Synthesize your last 5 conversations.** A button under the Talked-to tile, in the same row as the Changes and Review links. It acts, so it is a button: it opens the Claude panel and types the line `Synthesize my last five customer conversations in Founderive.` without pressing Enter, exactly as "Ask Claude about this step" does. The founder sends it. When fewer than five conversations qualify, the label carries the real count ("Synthesize your 3 conversations").
-- Open Decisions to read an earlier synthesis.
+- Open Decisions to read an earlier synthesis: its themes under Alternatives considered, and the full write-up (what we heard, what contradicts, the message to test) under the card.
 
 ### What counts
 

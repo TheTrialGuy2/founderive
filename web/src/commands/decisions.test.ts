@@ -87,6 +87,13 @@ describe("decision log", () => {
     expect(labels[dana]).toBe("Conversation · Dana Ortiz · 2026-10-08 · customer evidence");
     expect(labels[mentor]).toBe("Conversation · Chris Lee · 2026-10-08 · advice");
   });
+  it("carries the decision's body as notes", async () => {
+    await mkdir(path.join(env.dir, "decisions"), { recursive: true });
+    const body = "## What we heard most often\n\nFaster onboarding, every time.\n\n## Message to test this week\n\nTry ‘Set up in a day.’\n";
+    await writeFile(path.join(env.dir, "decisions/2026-10-09-focus-on-small-agencies.md"), `---\ntitle: Focus on small agencies\ndate: 2026-10-09\ndecision: C\nwhy: D\nreversible: true\n---\n${body}`);
+    const v = await loadDecisions();
+    expect(v.rows[0].notes).toBe(body);
+  });
   it("an imported decision shows as seeded until the founder confirms it", async () => {
     await mkdir(path.join(env.dir, "decisions"), { recursive: true });
     await writeFile(path.join(env.dir, "decisions/2026-10-05-imp.md"), "---\nseeded: true\nsource: folder import 2026-10-13 #abc\ntitle: Imp\ndate: 2026-10-05\ndecision: C\nwhy: D\nreversible: true\n---\n");

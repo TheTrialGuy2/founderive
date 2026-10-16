@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSection, setSection } from "./markdown";
+import { bodySections, getSection, setSection } from "./markdown";
 
 const BODY = "## Evidence\n\n## What we learned\n\n## Decision and why\n";
 
@@ -15,5 +15,32 @@ describe("Markdown sections", () => {
   it("reads a section, empty when absent", () => {
     expect(getSection(setSection(BODY, "Decision and why", "**Revise.** Price"), "Decision and why")).toBe("**Revise.** Price");
     expect(getSection("", "Evidence")).toBe("");
+  });
+});
+
+describe("bodySections", () => {
+  it("splits preamble plus three headings", () => {
+    const body = "Some preamble.\n\n## First\n\nFirst text\n\n## Second\n\nSecond text\n\n## Third\n\nThird text\n";
+    expect(bodySections(body)).toEqual([
+      { heading: null, text: "Some preamble." },
+      { heading: "First", text: "First text" },
+      { heading: "Second", text: "Second text" },
+      { heading: "Third", text: "Third text" },
+    ]);
+  });
+
+  it("returns an empty array for an empty body", () => expect(bodySections("")).toEqual([]));
+
+  it("drops a heading with nothing under it", () => {
+    const body = "## First\n\nFirst text\n\n## Empty\n\n## Third\n\nThird text\n";
+    expect(bodySections(body)).toEqual([
+      { heading: "First", text: "First text" },
+      { heading: "Third", text: "Third text" },
+    ]);
+  });
+
+  it("keeps ### sub-headings inside the enclosing section's text", () => {
+    const body = "## First\n\n### Sub heading\n\nmore text\n";
+    expect(bodySections(body)).toEqual([{ heading: "First", text: "### Sub heading\n\nmore text" }]);
   });
 });

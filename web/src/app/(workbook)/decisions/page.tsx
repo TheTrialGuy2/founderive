@@ -12,6 +12,7 @@ import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { Pagination } from "@/components/workbook/Pagination";
 import { loadDecisions, type DecisionRow } from "@/commands/decisions";
 import { loadFounderToday, loadPromptContext } from "@/commands/today";
+import { bodySections } from "@/core/markdown";
 import { hrefFor } from "@/core/slug";
 import { AREA_LABELS } from "@/lib/loop-labels";
 import { fillPrompt, SKILL_PROMPTS } from "@/lib/prompts";
@@ -159,6 +160,16 @@ function DecisionCard({ row, labels }: { row: DecisionRow; labels: Map<string, s
           </div>
         )}
       </dl>
+      {row.notes.trim() && (
+        <div className="mt-4 space-y-3 border-t border-line pt-4 text-sm">
+          {bodySections(row.notes).map((s, i) => (
+            <div key={i}>
+              {s.heading && <h3 className="font-medium text-ink">{s.heading}</h3>}
+              <p className="whitespace-pre-wrap text-muted">{s.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
       {d.status === "open" && <ResolveDecisionForm path={row.path} />}
     </article>
   );
