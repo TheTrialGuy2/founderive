@@ -108,11 +108,20 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
   const decisionRows = (await listEntries("decision"))
     .flatMap((entry) => (entry.ok ? [entry] : []))
     .sort((a, b) => b.data.date.localeCompare(a.data.date) || a.path.localeCompare(b.path));
+  // Decisions are paginated newest first, so a link lands on the page the record is on.
+  const decisionHref = (index: number, rel: string) => {
+    const page = Math.floor(index / PAGE_SIZE) + 1;
+    return `/decisions${page > 1 ? `?page=${page}` : ""}#${slugOf(rel)}`;
+  };
   const openDecisions = decisionRows.flatMap((entry, index) => {
     if (entry.data.seeded || entry.data.status !== "open" || !entry.data.decideBy || entry.data.decideBy > decisionHorizon) return [];
-    const page = Math.floor(index / PAGE_SIZE) + 1;
-    const pageQuery = page > 1 ? `?page=${page}` : "";
-    return [{ id: entry.path, title: entry.data.title, decideBy: entry.data.decideBy, href: `/decisions${pageQuery}#${slugOf(entry.path)}` }];
+    return [{ id: entry.path, title: entry.data.title, decideBy: entry.data.decideBy, href: decisionHref(index, entry.path) }];
+  });
+  // A decided decision whose revisit date has come and that has no outcome yet. Never before the date, never an import.
+  const revisits = decisionRows.flatMap((entry, index) => {
+    const d = entry.data;
+    if (d.seeded || d.status !== "decided" || !d.revisitOn || d.revisitOn > today || d.revisitedOn) return [];
+    return [{ id: entry.path, title: d.title, href: decisionHref(index, entry.path), revisitOn: d.revisitOn }];
   });
 
   const next = nextStep({
@@ -158,7 +167,7 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
     .filter((c) => needsInterpretation(c.data, c.notes))
     .sort((a, b) => conversationDate(a).localeCompare(conversationDate(b)) || a.path.localeCompare(b.path))
     .map((c) => ({ path: c.path, person: c.data.person, date: conversationDate(c), href: `/conversations/${slugOf(c.path)}`, areas: c.data.areas }));
-  const dueList = buildDueItems({ commitments: ranked, homework, followUps, decisions: openDecisions });
+  const dueList = buildDueItems({ commitments: ranked, homework, followUps, decisions: openDecisions, revisits });
   const action = homeAction({
     today,
     risk: next && next.tier === 1 ? { label: next.label, reason: next.reason, href: next.href ?? "/today" } : null,

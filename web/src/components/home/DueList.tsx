@@ -20,9 +20,9 @@ type Props = {
   homework: KindData<"week">["homework"];
 };
 
-/** What Done sends for each kind of item: a commitment to its own week's check-in, homework to its program week, a follow-up to its conversation. */
+/** What Done sends for each kind of item: a commitment to its own week's check-in, homework to its program week, a follow-up to its conversation. A decision and a revisit have no Done here; they link to the decision's card. */
 function doneAction(i: DueItem, weekId: string, programWeek: number | null): { action: typeof saveCommitmentStatus; fields: Record<string, string> } | null {
-  if (i.kind === "decision") return null;
+  if (i.kind === "decision" || i.kind === "revisit") return null;
   if (i.kind === "commitment") return { action: saveCommitmentStatus, fields: commitmentFields({ id: i.id, week: i.week ?? weekId }, weekId, "done") };
   if (i.kind === "followup") {
     const at = i.id.lastIndexOf("#");
@@ -63,7 +63,9 @@ export function DueList({ weekId, today, items, primaryKey, commitments, carried
                 {done ? (
                   <ActionButton action={done.action} fields={done.fields} label="Done" variant={i.key === primaryKey ? "primary" : "quiet"} ariaLabel={`Done: ${i.text}`} />
                 ) : (
-                  <Link href={i.href ?? "/decisions"} className={i.key === primaryKey ? buttonPrimary : buttonQuiet}>Decide</Link>
+                  <Link href={i.href ?? "/decisions"} className={i.key === primaryKey ? buttonPrimary : buttonQuiet}>
+                    {i.kind === "revisit" ? "Say what happened" : "Decide"}
+                  </Link>
                 )}
               </li>
             );

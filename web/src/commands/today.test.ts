@@ -58,6 +58,22 @@ describe("loadToday", () => {
     const decisions = (await ready()).dueItems.filter((item) => item.kind === "decision");
     expect(decisions).toEqual([expect.objectContaining({ text: "Decide: Who pays?", href: "/decisions?page=2#2026-10-01-who-pays" })]);
   });
+  it("asks what happened after a decided decision once its revisit date has come, never for an open, imported or revisited one", async () => {
+    await mkdir(path.join(env.dir, "decisions"), { recursive: true });
+    const decided = (name: string, extra: string) =>
+      writeFile(path.join(env.dir, `decisions/2026-10-01-${name}.md`), `---\ntitle: ${name}\ndate: 2026-10-01\ndecision: Continue\nwhy: Evidence\nreversible: true\n${extra}---\n`);
+    await decided("today", "revisitOn: 2026-10-13\n");
+    await decided("past", "revisitOn: 2026-10-10\n");
+    await decided("later", "revisitOn: 2026-10-14\n");
+    await decided("done", "revisitOn: 2026-10-10\nrevisitedOn: 2026-10-12\n");
+    await decided("imported", "revisitOn: 2026-10-10\nseeded: true\nsource: notes\n");
+    await writeFile(path.join(env.dir, "decisions/2026-10-02-open.md"), "---\ntitle: open\ndate: 2026-10-02\nstatus: open\n---\n");
+    const revisits = (await ready()).dueItems.filter((item) => item.kind === "revisit");
+    expect(revisits.map((r) => [r.text, r.due, r.href])).toEqual([
+      ["What happened after: past?", "2026-10-10", "/decisions#2026-10-01-past"],
+      ["What happened after: today?", "2026-10-13", "/decisions#2026-10-01-today"],
+    ]);
+  });
   it("does not put imported program homework in Due before the founder confirms the week", async () => {
     await mkdir(path.join(env.dir, "program"), { recursive: true });
     await writeFile(path.join(env.dir, "program/week-05.md"), "---\nseeded: true\nsource: program deck\nweek: 5\ntitle: Pricing\nstatus: not-started\nexercises: []\nhomework:\n  - id: hw-price\n    title: Draft prices\n    due: 2026-10-12\n    status: open\n---\n");
