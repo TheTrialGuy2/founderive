@@ -158,10 +158,6 @@ Comfortable with GitHub? [Open an issue](https://github.com/TheTrialGuy2/founder
 
 Suggestions and fixes are welcome. Everyone can propose a change; only the maintainer merges. See [CONTRIBUTING.md](CONTRIBUTING.md) for how.
 
-## Demo
-
-`/demo` holds an early clickable mockup, with fictional data, of how a founder program might use Founderive. It's separate from the workbook and doesn't read your data.
-
 ## License
 
 MIT. See [LICENSE](LICENSE). Adapted third-party material is credited in [ATTRIBUTION.md](ATTRIBUTION.md).
