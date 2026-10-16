@@ -1,6 +1,6 @@
 ---
 name: synthesize
-description: Read the founder's last five confirmed customer conversations and draft three themes with counts and quotes, two product implications and one message to test, for the founder to confirm, then write one open decision record. Use when a founder says "synthesize my conversations", "what do my last five conversations add up to", or sends the line Founderive's Home button types.
+description: Read the founder's last five confirmed customer conversations and draft three themes with counts and quotes, two product implications and one message to test, for the founder to confirm, then write one open decision record. Use when a founder says "synthesize my conversations", "what do my last five conversations add up to", or sends the line Founderive's Home button types, "Synthesize my last five customer conversations in Founderive."
 ---
 
 # Synthesize the last five conversations
