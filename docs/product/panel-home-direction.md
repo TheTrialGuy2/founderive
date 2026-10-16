@@ -162,6 +162,8 @@ The first-run empty states already point at "Import a folder"; the page's own co
 
 An OS-level sandbox for shell commands (Claude Code's `sandbox.filesystem` settings), so a shell command can't write to the app either. Today a shell command that would change the app asks first in the default permission mode and runs in a bypass mode; that's a documented limit, not an enforced boundary.
 
+Live check 2026-10-16 (Claude Code 2.1.280, driven through the real terminal server and a headless Claude session on scratch data; the on-screen header and note were not eyeballed): in record mode the server reported home as the data folder, Claude started and ended there, `CLAUDE.md`, `AGENTS.md` and an anchored `.gitignore` were written, and the settings file carried the hook and the repo-wide deny. With the generated settings, a Write to `<repo>/NEWFILE` was refused and `notes/ok.md` in the data folder was written. Before setup, connecting a page created nothing; Start on an empty configured folder created the starter record with its own git and reported mode `setup`. One gap found and fixed during the check: Start used to create the record only when the folder itself was missing, not when it existed empty.
+
 ## Out of scope
 
 - Moving the skills into the data folder. They stay in the repo and load through the added directory.
