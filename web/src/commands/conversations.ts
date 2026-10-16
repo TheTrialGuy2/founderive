@@ -84,7 +84,7 @@ export function parseConversationForm(fd: FormData): Parsed<ConversationInput> {
       areas,
       followUps,
       whatChanges: orNull(values.whatChanges),
-      whatChangesConfirmed: !!values.whatChanges, // typed by the founder on their own form
+      whatChangesConfirmed: false, // creating never confirms; the founder confirms on the conversation page, with a stance
       notes: values.notes,
     },
   };

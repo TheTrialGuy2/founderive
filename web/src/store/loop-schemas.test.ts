@@ -39,8 +39,13 @@ describe("conversation", () => {
     expect(paths(conversationSchema, conversation({ whatChanges: "Price ceiling near $300", whatChangesConfirmed: true }))).toEqual([]);
   });
   it("takes a stance of supports, challenges or neither, and nothing else", () => {
-    for (const stance of ["supports", "challenges", "neither"]) expect(paths(conversationSchema, conversation({ stance }))).toEqual([]);
-    expect(paths(conversationSchema, conversation({ stance: "against" }))).toEqual(["stance"]);
+    for (const stance of ["supports", "challenges", "neither"])
+      expect(paths(conversationSchema, conversation({ whatChanges: "x", whatChangesConfirmed: true, stance }))).toEqual([]);
+    expect(paths(conversationSchema, conversation({ whatChanges: "x", whatChangesConfirmed: true, stance: "against" }))).toContain("stance");
+  });
+  it("a stance belongs only on a confirmed what-this-changes", () => {
+    expect(paths(conversationSchema, conversation({ stance: "challenges" }))).toEqual(["stance"]);
+    expect(paths(conversationSchema, conversation({ whatChanges: "x", whatChangesConfirmed: true, stance: "challenges" }))).toEqual([]);
   });
   it("an older confirmed record without a stance stays valid and reads as not said yet", () => {
     expect(conversationSchema.parse(conversation({ whatChanges: "Price ceiling near $300", whatChangesConfirmed: true })).stance).toBeUndefined();
@@ -88,6 +93,10 @@ describe("decision", () => {
   });
   it("keeps evidence against beside evidence for", () => {
     expect(decisionSchema.parse(decision({ against: ["conversations/2026-10-01-tom.md"] })).against).toEqual(["conversations/2026-10-01-tom.md"]);
+  });
+  it("refuses a record in both evidence and against", () => {
+    expect(paths(decisionSchema, decision({ evidence: ["conversations/2026-10-01-tom.md"], against: ["conversations/2026-10-01-tom.md"] }))).toEqual(["against"]);
+    expect(paths(decisionSchema, decision({ evidence: ["conversations/2026-10-01-tom.md"], against: ["conversations/2026-10-02-ann.md"] }))).toEqual([]);
   });
   it("allows an open question without a decision, then enforces decided fields", () => {
     const open = { title: "Who pays?", date: "2026-10-15", status: "open", decideBy: "2026-10-29", alternatives: ["Founder", "Agency"] };

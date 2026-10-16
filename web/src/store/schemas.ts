@@ -302,7 +302,8 @@ export const conversationSchema = z
     stance: z.enum(STANCES).nullish(),
   })
   .refine((conversation) => !(conversation.seeded && conversation.agentEdit), { path: ["agentEdit"], message: "an agent edit belongs only on a confirmed conversation" })
-  .refine((c) => !c.whatChangesConfirmed || !!c.whatChanges?.trim(), { message: "say what changes before confirming it", path: ["whatChangesConfirmed"] });
+  .refine((c) => !c.whatChangesConfirmed || !!c.whatChanges?.trim(), { message: "say what changes before confirming it", path: ["whatChangesConfirmed"] })
+  .refine((c) => !c.stance || c.whatChangesConfirmed, { message: "a stance belongs only on a confirmed what-this-changes", path: ["stance"] });
 
 /** A venture test (amendment §5.4) with the adopted split: `result` is what the evidence showed, `decision` is what the founder chose. */
 export const testSchema = z
@@ -356,6 +357,7 @@ export const decisionSchema = z
     relatedTest: z.string().nullish(),
   })
   .superRefine((d, ctx) => {
+    if (d.against.some((p) => d.evidence.includes(p))) ctx.addIssue({ code: "custom", path: ["against"], message: "a record can be for or against, not both" });
     if (d.status === "open") {
       if (d.decision != null) ctx.addIssue({ code: "custom", path: ["decision"], message: "an open question does not have a decision yet" });
       if (d.why != null) ctx.addIssue({ code: "custom", path: ["why"], message: "an open question does not have a reason yet" });

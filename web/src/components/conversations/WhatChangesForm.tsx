@@ -17,7 +17,7 @@ export function WhatChangesForm({ path, initial, initialStance, confirmed }: { p
   return (
     <form action={formAction} className="space-y-3">
       <input type="hidden" name="path" value={path} />
-      <fieldset>
+      <fieldset aria-describedby={state.status === "error" ? "what-changes-error" : undefined}>
         <legend className="mb-1 text-sm font-medium text-ink">Does it support what you believe?</legend>
         <div className="flex flex-wrap gap-2">
           {options(STANCE_LABELS).map(([value, label]) => (
@@ -44,7 +44,7 @@ export function WhatChangesForm({ path, initial, initialStance, confirmed }: { p
         {pending ? "Saving…" : "Confirm what changed"}
       </button>
       {state.status === "error" && (
-        <p role="alert" className={errorText}>
+        <p id="what-changes-error" role="alert" className={errorText}>
           {state.message}
         </p>
       )}

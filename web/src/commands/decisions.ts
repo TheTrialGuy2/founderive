@@ -70,7 +70,7 @@ export function parseDecisionForm(fd: FormData): Parsed<DecisionInput> {
   };
 }
 
-/** Logs a decision made outside a venture test. Evidence and the related test must be records that exist. */
+/** Logs a decision made outside a venture test. Evidence for, evidence against and the related test must be records that exist. */
 export async function createDecision(input: DecisionInput): Promise<string> {
   if (input.relatedTest && kindOf(input.relatedTest) !== "test") throw new Error("Pick the related test from the list.");
   const present = await existingPaths();

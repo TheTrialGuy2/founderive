@@ -10,21 +10,25 @@ export const byNewest = <T extends { path: string; data: { date?: string | null 
 /**
  * Counts the founder's stances among the feedback conversations that discussed a step. discussesStep is the one rule
  * for who counts, so advice, unconfirmed imports, conversations with nothing recorded and conversations tagged with
- * other steps are never looked at. The founder set each stance; nothing here infers one.
+ * other steps are never looked at, and a stance only counts once "what this changes" is confirmed. The founder set
+ * each stance; nothing here infers one.
  */
 export function stanceCounts(conversations: PathConversation[], stepId: string): StanceCounts {
   const counts: StanceCounts = { supports: 0, challenges: 0 };
   for (const c of conversations) {
-    if (!discussesStep(c, stepId)) continue;
+    if (!discussesStep(c, stepId) || !c.data.whatChangesConfirmed) continue;
     if (c.data.stance === "supports") counts.supports++;
     else if (c.data.stance === "challenges") counts.challenges++;
   }
   return counts;
 }
 
-/** The feedback conversations on a step the founder marked as challenging what they believe, newest first. */
+/**
+ * The feedback conversations on a step the founder marked as challenging what they believe, newest first. A stance
+ * on an unconfirmed interpretation never lists here.
+ */
 export function challengers<T extends PathConversation>(conversations: T[], stepId: string): T[] {
-  return conversations.filter((c) => discussesStep(c, stepId) && c.data.stance === "challenges").sort(byNewest);
+  return conversations.filter((c) => discussesStep(c, stepId) && c.data.whatChangesConfirmed && c.data.stance === "challenges").sort(byNewest);
 }
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;

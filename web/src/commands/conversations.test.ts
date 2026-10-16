@@ -45,10 +45,10 @@ describe("parseConversationForm", () => {
       org: null,
     });
   });
-  it("marks 'what this changes' typed on the founder's form as theirs", () => {
+  it("never confirms 'what this changes' on create; the founder confirms on the conversation page, with a stance", () => {
     const base = { type: "customer", person: "Dana Ortiz", date: "2026-10-08" };
     const typed = parseConversationForm(form({ ...base, whatChanges: "Price ceiling near $300" }));
-    expect(typed.ok && typed.input).toMatchObject({ whatChanges: "Price ceiling near $300", whatChangesConfirmed: true });
+    expect(typed.ok && typed.input).toMatchObject({ whatChanges: "Price ceiling near $300", whatChangesConfirmed: false });
     const blank = parseConversationForm(form({ ...base, whatChanges: "" }));
     expect(blank.ok && blank.input.whatChangesConfirmed).toBe(false);
   });

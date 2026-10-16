@@ -13,7 +13,7 @@ const conv = (path: string, over: Partial<PathConversation["data"]> = {}, notes 
     followUps: [],
     relatedTests: [],
     areas: ["problem"],
-    whatChangesConfirmed: false,
+    whatChangesConfirmed: true,
     ...over,
   },
   notes,
@@ -43,6 +43,13 @@ describe("stanceCounts", () => {
   it("an untagged conversation counts for the customer step, as discussesStep says", () => {
     expect(stanceCounts([conv("conversations/2026-10-01-a.md", { areas: [], stance: "challenges" })], "customer")).toEqual({ supports: 0, challenges: 1 });
   });
+  it("a stance on an unconfirmed interpretation counts nowhere", () => {
+    const rows = [
+      conv("conversations/2026-10-01-a.md", { stance: "supports", whatChangesConfirmed: false }),
+      conv("conversations/2026-10-02-b.md", { stance: "challenges", whatChangesConfirmed: false }),
+    ];
+    expect(stanceCounts(rows, "problem")).toEqual({ supports: 0, challenges: 0 });
+  });
 });
 
 describe("challengers", () => {
@@ -59,6 +66,10 @@ describe("challengers", () => {
   it("byNewest breaks a date tie by path so the order is stable", () => {
     const rows = [conv("conversations/2026-10-02-zed.md"), conv("conversations/2026-10-02-amy.md"), conv("conversations/2026-10-04-kim.md")];
     expect([...rows].sort(byNewest).map((r) => r.path)).toEqual(["conversations/2026-10-04-kim.md", "conversations/2026-10-02-amy.md", "conversations/2026-10-02-zed.md"]);
+  });
+  it("doesn't list a conversation whose stance is on an unconfirmed interpretation", () => {
+    const rows = [conv("conversations/2026-10-01-a.md", { stance: "challenges", whatChangesConfirmed: false })];
+    expect(challengers(rows, "problem")).toEqual([]);
   });
 });
 
