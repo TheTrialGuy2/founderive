@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { Badge, Card, formatDate, PageHeader } from "@/components/ui";
 import { DecisionForm } from "@/components/decisions/DecisionForm";
 import { ResolveDecisionForm } from "@/components/decisions/ResolveDecisionForm";
+import { OutcomeForm } from "@/components/decisions/OutcomeForm";
 import { BrokenLinks } from "@/components/workbook/BrokenLinks";
 import { SeededNote } from "@/components/workbook/SeededNote";
 import { CopyPrompt } from "@/components/workbook/CopyPrompt";
@@ -12,6 +13,7 @@ import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { Pagination } from "@/components/workbook/Pagination";
 import { loadDecisions, type DecisionRow } from "@/commands/decisions";
 import { loadFounderToday, loadPromptContext } from "@/commands/today";
+import { revisitDue } from "@/core/due";
 import { bodySections } from "@/core/markdown";
 import { hrefFor } from "@/core/slug";
 import { AREA_LABELS } from "@/lib/loop-labels";
@@ -55,7 +57,7 @@ async function DecisionsContent({ requestedPage }: { requestedPage: number }) {
         <ul className="space-y-3">
           {paged.items.map((r) => (
             <li key={r.path}>
-              <DecisionCard row={r} labels={labels} />
+              <DecisionCard row={r} labels={labels} today={today} />
             </li>
           ))}
         </ul>
@@ -97,8 +99,10 @@ function RecordList({ label, paths, labels }: { label: string; paths: string[]; 
   );
 }
 
-function DecisionCard({ row, labels }: { row: DecisionRow; labels: Map<string, string> }) {
+function DecisionCard({ row, labels, today }: { row: DecisionRow; labels: Map<string, string>; today: string }) {
   const d = row.data;
+  // The loop is open once the revisit date has come and nothing has been recorded. The form shows only then.
+  const loopOpen = revisitDue(d, today);
   return (
     <article id={row.path.slice(row.path.lastIndexOf("/") + 1, -3)} className="rounded-xl border border-line bg-paper p-5">
       <div className="flex flex-wrap items-center gap-2">
@@ -106,6 +110,8 @@ function DecisionCard({ row, labels }: { row: DecisionRow; labels: Map<string, s
         <span className="text-sm text-muted">{formatDate(d.date)}</span>
         {d.area && <Badge>{AREA_LABELS[d.area]}</Badge>}
         {d.status === "open" ? <Badge tone="warn">Open</Badge> : <Badge tone={d.reversible ? "neutral" : "warn"}>{d.reversible ? "Easy to undo" : "Hard to undo"}</Badge>}
+        {d.status === "decided" && d.revisitOn && !d.revisitedOn && d.revisitOn > today && <span className="text-sm text-muted">Revisit on {formatDate(d.revisitOn)}</span>}
+        {d.revisitedOn && <span className="text-sm text-muted">Revisited {formatDate(d.revisitedOn)}</span>}
       </div>
       {/* An imported decision is a draft until the founder confirms it as theirs (amendment §3.4). */}
       {d.seeded && (
@@ -178,6 +184,7 @@ function DecisionCard({ row, labels }: { row: DecisionRow; labels: Map<string, s
         </div>
       )}
       {d.status === "open" && <ResolveDecisionForm path={row.path} />}
+      {loopOpen && <OutcomeForm path={row.path} />}
     </article>
   );
 }

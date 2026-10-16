@@ -112,6 +112,9 @@ export function DecisionForm({ today, evidenceOptions, tests }: Props) {
           </p>
         )}
       </fieldset>
+      <Field id="revisitOn" label="Revisit on (optional)" hint="The day Home asks what happened." error={err.revisitOn}>
+        <input id="revisitOn" name="revisitOn" type="date" defaultValue={v.revisitOn} className={inputClass} aria-invalid={!!err.revisitOn} aria-describedby={describedBy("revisitOn", err.revisitOn, "The day Home asks what happened.")} />
+      </Field>
       {evidenceOptions.length > 0 && (
         <>
           {checklist("evidence", "Evidence for (optional)")}

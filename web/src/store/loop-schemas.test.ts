@@ -98,6 +98,14 @@ describe("decision", () => {
     expect(paths(decisionSchema, decision({ evidence: ["conversations/2026-10-01-tom.md"], against: ["conversations/2026-10-01-tom.md"] }))).toEqual(["against"]);
     expect(paths(decisionSchema, decision({ evidence: ["conversations/2026-10-01-tom.md"], against: ["conversations/2026-10-02-ann.md"] }))).toEqual([]);
   });
+  it("keeps a revisit date and the day it was revisited, only on a decided record", () => {
+    expect(decisionSchema.parse(decision({ revisitOn: "2026-11-15", revisitedOn: "2026-11-16" }))).toMatchObject({ revisitOn: "2026-11-15", revisitedOn: "2026-11-16" });
+    expect(decisionSchema.parse(decision()).revisitOn).toBeUndefined();
+    expect(paths(decisionSchema, decision({ revisitedOn: "2026-11-16" }))).toEqual(["revisitedOn"]);
+    const open = { title: "Who pays?", date: "2026-10-15", status: "open" };
+    expect(paths(decisionSchema, { ...open, revisitOn: "2026-11-15" })).toEqual(["revisitOn"]);
+    expect(paths(decisionSchema, { ...open, revisitedOn: "2026-11-15" })).toEqual(["revisitedOn"]);
+  });
   it("allows an open question without a decision, then enforces decided fields", () => {
     const open = { title: "Who pays?", date: "2026-10-15", status: "open", decideBy: "2026-10-29", alternatives: ["Founder", "Agency"] };
     const parsed = decisionSchema.parse(open);

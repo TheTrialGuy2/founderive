@@ -40,7 +40,12 @@ export function homeAction(input: {
     return {
       kind: "overdue",
       label: late.text,
-      reason: late.kind === "decision" ? `It's ${dueWords(late, input.today)}. Make the call or change its decide-by date.` : `It's ${dueWords(late, input.today)}. Finish it, or drop it with a reason.`,
+      reason:
+        late.kind === "decision"
+          ? `It's ${dueWords(late, input.today)}. Make the call or change its decide-by date.`
+          : late.kind === "revisit"
+            ? `It's ${dueWords(late, input.today)}. Say what happened, in a line.`
+            : `It's ${dueWords(late, input.today)}. Finish it, or drop it with a reason.`,
       key: late.key,
     };
   if (input.importedWaiting > 0) {

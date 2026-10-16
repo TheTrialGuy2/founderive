@@ -33,6 +33,12 @@ describe("homeAction", () => {
     const f: DueItem = { key: "followup:c.md#f-1", kind: "followup", id: "c.md#f-1", text: "Follow up with Dana: send the price", due: "2026-10-12", week: null, href: "/conversations/c" };
     expect(homeAction({ ...base, due: [f] })).toMatchObject({ kind: "overdue", key: "followup:c.md#f-1" });
   });
+  it("asks what happened after a decision whose revisit date has passed, in words", () => {
+    const r: DueItem = { key: "revisit:decisions/2026-10-01-focus.md", kind: "revisit", id: "decisions/2026-10-01-focus.md", text: "What happened after: Focus on small agencies?", due: "2026-10-12", week: null, href: "/decisions#2026-10-01-focus" };
+    const a = homeAction({ ...base, due: [r] });
+    expect(a).toMatchObject({ kind: "overdue", key: r.key, label: "What happened after: Focus on small agencies?" });
+    expect(a?.reason).toBe("It's due Mon. Say what happened, in a line.");
+  });
   it("then the current step: on Customer, the concrete conversation move", () => {
     const customer = (over: Partial<PathStep> = {}) => path(step({ id: "customer", title: "Customer", href: "/path/customer", ...over }));
     expect(homeAction({ ...base, path: customer() })).toMatchObject({ kind: "step", mode: "plan", label: "Continue: plan a conversation about Customer", href: "/path/customer" });
