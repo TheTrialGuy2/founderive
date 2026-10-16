@@ -1,10 +1,10 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
 import { createConversation } from "./conversations";
-import { createDecision, loadDecisions, parseDecisionForm, resolveDecision } from "./decisions";
+import { createDecision, loadDecisions, parseDecisionForm, recordOutcome, resolveDecision } from "./decisions";
 import { confirmImportedRecord } from "./import";
 import { DANA, MENTOR } from "./test-inputs";
 
@@ -56,7 +56,7 @@ describe("decision log", () => {
     const rel = await createDecision(parsed.input);
     let entry = await readEntry("decision", rel);
     expect(entry?.ok && entry.data).toMatchObject({ status: "open", decideBy: "2026-10-29", decision: null, why: null, reversible: null });
-    await resolveDecision(rel, { decision: "Agency pays", why: "They receive the value", reversible: "yes" });
+    await resolveDecision(rel, { decision: "Agency pays", why: "They receive the value", reversible: "yes", revisitOn: "" });
     entry = await readEntry("decision", rel);
     expect(entry?.ok && entry.data).toMatchObject({ status: "decided", decision: "Agency pays", why: "They receive the value", reversible: true });
   });
@@ -119,6 +119,56 @@ describe("decision log", () => {
     await writeFile(path.join(env.dir, "decisions/2026-10-09-focus-on-small-agencies.md"), `---\ntitle: Focus on small agencies\ndate: 2026-10-09\ndecision: C\nwhy: D\nreversible: true\n---\n${body}`);
     const v = await loadDecisions();
     expect(v.rows[0].notes).toBe(body);
+  });
+  it("keeps a revisit date on a decided record only, on or after the decision's date", async () => {
+    const before = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no", revisitOn: "2026-10-01" }));
+    expect(!before.ok && before.errors).toEqual({ revisitOn: "Pick a revisit date after the decision's date." });
+    expect(!before.ok && before.values.revisitOn).toBe("2026-10-01");
+    const bad = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no", revisitOn: "soon" }));
+    expect(!bad.ok && bad.errors).toEqual({ revisitOn: "Use a real revisit date." });
+    const open = parseDecisionForm(form({ title: "X", date: "2026-10-09", status: "open", revisitOn: "2026-11-09" }));
+    expect(!open.ok && open.errors).toEqual({ revisitOn: "Choose ‘A decision already made,’ or clear this for an open question." });
+    const same = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no", revisitOn: "2026-10-09" }));
+    expect(same.ok && same.input.revisitOn).toBe("2026-10-09");
+    const r = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no", revisitOn: "2026-11-09" }));
+    if (!r.ok) throw new Error(JSON.stringify(r.errors));
+    const rel = await createDecision(r.input);
+    const e = await readEntry("decision", rel);
+    expect(e?.ok && e.data).toMatchObject({ revisitOn: "2026-11-09" });
+    const none = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no" }));
+    expect(none.ok && none.input.revisitOn).toBeNull();
+  });
+  it("resolving an open question can set the revisit date", async () => {
+    const parsed = parseDecisionForm(form({ title: "Who pays?", date: "2026-10-15", status: "open" }));
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.errors));
+    const rel = await createDecision(parsed.input);
+    await expect(resolveDecision(rel, { decision: "Agency pays", why: "They benefit", reversible: "yes", revisitOn: "2026-10-01" })).rejects.toThrow(/after the decision/);
+    await expect(resolveDecision(rel, { decision: "Agency pays", why: "They benefit", reversible: "yes", revisitOn: "soon" })).rejects.toThrow(/real revisit date/);
+    await resolveDecision(rel, { decision: "Agency pays", why: "They benefit", reversible: "yes", revisitOn: "2026-11-15" });
+    const e = await readEntry("decision", rel);
+    expect(e?.ok && e.data).toMatchObject({ status: "decided", revisitOn: "2026-11-15" });
+    expect(await readFile(path.join(env.dir, rel), "utf8")).not.toMatch(/revisitedOn/);
+  });
+  it("records what happened once, without touching the rest of the body", async () => {
+    const r = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no", revisitOn: "2026-10-20" }));
+    if (!r.ok) throw new Error(JSON.stringify(r.errors));
+    const rel = await createDecision(r.input);
+    const file = path.join(env.dir, rel);
+    await writeFile(file, `${(await readFile(file, "utf8")).replace(/\s+$/, "")}\n## Why in full\n\nThe owner feels it.\n`);
+    await expect(recordOutcome(rel, "  ", "2026-10-21")).rejects.toThrow(/what happened/);
+    await recordOutcome(rel, "Two of five signed.", "2026-10-21");
+    const e = await readEntry("decision", rel);
+    expect(e?.ok && e.data.revisitedOn).toBe("2026-10-21");
+    expect(e?.ok && e.body.trim()).toBe("## Why in full\n\nThe owner feels it.\n\n## Outcome\n\nTwo of five signed.");
+    await expect(recordOutcome(rel, "Again", "2026-10-22")).rejects.toThrow(/already been revisited/);
+  });
+  it("refuses an outcome on an open question or a decision without a revisit date", async () => {
+    const open = parseDecisionForm(form({ title: "Who pays?", date: "2026-10-15", status: "open" }));
+    if (!open.ok) throw new Error("fixture invalid");
+    await expect(recordOutcome(await createDecision(open.input), "x", "2026-10-21")).rejects.toThrow(/Decide it first/);
+    const plain = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no" }));
+    if (!plain.ok) throw new Error("fixture invalid");
+    await expect(recordOutcome(await createDecision(plain.input), "x", "2026-10-21")).rejects.toThrow(/no revisit date/);
   });
   it("an imported decision shows as seeded until the founder confirms it", async () => {
     await mkdir(path.join(env.dir, "decisions"), { recursive: true });
