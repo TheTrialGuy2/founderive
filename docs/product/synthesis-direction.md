@@ -109,7 +109,7 @@ Three changes to `AGENTS.md`:
 - A row in the Prompts table: "Make sense of the last five customer conversations | `.claude/skills/synthesize/SKILL.md` (Claude: `/synthesize`)".
 - In the weekly review, before question 4 ("What did you learn?"): when a synthesis decision dated in the past week exists, read its themes back in one line first, then ask.
 
-`web/src/lib/prompts.ts` gets a matching entry in `SKILL_PROMPTS` so the copy-a-prompt path (a founder without the panel, or on Windows) can send the same ask to a file-editing AI.
+No entry in `SKILL_PROMPTS` (`web/src/lib/prompts.ts`): nothing shows it, since Home has the button and the panel on Windows already tells the founder to use their own terminal. A founder without the panel types the same line, which `AGENTS.md` routes.
 
 ## Code
 
