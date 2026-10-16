@@ -23,12 +23,5 @@ Tests never touch real founder data: they run against a temporary folder, and th
 | `src/commands/` | The operations behind the app's forms and the `pnpm` scripts |
 | `scripts/` | `today`, `check-data`, `data-dir`, `init-data` |
 | `src/app/api/data-events/` | Watches founder-data so the app updates when an assistant writes |
-| `src/app/demo/` | The early clickable mockup (see below) |
 
 Read `AGENTS.md` in this folder before using Next.js APIs: this is Next 16 with Cache Components, so pages that read data `await connection()` inside `<Suspense>`.
-
-## The demo mockup
-
-`/demo` is an early mockup of how a founder program might use Founderive, with a founder side and a program-team side. It runs on fictional fixture data (`src/data/fixtures/`), keeps its state in memory, and resets on reload. It doesn't read founder-data.
-
-It's client-only, so all of its fixture data is loaded in the browser. A real program view would build its data on the server and scope it to the program and the founder's consent.
