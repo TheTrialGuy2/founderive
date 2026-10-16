@@ -3,18 +3,35 @@
 import { useActionState } from "react";
 import { createDecisionAction } from "@/app/(workbook)/decisions/actions";
 import { describedBy, Field, FormAlert } from "@/components/workbook/Field";
-import { buttonPrimary, errorText, inputClass } from "@/components/workbook/form";
+import { buttonPrimary, errorText, inputClass, radioChip } from "@/components/workbook/form";
 import { IDLE } from "@/lib/action-state";
 import { AREA_LABELS, options } from "@/lib/loop-labels";
 
 type Props = { today: string; evidenceOptions: { path: string; label: string }[]; tests: { path: string; title: string }[] };
-const chip = "flex min-h-10 items-center gap-2 rounded-md border border-line bg-paper px-3 text-sm text-ink has-[:checked]:border-teal-dark has-[:checked]:bg-aqua/40";
 
 export function DecisionForm({ today, evidenceOptions, tests }: Props) {
   const [state, formAction, pending] = useActionState(createDecisionAction, IDLE);
   const v: Record<string, string> = { date: today, status: "decided", ...state.values };
   const err = state.errors ?? {};
-  const chosen = new Set((v.evidence ?? "").split(",").filter(Boolean));
+  const chosen = { evidence: new Set((v.evidence ?? "").split(",").filter(Boolean)), against: new Set((v.against ?? "").split(",").filter(Boolean)) };
+  // The same records can be cited for or against. The command refuses one in both lists; the form keeps both choices on an error.
+  const checklist = (name: "evidence" | "against", legend: string) => (
+    <fieldset aria-describedby={err[name] ? `${name}-error` : undefined}>
+      <legend className="mb-1 text-sm font-medium text-ink">{legend}</legend>
+      <div className="space-y-1">
+        {evidenceOptions.map((o) => (
+          <label key={o.path} className="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" name={name} value={o.path} defaultChecked={chosen[name].has(o.path)} /> {o.label}
+          </label>
+        ))}
+      </div>
+      {err[name] && (
+        <p id={`${name}-error`} className={errorText}>
+          {err[name]}
+        </p>
+      )}
+    </fieldset>
+  );
   const textArea = (name: string, label: string, opts: { placeholder?: string; hint?: string } = {}) => (
     <Field id={name} label={label} hint={opts.hint} error={err[name]}>
       <textarea
@@ -45,7 +62,7 @@ export function DecisionForm({ today, evidenceOptions, tests }: Props) {
             ["open", "An open question"],
             ["decided", "A decision already made"],
           ].map(([value, label]) => (
-            <label key={value} className={chip}>
+            <label key={value} className={radioChip}>
               <input type="radio" name="status" value={value} defaultChecked={v.status === value} /> {label}
             </label>
           ))}
@@ -84,7 +101,7 @@ export function DecisionForm({ today, evidenceOptions, tests }: Props) {
             ["yes", "Yes, easy to undo"],
             ["no", "No, hard to undo"],
           ].map(([value, label]) => (
-            <label key={value} className={chip}>
+            <label key={value} className={radioChip}>
               <input type="radio" name="reversible" value={value} defaultChecked={v.reversible === value} /> {label}
             </label>
           ))}
@@ -96,16 +113,10 @@ export function DecisionForm({ today, evidenceOptions, tests }: Props) {
         )}
       </fieldset>
       {evidenceOptions.length > 0 && (
-        <fieldset>
-          <legend className="mb-1 text-sm font-medium text-ink">Evidence it rests on (optional)</legend>
-          <div className="space-y-1">
-            {evidenceOptions.map((o) => (
-              <label key={o.path} className="flex items-center gap-2 text-sm text-ink">
-                <input type="checkbox" name="evidence" value={o.path} defaultChecked={chosen.has(o.path)} /> {o.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        <>
+          {checklist("evidence", "Evidence for (optional)")}
+          {checklist("against", "Evidence against (optional)")}
+        </>
       )}
       {tests.length > 0 && (
         <Field id="relatedTest" label="Related test (optional)">

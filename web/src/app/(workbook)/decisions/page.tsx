@@ -79,6 +79,24 @@ function RecordLink({ path, label }: { path: string; label: string }) {
   );
 }
 
+/** One of the card's record lists. An empty one isn't rendered, so a decision without evidence against looks as it did. */
+function RecordList({ label, paths, labels }: { label: string; paths: string[]; labels: Map<string, string> }) {
+  return (
+    <div>
+      <dt className="font-medium text-ink">{label}</dt>
+      <dd>
+        <ul className="space-y-1">
+          {paths.map((p) => (
+            <li key={p}>
+              <RecordLink path={p} label={labels.get(p) ?? p} />
+            </li>
+          ))}
+        </ul>
+      </dd>
+    </div>
+  );
+}
+
 function DecisionCard({ row, labels }: { row: DecisionRow; labels: Map<string, string> }) {
   const d = row.data;
   return (
@@ -137,20 +155,8 @@ function DecisionCard({ row, labels }: { row: DecisionRow; labels: Map<string, s
             </dd>
           </div>
         )}
-        {d.evidence.length > 0 && (
-          <div>
-            <dt className="font-medium text-ink">Evidence</dt>
-            <dd>
-              <ul className="space-y-1">
-                {d.evidence.map((p) => (
-                  <li key={p}>
-                    <RecordLink path={p} label={labels.get(p) ?? p} />
-                  </li>
-                ))}
-              </ul>
-            </dd>
-          </div>
-        )}
+        {d.evidence.length > 0 && <RecordList label={`Evidence for · ${d.evidence.length}`} paths={d.evidence} labels={labels} />}
+        {d.against.length > 0 && <RecordList label={`Against · ${d.against.length}`} paths={d.against} labels={labels} />}
         {d.relatedTest && (
           <div>
             <dt className="font-medium text-ink">Related test</dt>
