@@ -72,6 +72,32 @@ describe("decision log", () => {
     if (!r.ok) throw new Error("fixture invalid");
     await expect(createDecision(r.input)).rejects.toThrow(/isn't there anymore/);
   });
+  it("keeps evidence against beside evidence for, and refuses a record in both lists", async () => {
+    const c = await createConversation(DANA);
+    const m = await createConversation(MENTOR);
+    const both = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no", evidence: [c], against: [c] }));
+    expect(!both.ok && both.errors).toEqual({ against: "A record can be for or against, not both." });
+    expect(!both.ok && both.values).toMatchObject({ evidence: c, against: c }); // the form keeps both choices
+    const r = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no", evidence: [c], against: [m] }));
+    if (!r.ok) throw new Error(JSON.stringify(r.errors));
+    const rel = await createDecision(r.input);
+    const e = await readEntry("decision", rel);
+    expect(e?.ok && e.data).toMatchObject({ evidence: [c], against: [m] });
+  });
+  it("evidence against defaults to none and must be in founder-data", async () => {
+    const none = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no" }));
+    if (!none.ok) throw new Error("fixture invalid");
+    expect(none.input.against).toEqual([]);
+    const gone = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no", against: ["conversations/2026-10-01-gone.md"] }));
+    if (!gone.ok) throw new Error("fixture invalid");
+    await expect(createDecision(gone.input)).rejects.toThrow(/isn't there anymore/);
+  });
+  it("a broken against link is a warning on the decision, like evidence", async () => {
+    await mkdir(path.join(env.dir, "decisions"), { recursive: true });
+    await writeFile(path.join(env.dir, "decisions/2026-10-03-against.md"), "---\ntitle: Against\ndate: 2026-10-03\ndecision: A\nwhy: B\nreversible: false\nagainst:\n  - conversations/2026-10-01-gone.md\n---\n");
+    const v = await loadDecisions();
+    expect(v.rows.find((r) => r.data.title === "Against")?.broken).toEqual([{ field: "against", target: "conversations/2026-10-01-gone.md", expect: null, problem: "missing" }]);
+  });
   it("lists decisions newest first, flagging broken links", async () => {
     await mkdir(path.join(env.dir, "decisions"), { recursive: true });
     await writeFile(path.join(env.dir, "decisions/2026-10-01-old.md"), "---\ntitle: Old\ndate: 2026-10-01\ndecision: A\nwhy: B\nreversible: false\nevidence:\n  - conversations/2026-10-01-gone.md\n---\n");

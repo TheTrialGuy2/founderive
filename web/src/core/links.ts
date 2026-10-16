@@ -1,6 +1,6 @@
 import { kindOf, type Kind } from "../store/schemas";
 
-export type LinkField = "relatedTests" | "relatedConversations" | "evidence" | "relatedTest";
+export type LinkField = "relatedTests" | "relatedConversations" | "evidence" | "against" | "relatedTest";
 export type Link = { field: LinkField; target: string; expect: Kind | null };
 export type BrokenLink = Link & { problem: "missing" | "wrong-kind" };
 
@@ -19,7 +19,7 @@ export function linksOf(kind: Kind, data: object): Link[] {
   };
   if (kind === "conversation") return list("relatedTests", "test");
   if (kind === "test") return list("relatedConversations", "conversation");
-  if (kind === "decision") return [...list("evidence", null), ...list("relatedTest", "test")];
+  if (kind === "decision") return [...list("evidence", null), ...list("against", null), ...list("relatedTest", "test")];
   return [];
 }
 

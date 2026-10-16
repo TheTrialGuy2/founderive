@@ -82,9 +82,12 @@ describe("venture test", () => {
 
 describe("decision", () => {
   it("applies defaults and needs a why and whether it's reversible", () => {
-    expect(decisionSchema.parse(decision())).toMatchObject({ status: "decided", evidence: [], alternatives: [] });
+    expect(decisionSchema.parse(decision())).toMatchObject({ status: "decided", evidence: [], against: [], alternatives: [] });
     expect(paths(decisionSchema, decision({ why: "" }))).toEqual(["why"]);
     expect(paths(decisionSchema, decision({ reversible: undefined }))).toEqual(["reversible"]);
+  });
+  it("keeps evidence against beside evidence for", () => {
+    expect(decisionSchema.parse(decision({ against: ["conversations/2026-10-01-tom.md"] })).against).toEqual(["conversations/2026-10-01-tom.md"]);
   });
   it("allows an open question without a decision, then enforces decided fields", () => {
     const open = { title: "Who pays?", date: "2026-10-15", status: "open", decideBy: "2026-10-29", alternatives: ["Founder", "Agency"] };

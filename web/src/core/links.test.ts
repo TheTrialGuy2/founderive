@@ -8,7 +8,10 @@ describe("linksOf", () => {
   it("reads each kind's link fields", () => {
     expect(linksOf("conversation", { relatedTests: ["tests/a.md"] })).toEqual([{ field: "relatedTests", target: "tests/a.md", expect: "test" }]);
     expect(linksOf("test", { relatedConversations: ["x"] })).toEqual([{ field: "relatedConversations", target: "x", expect: "conversation" }]);
-    expect(linksOf("decision", { evidence: ["founder.md"], relatedTest: null }).map((l) => l.field)).toEqual(["evidence"]);
+    expect(linksOf("decision", { evidence: ["founder.md"], against: ["conversations/x.md"], relatedTest: null }).map((l) => [l.field, l.target])).toEqual([
+      ["evidence", "founder.md"],
+      ["against", "conversations/x.md"],
+    ]);
     expect(linksOf("founder", { name: "Sam" })).toEqual([]);
   });
 });
@@ -27,6 +30,11 @@ describe("brokenLinks", () => {
   });
   it("decision evidence may point at any record, but it must exist", () => {
     expect(brokenLinks(linksOf("decision", { evidence: ["founder.md", "notes/missing.md"] }), exists).map((b) => b.target)).toEqual(["notes/missing.md"]);
+  });
+  it("a decision's evidence against must exist too", () => {
+    expect(brokenLinks(linksOf("decision", { against: ["conversations/2026-10-08-dana-ortiz.md", "notes/missing.md"] }), exists)).toEqual([
+      { field: "against", target: "notes/missing.md", expect: null, problem: "missing" },
+    ]);
   });
   it("describes each problem in plain words", () => {
     expect(describeBrokenLink({ field: "relatedTests", target: "tests/x.md", expect: "test", problem: "wrong-kind" })).toBe(

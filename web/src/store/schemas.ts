@@ -348,6 +348,7 @@ export const decisionSchema = z
     area: z.enum(AREAS).nullish(),
     beliefBefore: z.string().nullish(),
     evidence: links,
+    against: links, // records that cut against the decision. A broken one is a warning, like evidence. Never also in evidence (the form refuses it)
     alternatives: z.array(z.string().min(1)).default([]),
     decision: z.string().nullish(),
     why: z.string().nullish(),

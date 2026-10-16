@@ -18,6 +18,7 @@ export type DecisionInput = {
   area: Area | null;
   beliefBefore: string | null;
   evidence: string[];
+  against: string[]; // evidence that cuts against it; never overlaps evidence
   alternatives: string[];
   decision: string | null;
   why: string | null;
@@ -30,13 +31,16 @@ export function parseDecisionForm(fd: FormData): Parsed<DecisionInput> {
   for (const k of ["title", "date", "status", "decideBy", "area", "beliefBefore", "alternatives", "decision", "why", "reversible", "relatedTest"]) values[k] = text(fd, k);
   values.status ||= "decided";
   const evidence = all(fd, "evidence").filter(Boolean);
+  const against = all(fd, "against").filter(Boolean);
   values.evidence = evidence.join(",");
+  values.against = against.join(",");
   const errors: Record<string, string> = {};
   if (!values.title) errors.title = "Name the decision in a few words.";
   if (!isRealDate(values.date)) errors.date = "Add the date you recorded it.";
   if (values.status !== "open" && values.status !== "decided") errors.status = "Choose open or decided.";
   if (values.decideBy && !isRealDate(values.decideBy)) errors.decideBy = "Use a real decide-by date.";
   if (values.area && !oneOf(AREAS, values.area)) errors.area = "Pick an area from the list, or none.";
+  if (against.some((p) => evidence.includes(p))) errors.against = "A record can be for or against, not both.";
   if (values.status === "decided" && !values.decision) errors.decision = "Say what you decided.";
   if (values.status === "decided" && !values.why) errors.why = "Say why. Future you will want to know.";
   if (values.status === "decided" && values.reversible !== "yes" && values.reversible !== "no") errors.reversible = "Say whether this is easy to undo.";
@@ -56,6 +60,7 @@ export function parseDecisionForm(fd: FormData): Parsed<DecisionInput> {
       area: values.area ? (values.area as Area) : null,
       beliefBefore: orNull(values.beliefBefore),
       evidence,
+      against,
       alternatives: lines(values.alternatives),
       decision: values.status === "decided" ? orNull(values.decision) : null,
       why: values.status === "decided" ? orNull(values.why) : null,
@@ -69,7 +74,7 @@ export function parseDecisionForm(fd: FormData): Parsed<DecisionInput> {
 export async function createDecision(input: DecisionInput): Promise<string> {
   if (input.relatedTest && kindOf(input.relatedTest) !== "test") throw new Error("Pick the related test from the list.");
   const present = await existingPaths();
-  const unknown = [...input.evidence, ...(input.relatedTest ? [input.relatedTest] : [])].find((p) => !present.has(p));
+  const unknown = [...input.evidence, ...input.against, ...(input.relatedTest ? [input.relatedTest] : [])].find((p) => !present.has(p));
   if (unknown) throw new Error(`founder-data/${unknown} isn't there anymore. Reload the page and pick the evidence again.`);
   const data: Decision = { ...input };
   return createDated("decision", DECISIONS_DIR, input.date, input.title, data);
