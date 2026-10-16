@@ -1,8 +1,13 @@
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
-import { claudeArgs, claudeSettings, panelHome, shellQuote, writeLaunchSettings } from "./guardrails";
+import { afterEach, describe, expect, it } from "vitest";
+import { claudeArgs, claudeSettings, panelHome, removeLaunchSettings, shellQuote, writeLaunchSettings } from "./guardrails";
+
+afterEach(async () => {
+  await removeLaunchSettings();
+});
 
 describe("panelHome", () => {
   it("is the data folder once setup is complete", () => {
@@ -72,6 +77,18 @@ describe("writeLaunchSettings", () => {
       expect(deny2.some((d) => d.includes("founderive.local.json"))).toBe(false);
 
       await rm(tmpData, { recursive: true, force: true });
+    } finally {
+      await rm(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  it("removeLaunchSettings deletes the file writeLaunchSettings wrote", async () => {
+    const tmpRepo = await mkdtemp(path.join(os.tmpdir(), "founderive-test-"));
+    try {
+      const file = await writeLaunchSettings(tmpRepo, path.join(tmpRepo, "founder-data"));
+      expect(existsSync(file)).toBe(true);
+      await removeLaunchSettings();
+      expect(existsSync(file)).toBe(false);
     } finally {
       await rm(tmpRepo, { recursive: true, force: true });
     }

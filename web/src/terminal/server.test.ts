@@ -10,12 +10,14 @@ import { commandExists, loginShellLauncher, TerminalSession, type Launcher } fro
 const TOKEN = "t".repeat(64);
 const APP = 3999;
 
+const HOME = { cwd: process.cwd(), mode: "repo" as const, name: "web" };
+
 /** A Launcher whose one tool runs the given program, standing in for `claude`. codex is "not installed". */
 function launcherFor(file: string, args: string[] = []): Launcher {
   return {
-    command: () => ({ file, args }),
+    command: async () => ({ file, args }),
     available: () => Promise.resolve({ claude: true, codex: false }) as Promise<Record<Tool, boolean>>,
-    cwd: process.cwd(),
+    home: async () => HOME,
     platform: "supported",
   };
 }
@@ -23,12 +25,12 @@ function launcherFor(file: string, args: string[] = []): Launcher {
 /** A Launcher whose `available()` only resolves after `ms`, simulating a cold availability cache. */
 function slowLauncher(file: string, args: string[], ms: number, onCommand?: () => void): Launcher {
   return {
-    command: () => {
+    command: async () => {
       onCommand?.();
       return { file, args };
     },
     available: () => new Promise((resolve) => setTimeout(() => resolve({ claude: true, codex: false } as Record<Tool, boolean>), ms)),
-    cwd: process.cwd(),
+    home: async () => HOME,
     platform: "supported",
   };
 }
@@ -108,6 +110,52 @@ describe("terminal server", () => {
     start_(ws);
     ws.send(JSON.stringify({ type: "input", data: "hello\r" }));
     expect(output(await echoed)).toContain("hello");
+    ws.close();
+  });
+
+  it("reports the home in every state message", async () => {
+    const port = await start(launcherFor("/bin/cat"));
+    const ws = connect(port);
+    const msgs = await until(ws, (m) => m.some((x) => x.type === "state"));
+    const state = msgs.find((x) => x.type === "state") as Extract<ServerMessage, { type: "state" }>;
+    expect(state.home).toEqual({ name: "web", mode: "repo" });
+    ws.close();
+  });
+
+  it("spawns the program in the home's folder and passes the command the home produced", async () => {
+    const seen: { cwd?: string; file?: string; args?: string[] } = {};
+    const fakePty = {
+      onData() {},
+      onExit() {},
+      write() {},
+      kill() {},
+      pid: 0,
+      resize() {},
+    };
+    const home = { cwd: tmpdir(), mode: "record" as const, name: "Lantern" };
+    const l: Launcher = {
+      ...launcherFor("/bin/cat"),
+      home: async () => home,
+      command: async (_tool, h) => ({ file: "/bin/cat", args: ["--in", h.cwd] }),
+      loadPty: async () =>
+        ({
+          spawn: (file: string, args: string[], opts: { cwd: string }) => {
+            seen.cwd = opts.cwd;
+            seen.file = file;
+            seen.args = args;
+            return fakePty;
+          },
+        }) as unknown as typeof import("node-pty"),
+    };
+    const port = await start(l);
+    const ws = connect(port);
+    await until(ws, (m) => m.some((x) => x.type === "state"));
+    const running = until(ws, (m) => m.some((x) => x.type === "state" && x.running === "claude"));
+    start_(ws);
+    const states = await running;
+    expect(seen).toEqual({ cwd: tmpdir(), file: "/bin/cat", args: ["--in", tmpdir()] });
+    const last = states.filter((x) => x.type === "state").pop() as Extract<ServerMessage, { type: "state" }>;
+    expect(last.home).toEqual({ name: "Lantern", mode: "record" });
     ws.close();
   });
 

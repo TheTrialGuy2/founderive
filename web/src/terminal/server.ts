@@ -1,6 +1,7 @@
 import http from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { checkUpgrade } from "./auth";
+import { removeLaunchSettings } from "./guardrails";
 import { parseClientMessage, type ServerMessage } from "./protocol";
 import { TerminalSession, type Launcher } from "./session";
 
@@ -20,12 +21,17 @@ export async function startTerminalServer(opts: { token: string; appPort: number
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(m));
   };
   // Computed once per event (never once per client) so a round of clients all see the exact same state.
-  const state = async (): Promise<ServerMessage> => ({
-    type: "state",
-    running: session.running,
-    available: await opts.launcher.available(),
-    platform: opts.launcher.platform,
-  });
+  const state = async (): Promise<ServerMessage> => {
+    const running = session.running;
+    const home = running ? session.home : await opts.launcher.home().catch(() => null);
+    return {
+      type: "state",
+      running,
+      available: await opts.launcher.available(),
+      platform: opts.launcher.platform,
+      home: home ? { name: home.name, mode: home.mode } : null,
+    };
+  };
   const broadcastState = async () => {
     const s = await state();
     for (const client of wss.clients) send(client as WebSocket, s);
@@ -101,6 +107,7 @@ export async function startTerminalServer(opts: { token: string; appPort: number
     port,
     close: async () => {
       await session.shutdown();
+      await removeLaunchSettings();
       for (const client of wss.clients) client.terminate();
       await new Promise<void>((resolve) => wss.close(() => resolve()));
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));

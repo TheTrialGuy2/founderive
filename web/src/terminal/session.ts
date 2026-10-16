@@ -1,6 +1,12 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { promisify } from "node:util";
 import type { IPty } from "node-pty";
+import { writeAgentHome } from "../store/agent-home";
+import { dataDir } from "../store/paths";
+import { readEntry } from "../store/read";
+import { claudeArgs, panelHome, shellQuote, writeLaunchSettings, type Home } from "./guardrails";
 import { TOOLS, type Tool } from "./protocol";
 
 const SCROLLBACK_BYTES = 200_000;
@@ -47,10 +53,12 @@ function killGroup(pid: number, signal: NodeJS.Signals): void {
 const execFileAsync = promisify(execFile);
 
 export type Launcher = {
-  command: (tool: Tool) => { file: string; args: string[] };
+  /** The program to run for `tool`, given where it will run. May write files the program needs (the generated rules, the launch settings). */
+  command: (tool: Tool, home: Home) => Promise<{ file: string; args: string[] }>;
   /** Whether each tool is installed. Async so the server never blocks the event loop to find out. */
   available: () => Promise<Record<Tool, boolean>>;
-  cwd: string;
+  /** Where the next program runs, resolved fresh each time: the founder's record once setup is complete, else the repo. */
+  home: () => Promise<Home>;
   platform: "supported" | "windows";
   /** Loads the terminal library. Defaults to node-pty; a test can stand in a missing or fake one. */
   loadPty?: () => Promise<PtyModule>;
@@ -75,8 +83,12 @@ export async function commandExists(tool: string, shell = process.env.SHELL || "
   }
 }
 
-/** Runs the founder's own CLI through their login shell (so their PATH and sign-in are theirs), in the repo root. */
-export function loginShellLauncher(cwd: string, opts: { shell?: string; now?: () => number } = {}): Launcher {
+/**
+ * Runs the founder's own CLI through their login shell (so their PATH and sign-in are theirs). It runs in the founder's
+ * data folder once setup is complete, with the app repo reachable as an added directory and a settings file that keeps
+ * the app's files and git push out of reach; before setup, in the repo root.
+ */
+export function loginShellLauncher(repo: string, opts: { shell?: string; now?: () => number } = {}): Launcher {
   const shell = opts.shell || process.env.SHELL || "/bin/zsh";
   const now = opts.now ?? Date.now;
   let cache: { at: number; value: Record<Tool, boolean> } | null = null;
@@ -89,14 +101,34 @@ export function loginShellLauncher(cwd: string, opts: { shell?: string; now?: ()
     return value;
   };
 
+  const home = async (): Promise<Home> => {
+    let data: string | null = null;
+    let setupComplete = false;
+    try {
+      const dir = dataDir();
+      if (existsSync(dir)) {
+        data = dir;
+        const founder = await readEntry("founder", "founder.md");
+        setupComplete = !!(founder?.ok && founder.data.setupComplete);
+      }
+    } catch {
+      // an invalid founderive.local.json: the app itself reports it; the panel falls back to the repo
+    }
+    return panelHome({ repo, data, setupComplete });
+  };
+
   return {
-    command: (tool) => ({ file: shell, args: ["-l", "-c", tool] }),
+    command: async (tool, h) => {
+      if (h.mode === "record") await writeAgentHome();
+      const extra = tool === "claude" ? claudeArgs(h, repo, await writeLaunchSettings(repo, h.mode === "record" ? h.cwd : path.join(repo, "founder-data"))) : [];
+      return { file: shell, args: ["-l", "-c", [tool, ...extra.map(shellQuote)].join(" ")] };
+    },
     available: () => {
       if (cache && now() - cache.at < AVAILABILITY_CACHE_MS) return Promise.resolve(cache.value);
       if (!inFlight) inFlight = refresh().finally(() => (inFlight = null));
       return inFlight;
     },
-    cwd,
+    home,
     platform: process.platform === "win32" ? "windows" : "supported",
   };
 }
@@ -105,6 +137,7 @@ export function loginShellLauncher(cwd: string, opts: { shell?: string; now?: ()
 export class TerminalSession {
   private pty: IPty | null = null;
   private tool: Tool | null = null;
+  private currentHome: Home | null = null;
   private buffer = "";
   private endTimer: ReturnType<typeof setTimeout> | null = null;
   private outputListeners = new Set<(data: string) => void>();
@@ -121,6 +154,11 @@ export class TerminalSession {
 
   get running(): Tool | null {
     return this.tool;
+  }
+
+  /** Where the running program lives, or null when nothing runs. */
+  get home(): Home | null {
+    return this.currentHome;
   }
 
   get scrollback(): string {
@@ -160,9 +198,13 @@ export class TerminalSession {
         throw new Error(PTY_MISSING);
       }
       if (cancelled) return;
-      const { file, args } = this.launcher.command(tool);
+      const home = await this.launcher.home();
+      if (cancelled) return;
+      const { file, args } = await this.launcher.command(tool, home);
+      if (cancelled) return;
       // Only mark the tool as running once spawn actually succeeds, so a failed spawn doesn't leave `running` set.
-      const pty = spawn(file, args, { name: "xterm-256color", cols, rows, cwd: this.launcher.cwd, env: programEnv() });
+      const pty = spawn(file, args, { name: "xterm-256color", cols, rows, cwd: home.cwd, env: programEnv() });
+      this.currentHome = home;
       this.size = { cols, rows };
       this.ending = false;
       this.buffer = "";
@@ -182,6 +224,7 @@ export class TerminalSession {
         this.ending = false;
         this.pty = null;
         this.tool = null;
+        this.currentHome = null;
         for (const fn of this.exitListeners) fn(exitCode ?? null);
       });
     } finally {

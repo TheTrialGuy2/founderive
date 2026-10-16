@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { PanelHome } from "./protocol";
@@ -27,16 +27,30 @@ export function claudeSettings(repo: string, entries: { name: string; isDirector
   return `${JSON.stringify({ permissions: { deny } }, null, 2)}\n`;
 }
 
-/** Writes the launch settings to a fresh temp folder and returns the file's path. The data folder is never denied. */
+let settingsDir: string | null = null;
+
+/** One temp folder per process, created on first use and reused after. */
+async function launchSettingsDir(): Promise<string> {
+  settingsDir ??= await mkdtemp(path.join(os.tmpdir(), "founderive-panel-"));
+  return settingsDir;
+}
+
+/** Writes the launch settings to this process's temp folder (overwriting any previous launch's) and returns the file's path. The data folder is never denied. */
 export async function writeLaunchSettings(repo: string, data: string): Promise<string> {
   const entries = (await readdir(repo, { withFileTypes: true })).map((e) => ({ name: e.name, isDirectory: e.isDirectory() }));
   const relative = path.relative(repo, data);
   const dataTop = relative && !relative.startsWith("..") && !path.isAbsolute(relative) ? relative.split(path.sep)[0] : null;
   const keep = ["founderive.local.json", ...(dataTop ? [dataTop] : [])];
-  const dir = await mkdtemp(path.join(os.tmpdir(), "founderive-panel-"));
+  const dir = await launchSettingsDir();
   const file = path.join(dir, "claude-settings.json");
   await writeFile(file, claudeSettings(repo, entries, keep), "utf8");
   return file;
+}
+
+/** Removes this process's launch-settings folder, if one was created. */
+export async function removeLaunchSettings(): Promise<void> {
+  if (settingsDir) await rm(settingsDir, { recursive: true, force: true });
+  settingsDir = null;
 }
 
 /** Claude Code's extra arguments: the repo as an added directory when home is the record, and the settings file always. */
