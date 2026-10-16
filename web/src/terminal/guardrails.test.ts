@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { claudeArgs, claudeSettings, panelHome, removeLaunchSettings, shellQuote, writeLaunchSettings } from "./guardrails";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { claudeArgs, dataFolderIsSafe, denyRules, panelHome, removeLaunchSettings, shellQuote, writeLaunchSettings } from "./guardrails";
 
 afterEach(async () => {
   await removeLaunchSettings();
@@ -24,67 +24,129 @@ describe("panelHome", () => {
   });
 });
 
-describe("claudeSettings", () => {
-  it("denies edits to each app entry with an absolute // path, keeps the data folder, and denies git push", () => {
-    const json = JSON.parse(claudeSettings("/r/app", [
-      { name: "web", isDirectory: true },
-      { name: "docs", isDirectory: true },
-      { name: ".claude", isDirectory: true },
-      { name: "founder-data", isDirectory: true },
-      { name: "AGENTS.md", isDirectory: false },
-      { name: "start.mjs", isDirectory: false },
-      { name: "founderive.local.json", isDirectory: false },
-    ], ["founder-data", "founderive.local.json"]));
-    expect(json.permissions.deny).toEqual(["Edit(//r/app/web/**)", "Edit(//r/app/docs/**)", "Edit(//r/app/.claude/**)", "Edit(//r/app/AGENTS.md)", "Edit(//r/app/start.mjs)", "Bash(git push *)", "Bash(git push:*)"]);
+describe("dataFolderIsSafe", () => {
+  it("refuses the repo itself, a folder containing the repo, and the app's own folders", () => {
+    expect(dataFolderIsSafe("/r/app", "/r/app")).toBe(false);
+    expect(dataFolderIsSafe("/r/app", "/r/app/")).toBe(false);
+    expect(dataFolderIsSafe("/r/app", "/r")).toBe(false);
+    expect(dataFolderIsSafe("/r/app", "/")).toBe(false);
+    for (const top of ["web", ".git", ".claude", "docs", "starter-data"]) expect(dataFolderIsSafe("/r/app", `/r/app/${top}/founder-data`)).toBe(false);
   });
-  it("distinguishes files from folders by isDirectory, not by name patterns", () => {
-    const json = JSON.parse(claudeSettings("/r/app", [
-      { name: "LICENSE", isDirectory: false },
-      { name: "scripts", isDirectory: true },
-    ], []));
-    expect(json.permissions.deny.slice(0, 2)).toEqual(["Edit(//r/app/LICENSE)", "Edit(//r/app/scripts/**)"]);
+  it("accepts a folder outside the repo, or inside it under another path", () => {
+    expect(dataFolderIsSafe("/r/app", "/Users/sam/Founderive/Lantern")).toBe(true);
+    expect(dataFolderIsSafe("/r/app", "/r/app-data")).toBe(true);
+    expect(dataFolderIsSafe("/r/app", "/r/app/founder-data")).toBe(true);
+    expect(dataFolderIsSafe("/r/app", "/r/app/..data")).toBe(true);
+    expect(dataFolderIsSafe("/r/app", "/r/app/webby/founder-data")).toBe(true);
+  });
+});
+
+describe("denyRules", () => {
+  it("denies each entry with an absolute // path except the one kept, files and folders by entry type, and git push", () => {
+    expect(denyRules("/r/app", [{
+      dir: "/r/app",
+      keep: "founder-data",
+      entries: [
+        { name: "web", isDirectory: true },
+        { name: "founder-data", isDirectory: true },
+        { name: "LICENSE", isDirectory: false },
+        { name: "scripts", isDirectory: true },
+      ],
+    }])).toEqual(["Edit(//r/app/web/**)", "Edit(//r/app/LICENSE)", "Edit(//r/app/scripts/**)", "Bash(git push *)", "Bash(git push:*)"]);
+  });
+  it("denies a level that keeps nothing as a whole too, so new files there are covered", () => {
+    expect(denyRules("/r/app", [{ dir: "/r/app", keep: null, entries: [{ name: "web", isDirectory: true }] }])).toEqual([
+      "Edit(//r/app/web/**)",
+      "Edit(//r/app/**)",
+      "Bash(git push *)",
+      "Bash(git push:*)",
+    ]);
   });
 });
 
 describe("writeLaunchSettings", () => {
-  it("spares the data folder when it's inside the repo, but not when it's outside", async () => {
-    // Create a temp repo with folders and files
-    const tmpRepo = await mkdtemp(path.join(os.tmpdir(), "founderive-test-"));
-    await mkdir(path.join(tmpRepo, "web"));
+  let tmpRepo: string;
+  const deniedBy = async (data: string | null) => JSON.parse(await readFile(await writeLaunchSettings(tmpRepo, data), "utf8")).permissions.deny as string[];
+  beforeEach(async () => {
+    tmpRepo = await mkdtemp(path.join(os.tmpdir(), "founderive-test-"));
+    await mkdir(path.join(tmpRepo, "web", "src"), { recursive: true });
     await mkdir(path.join(tmpRepo, "founder-data"));
     await mkdir(path.join(tmpRepo, ".claude"));
     await writeFile(path.join(tmpRepo, "LICENSE"), "");
     await writeFile(path.join(tmpRepo, "founderive.local.json"), "");
+  });
+  afterEach(async () => {
+    await rm(tmpRepo, { recursive: true, force: true });
+  });
 
+  it("denies every top-level entry, and the repo as a whole, when the data folder is outside the repo", async () => {
+    const tmpData = await mkdtemp(path.join(os.tmpdir(), "founderive-data-"));
     try {
-      // Test 1: data folder inside repo should not be denied
-      const file1 = await writeLaunchSettings(tmpRepo, path.join(tmpRepo, "founder-data"));
-      const json1 = JSON.parse(await readFile(file1, "utf8"));
-      const deny1: string[] = json1.permissions.deny;
-
-      // Build expected strings from the same tmpRepo value used in the function (no extra leading slash)
-      expect(deny1).toContain(`Edit(/${tmpRepo}/web/**)`);
-      expect(deny1).toContain(`Edit(/${tmpRepo}/.claude/**)`);
-      expect(deny1).toContain(`Edit(/${tmpRepo}/LICENSE)`);
-      expect(deny1.some((d) => d.includes("founder-data"))).toBe(false);
-      expect(deny1.some((d) => d.includes("founderive.local.json"))).toBe(false);
-      expect(deny1).toContain("Bash(git push *)");
-
-      // Test 2: data folder outside repo should be denied
-      const tmpData = await mkdtemp(path.join(os.tmpdir(), "founderive-data-"));
-      const file2 = await writeLaunchSettings(tmpRepo, tmpData);
-      const json2 = JSON.parse(await readFile(file2, "utf8"));
-      const deny2: string[] = json2.permissions.deny;
-
-      // Now founder-data should be denied as a regular folder
-      expect(deny2).toContain(`Edit(/${tmpRepo}/founder-data/**)`);
-      // But founderive.local.json should still not be denied
-      expect(deny2.some((d) => d.includes("founderive.local.json"))).toBe(false);
-
-      await rm(tmpData, { recursive: true, force: true });
+      const deny = await deniedBy(tmpData);
+      for (const rule of [`Edit(/${tmpRepo}/web/**)`, `Edit(/${tmpRepo}/founder-data/**)`, `Edit(/${tmpRepo}/.claude/**)`, `Edit(/${tmpRepo}/LICENSE)`, `Edit(/${tmpRepo}/founderive.local.json)`, `Edit(/${tmpRepo}/**)`]) {
+        expect(deny).toContain(rule);
+      }
+      expect(deny).toContain("Bash(git push *)");
     } finally {
-      await rm(tmpRepo, { recursive: true, force: true });
+      await rm(tmpData, { recursive: true, force: true });
     }
+  });
+
+  it("spares only <repo>/founder-data, and denies founderive.local.json, LICENSE as a file, and web/**", async () => {
+    const deny = await deniedBy(path.join(tmpRepo, "founder-data"));
+    expect(deny).toContain(`Edit(/${tmpRepo}/web/**)`);
+    expect(deny).toContain(`Edit(/${tmpRepo}/.claude/**)`);
+    expect(deny).toContain(`Edit(/${tmpRepo}/LICENSE)`);
+    expect(deny).toContain(`Edit(/${tmpRepo}/founderive.local.json)`);
+    expect(deny.some((d) => d.includes("founder-data"))).toBe(false);
+    expect(deny).not.toContain(`Edit(/${tmpRepo}/**)`);
+  });
+
+  it("handles a nested data folder level by level", async () => {
+    await mkdir(path.join(tmpRepo, "lab", "founder-data"), { recursive: true });
+    await writeFile(path.join(tmpRepo, "lab", "notes.txt"), "");
+    const deny = await deniedBy(path.join(tmpRepo, "lab", "founder-data"));
+    expect(deny).toContain(`Edit(/${tmpRepo}/web/**)`);
+    expect(deny).toContain(`Edit(/${tmpRepo}/founder-data/**)`);
+    expect(deny).toContain(`Edit(/${tmpRepo}/founderive.local.json)`);
+    expect(deny).toContain(`Edit(/${tmpRepo}/lab/notes.txt)`);
+    expect(deny.some((d) => d.startsWith(`Edit(/${tmpRepo}/lab/founder-data`) || d === `Edit(/${tmpRepo}/lab/**)`)).toBe(false);
+  });
+
+  it("<repo>/web/founder-data is refused, so nothing in the repo is spared and web/src/** stays denied", async () => {
+    await mkdir(path.join(tmpRepo, "web", "founder-data"));
+    expect(dataFolderIsSafe(tmpRepo, path.join(tmpRepo, "web", "founder-data"))).toBe(false);
+    const deny = await deniedBy(path.join(tmpRepo, "web", "founder-data"));
+    expect(deny).toContain(`Edit(/${tmpRepo}/web/**)`);
+    expect(deny).toContain(`Edit(/${tmpRepo}/**)`);
+  });
+
+  it("denies a nested folder's siblings at each level: every top-level entry but web, every entry of web/ but founder-data", async () => {
+    // dataFolderIsSafe refuses web/, so this exercises the level-by-level rules directly.
+    await mkdir(path.join(tmpRepo, "web", "founder-data"));
+    const deny = denyRules(tmpRepo, [
+      { dir: tmpRepo, keep: "web", entries: [{ name: "web", isDirectory: true }, { name: "LICENSE", isDirectory: false }, { name: "founderive.local.json", isDirectory: false }] },
+      { dir: path.join(tmpRepo, "web"), keep: "founder-data", entries: [{ name: "src", isDirectory: true }, { name: "founder-data", isDirectory: true }, { name: "package.json", isDirectory: false }] },
+    ]);
+    expect(deny).toContain(`Edit(/${tmpRepo}/LICENSE)`);
+    expect(deny).toContain(`Edit(/${tmpRepo}/founderive.local.json)`);
+    expect(deny).toContain(`Edit(/${tmpRepo}/web/src/**)`);
+    expect(deny).toContain(`Edit(/${tmpRepo}/web/package.json)`);
+    expect(deny).not.toContain(`Edit(/${tmpRepo}/web/**)`);
+    expect(deny.some((d) => d.includes("founder-data"))).toBe(false);
+  });
+
+  it("spares nothing when the data folder is the repo itself", async () => {
+    expect(dataFolderIsSafe(tmpRepo, tmpRepo)).toBe(false);
+    const deny = await deniedBy(tmpRepo);
+    expect(deny).toContain(`Edit(/${tmpRepo}/**)`);
+    expect(deny).toContain(`Edit(/${tmpRepo}/founder-data/**)`);
+  });
+
+  it("denies the settings folder itself", async () => {
+    const file = await writeLaunchSettings(tmpRepo, null);
+    const deny = JSON.parse(await readFile(file, "utf8")).permissions.deny as string[];
+    expect(deny).toContain(`Edit(/${path.dirname(file)}/**)`);
   });
 
   it("removeLaunchSettings deletes the file writeLaunchSettings wrote", async () => {

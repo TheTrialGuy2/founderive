@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AGENT_HOME_FILES, agentHomeFiles, ensureIgnored, writeAgentHome } from "./agent-home";
@@ -19,24 +19,28 @@ describe("agentHomeFiles", () => {
     expect(claude).toContain("This folder is the founder's data folder (`/Users/sam/Founderive/Lantern`).");
     expect(claude).toContain("The Founderive app is at `/Users/sam/Founderive/app`.");
     expect(claude).toContain("Run its commands from `/Users/sam/Founderive/app/web`");
+    expect(claude).toContain("Paths in these rules such as `.claude/skills/…` and `web/` are relative to the app at `/Users/sam/Founderive/app`.");
     expect(claude.endsWith("\n\n# Working in Founderive\n\nRules.\n")).toBe(true);
   });
 });
 
 describe("ensureIgnored", () => {
-  it("creates .gitignore with the names when there is none", async () => {
+  it("creates .gitignore with the anchored names when there is none", async () => {
     expect(await ensureIgnored(env.dir, AGENT_HOME_FILES)).toBe(true);
-    expect(await readFile(path.join(env.dir, ".gitignore"), "utf8")).toBe("CLAUDE.md\nAGENTS.md\n");
+    expect(await readFile(path.join(env.dir, ".gitignore"), "utf8")).toBe("/CLAUDE.md\n/AGENTS.md\n");
   });
-  it("appends only the missing names, keeping what was there", async () => {
+  it("appends only the missing names, keeping what was there, and accepts the bare form as listed", async () => {
     await writeFile(path.join(env.dir, ".gitignore"), "CLAUDE.md\n.DS_Store");
     expect(await ensureIgnored(env.dir, AGENT_HOME_FILES)).toBe(true);
-    expect(await readFile(path.join(env.dir, ".gitignore"), "utf8")).toBe("CLAUDE.md\n.DS_Store\nAGENTS.md\n");
+    expect(await readFile(path.join(env.dir, ".gitignore"), "utf8")).toBe("CLAUDE.md\n.DS_Store\n/AGENTS.md\n");
   });
   it("leaves a .gitignore that already lists both alone", async () => {
-    await writeFile(path.join(env.dir, ".gitignore"), "AGENTS.md\nCLAUDE.md\n");
+    await writeFile(path.join(env.dir, ".gitignore"), "/AGENTS.md\nCLAUDE.md\n");
     expect(await ensureIgnored(env.dir, AGENT_HOME_FILES)).toBe(false);
-    expect(await readFile(path.join(env.dir, ".gitignore"), "utf8")).toBe("AGENTS.md\nCLAUDE.md\n");
+    expect(await readFile(path.join(env.dir, ".gitignore"), "utf8")).toBe("/AGENTS.md\nCLAUDE.md\n");
+  });
+  it("rethrows a read error other than a missing file", async () => {
+    await expect(ensureIgnored(path.join(env.dir, "founder.md"), AGENT_HOME_FILES)).rejects.toThrow();
   });
 });
 
@@ -48,14 +52,32 @@ describe("writeAgentHome", () => {
     expect(claude).toBe(agents);
     expect(claude.startsWith(HEADER)).toBe(true);
     expect(claude).toContain("# Working in Founderive");
-    expect(await readFile(path.join(env.dir, ".gitignore"), "utf8")).toContain("CLAUDE.md\nAGENTS.md\n");
+    expect(await readFile(path.join(env.dir, ".gitignore"), "utf8")).toContain("/CLAUDE.md\n/AGENTS.md\n");
     const report = await checkData();
     expect(report.unknown).not.toContain("CLAUDE.md");
     expect(report.unknown).not.toContain("AGENTS.md");
   });
-  it("overwrites a stale copy on the next write", async () => {
-    await writeFile(path.join(env.dir, "CLAUDE.md"), "old\n");
+  it("overwrites its own stale copy on the next write", async () => {
+    await writeFile(path.join(env.dir, "CLAUDE.md"), `${HEADER}\nold\n`);
     await writeAgentHome();
-    expect(await readFile(path.join(env.dir, "CLAUDE.md"), "utf8")).not.toBe("old\n");
+    expect(await readFile(path.join(env.dir, "CLAUDE.md"), "utf8")).not.toBe(`${HEADER}\nold\n`);
+  });
+  it("moves a founder's own CLAUDE.md to _archive/ intact before writing, adding -2 when that name is taken", async () => {
+    await writeFile(path.join(env.dir, "CLAUDE.md"), "My own notes for Claude.\n");
+    await writeAgentHome();
+    expect(await readFile(path.join(env.dir, "_archive", "CLAUDE.md"), "utf8")).toBe("My own notes for Claude.\n");
+    expect((await readFile(path.join(env.dir, "CLAUDE.md"), "utf8")).startsWith(HEADER)).toBe(true);
+    await writeFile(path.join(env.dir, "CLAUDE.md"), "Second thoughts.\n");
+    await writeAgentHome();
+    expect(await readFile(path.join(env.dir, "_archive", "CLAUDE.md"), "utf8")).toBe("My own notes for Claude.\n");
+    expect(await readFile(path.join(env.dir, "_archive", "CLAUDE-2.md"), "utf8")).toBe("Second thoughts.\n");
+  });
+  it("leaves the files untouched when they already say the same thing", async () => {
+    await writeAgentHome();
+    const file = path.join(env.dir, "CLAUDE.md");
+    const before = (await stat(file)).mtimeMs;
+    await new Promise((r) => setTimeout(r, 20));
+    await writeAgentHome();
+    expect((await stat(file)).mtimeMs).toBe(before);
   });
 });

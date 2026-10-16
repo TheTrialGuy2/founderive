@@ -548,13 +548,12 @@ describe("loginShellLauncher (the real launcher)", () => {
       await rm(founderPath, { force: true });
       expect((await launcher.home()).mode).toBe("repo");
 
-      // command("claude", recordHome): --add-dir and the settings file, flags bare, paths quoted.
+      // command("claude", recordHome): --add-dir and the settings file, every argument quoted.
       const claudeRecord = await launcher.command("claude", recordHome);
       expect(claudeRecord.file).toBe("/bin/sh");
       expect(claudeRecord.args.slice(0, 2)).toEqual(["-l", "-c"]);
       const claudeRecordCmd = claudeRecord.args[2];
-      expect(claudeRecordCmd.startsWith("claude --add-dir '")).toBe(true);
-      expect(claudeRecordCmd).toContain("--settings '");
+      expect(claudeRecordCmd.startsWith(`claude '--add-dir' '${tmpRepo}' '--settings' '`)).toBe(true);
       expect(claudeRecordCmd.endsWith("claude-settings.json'")).toBe(true);
       expect(existsSync(join(dataDirPath, "CLAUDE.md"))).toBe(true);
 
@@ -567,6 +566,27 @@ describe("loginShellLauncher (the real launcher)", () => {
       // command("codex", recordHome): codex gets no extra arguments.
       const codexRecord = await launcher.command("codex", recordHome);
       expect(codexRecord.args[2]).toBe("codex");
+    } finally {
+      await removeLaunchSettings();
+      await cleanup();
+      await rm(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  it("starts in the repo with nothing spared when the data folder is the repo itself", async () => {
+    const tmpRepo = await mkdtemp(join(tmpdir(), "founderive-launcher-test-"));
+    await writeFile(join(tmpRepo, "AGENTS.md"), "# Working in Founderive\n");
+    await writeFile(join(tmpRepo, "founder.md"), "---\nname: Sam\nventure: Lantern\nsetupComplete: true\n---\n");
+    const { cleanup } = await useTempData(false);
+    process.env.FOUNDER_DATA_DIR = tmpRepo;
+    try {
+      const launcher = loginShellLauncher(tmpRepo, { shell: "/bin/sh" });
+      const home = await launcher.home();
+      expect(home).toEqual({ mode: "repo", cwd: tmpRepo, name: basename(tmpRepo), data: null });
+      const cmd = (await launcher.command("claude", home)).args[2];
+      const settings = JSON.parse(await readFile(cmd.slice(cmd.lastIndexOf(" '") + 2, -1), "utf8"));
+      expect(settings.permissions.deny).toContain(`Edit(/${tmpRepo}/**)`);
+      expect(existsSync(join(tmpRepo, "CLAUDE.md"))).toBe(false);
     } finally {
       await removeLaunchSettings();
       await cleanup();

@@ -1,12 +1,12 @@
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { IPty } from "node-pty";
 import { writeAgentHome } from "../store/agent-home";
 import { dataDir } from "../store/paths";
 import { readEntry } from "../store/read";
-import { claudeArgs, panelHome, shellQuote, writeLaunchSettings, type Home } from "./guardrails";
+import { claudeArgs, dataFolderIsSafe, panelHome, shellQuote, writeLaunchSettings, type Home } from "./guardrails";
 import { TOOLS, type Tool } from "./protocol";
 
 const SCROLLBACK_BYTES = 200_000;
@@ -83,6 +83,18 @@ export async function commandExists(tool: string, shell = process.env.SHELL || "
   }
 }
 
+/** `dataFolderIsSafe` on the real paths (symlinks resolved, and the folder's real case on a case-insensitive disk). */
+function safeDataFolder(repo: string, dir: string): boolean {
+  const real = (p: string) => {
+    try {
+      return realpathSync.native(p);
+    } catch {
+      return path.resolve(p);
+    }
+  };
+  return dataFolderIsSafe(repo, dir) && dataFolderIsSafe(real(repo), real(dir));
+}
+
 /**
  * Runs the founder's own CLI through their login shell (so their PATH and sign-in are theirs). It runs in the founder's
  * data folder once setup is complete, with the app repo reachable as an added directory and a settings file that keeps
@@ -107,6 +119,9 @@ export function loginShellLauncher(repo: string, opts: { shell?: string; now?: (
     try {
       const dir = dataDir();
       if (existsSync(dir)) {
+        // A data folder that is the repo, contains it, or sits inside the app's own folders isn't a record: start in
+        // the repo with nothing spared, and never write the agent's home files there.
+        if (!safeDataFolder(repo, dir)) return panelHome({ repo, data: null, setupComplete: false });
         data = dir;
         const founder = await readEntry("founder", "founder.md");
         setupComplete = !!(founder?.ok && founder.data.setupComplete);
@@ -120,10 +135,9 @@ export function loginShellLauncher(repo: string, opts: { shell?: string; now?: (
   return {
     command: async (tool, h) => {
       if (h.mode === "record") await writeAgentHome();
-      const extra = tool === "claude" ? claudeArgs(h, repo, await writeLaunchSettings(repo, h.mode === "record" ? h.cwd : (h.data ?? path.join(repo, "founder-data")))) : [];
-      // Flags (e.g. --add-dir) are fixed literals, kept bare; only the paths that follow them need quoting.
-      const quoted = extra.map((a) => (a.startsWith("--") ? a : shellQuote(a)));
-      return { file: shell, args: ["-l", "-c", [tool, ...quoted].join(" ")] };
+      // Codex gets no flags: it runs in the data folder and relies on its own default workspace sandbox to keep the repo read-only, which a founder running it with a permissive sandbox turns off.
+      const extra = tool === "claude" ? claudeArgs(h, repo, await writeLaunchSettings(repo, h.mode === "record" ? h.cwd : h.data)) : [];
+      return { file: shell, args: ["-l", "-c", [tool, ...extra.map(shellQuote)].join(" ")] };
     },
     available: () => {
       if (cache && now() - cache.at < AVAILABILITY_CACHE_MS) return Promise.resolve(cache.value);

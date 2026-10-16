@@ -1,7 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { dataDir, repoRoot } from "./paths";
-import { writeFileAtomic } from "./write";
+import { dataFolderIsSafe } from "../terminal/guardrails";
+import { dataDir, repoRoot, resolveInData } from "./paths";
+import { archiveFile, writeFileAtomic } from "./write";
 
 /** The two files the panel's agent reads in the data folder. Generated on every start; never records. */
 export const AGENT_HOME_FILES = ["CLAUDE.md", "AGENTS.md"] as const;
@@ -18,7 +19,7 @@ export function agentHomeFiles(rules: string, repo: string, data: string): { cla
     HEADER_LINE,
     "# Founderive panel",
     "",
-    `This folder is the founder's data folder (\`${data}\`). The Founderive app is at \`${repo}\`. Run its commands from \`${web}\` (for example \`pnpm -s data-dir\`, \`pnpm -s today --json\`, \`pnpm -s check-data\`). You are in the founder's record; the app is a tool. Don't edit the app's files.`,
+    `This folder is the founder's data folder (\`${data}\`). The Founderive app is at \`${repo}\`. Run its commands from \`${web}\` (for example \`pnpm -s data-dir\`, \`pnpm -s today --json\`, \`pnpm -s check-data\`). Paths in these rules such as \`.claude/skills/…\` and \`web/\` are relative to the app at \`${repo}\`. You are in the founder's record; the app is a tool. Don't edit the app's files.`,
     "",
     "",
   ].join("\n");
@@ -32,24 +33,45 @@ export async function ensureIgnored(dir: string, names: readonly string[]): Prom
   let current = "";
   try {
     current = await readFile(file, "utf8");
-  } catch {
-    current = "";
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
   }
   const listed = new Set(current.split(/\r?\n/).map((l) => l.trim()));
-  const missing = names.filter((n) => !listed.has(n));
+  // Written anchored (/CLAUDE.md) so a same-named file deeper in, like _reference/CLAUDE.md, stays tracked; either form counts as listed.
+  const missing = names.filter((n) => !listed.has(n) && !listed.has(`/${n}`));
   if (missing.length === 0) return false;
   const separator = current === "" || current.endsWith("\n") ? "" : "\n";
-  await writeFile(file, `${current}${separator}${missing.join("\n")}\n`, "utf8");
+  await writeFile(file, `${current}${separator}${missing.map((n) => `/${n}`).join("\n")}\n`, "utf8");
   return true;
 }
 
-/** Writes CLAUDE.md and AGENTS.md into the data folder from the repo's AGENTS.md, and keeps them out of the data folder's git. */
+/**
+ * Writes one generated file, unless it already says exactly that (so a panel start doesn't fire a data-change event
+ * for nothing). A file there that Founderive didn't generate is the founder's own: it moves to _archive/ first.
+ */
+async function writeGenerated(rel: string, content: string): Promise<void> {
+  let current: string | null = null;
+  try {
+    current = await readFile(resolveInData(rel), "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+  }
+  if (current === content) return;
+  if (current !== null && !current.startsWith(HEADER_LINE)) await archiveFile(rel);
+  await writeFileAtomic(rel, content);
+}
+
+/**
+ * Writes CLAUDE.md and AGENTS.md into the data folder from the repo's AGENTS.md, and keeps them out of the data folder's
+ * git. Does nothing when the data folder is the repo, contains it, or sits inside the app's own folders.
+ */
 export async function writeAgentHome(): Promise<void> {
   const repo = repoRoot();
   const data = dataDir();
+  if (!dataFolderIsSafe(repo, data)) return;
   const rules = await readFile(path.join(repo, "AGENTS.md"), "utf8");
   const files = agentHomeFiles(rules, repo, data);
-  await writeFileAtomic("CLAUDE.md", files.claude);
-  await writeFileAtomic("AGENTS.md", files.agents);
+  await writeGenerated("CLAUDE.md", files.claude);
+  await writeGenerated("AGENTS.md", files.agents);
   await ensureIgnored(data, AGENT_HOME_FILES);
 }
