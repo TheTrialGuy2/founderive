@@ -33,6 +33,17 @@ function expectAllow(r: Run) {
   expect(r.stdout).toBe("");
 }
 
+function expectDenyCantCheck(r: Run, cause: string) {
+  expect(r.status).toBe(0);
+  expect(JSON.parse(r.stdout)).toEqual({
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "deny",
+      permissionDecisionReason: `Founderive's write guard couldn't check this write (${cause}). Nothing in the app can be written from the panel until it can.`,
+    },
+  });
+}
+
 let tmp: string;
 let repo: string;
 let settings: string;
@@ -93,20 +104,29 @@ for (const where of ["inside the repo (<repo>/founder-data)", "outside the repo"
       await symlink(path.join(repo, "web"), path.join(data, "sneaky"));
       expectDeny(guard(env, call("Write", { file_path: path.join(data, "sneaky", "x.ts") }, data)), data);
     });
+
+    it("denies when one of several path fields is in the app, even when another is in the data folder", () => {
+      expectDeny(guard(env, call("MultiEdit", { file_path: path.join(data, "ok.md"), notebook_path: path.join(repo, "web", "n.ipynb") }, data)), data);
+    });
   });
 }
 
-describe("panel-guard, failing open", () => {
-  it("prints nothing and exits 0 on malformed stdin, with one line on stderr", () => {
+describe("panel-guard, failing closed", () => {
+  it("denies on malformed stdin, with one line on stderr", () => {
     const r = guard({ FOUNDERIVE_GUARD_REPO: "/r/app", FOUNDERIVE_GUARD_DATA: "/d" }, "{not json");
-    expectAllow(r);
+    expectDenyCantCheck(r, "malformed input");
     expect(r.stderr.trim().split("\n")).toHaveLength(1);
   });
 
-  it("prints nothing and exits 0 when the repo isn't set", () => {
+  it("denies when the repo isn't set", () => {
     const r = guard({}, call("Write", { file_path: "/anywhere/NEWFILE" }, "/"));
-    expectAllow(r);
-    expect(r.stderr).toContain("FOUNDERIVE_GUARD_REPO");
+    expectDenyCantCheck(r, "missing guard settings");
+    expect(r.stderr).toContain("missing guard settings");
+  });
+
+  it("denies when the tool call has no file_path, notebook_path or path", () => {
+    const r = guard({ FOUNDERIVE_GUARD_REPO: "/r/app" }, call("Bash", {}, "/"));
+    expectDenyCantCheck(r, "no file path");
   });
 
   it("with no data folder set, refuses the whole repo", () => {

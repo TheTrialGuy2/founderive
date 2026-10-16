@@ -1,4 +1,4 @@
-// Founderive's Claude panel: a PreToolUse hook for Edit, Write and NotebookEdit (see guardHook in
+// Founderive's Claude panel: a PreToolUse hook for Edit, Write, NotebookEdit and MultiEdit (see guardHook in
 // src/terminal/guardrails.ts). Claude Code sends the tool call as JSON on stdin. The hook refuses a path inside the app
 // repo that isn't inside the data folder, and the panel's settings folder; it allows everything else.
 //
@@ -7,9 +7,9 @@
 //   FOUNDERIVE_GUARD_DATA      the data folder (when absent, nothing in the repo is spared)
 //   FOUNDERIVE_GUARD_SETTINGS  the panel's settings folder
 //
-// Refusing: print the PreToolUse deny JSON and exit 0. Allowing: print nothing and exit 0. Anything unexpected (bad
-// stdin, no repo set) also prints nothing and exits 0, with one line on stderr: the hook fails open, and the deny
-// rules in the same settings file still apply.
+// Refusing: print the PreToolUse deny JSON and exit 0. Allowing: print nothing and exit 0. Anything the hook can't make
+// sense of (malformed stdin, no FOUNDERIVE_GUARD_REPO, no path field in the tool call) is also a deny, with one line on
+// stderr: the hook fails closed, so nothing in the app can be written from the panel until it can check the write.
 import fs from "node:fs";
 import path from "node:path";
 
@@ -38,54 +38,65 @@ function within(parent, child) {
   return rel === "" || (!path.isAbsolute(rel) && rel.split(path.sep)[0] !== "..");
 }
 
-function failOpen(why) {
-  process.stderr.write(`panel-guard: ${why}; allowing (the deny rules still apply)\n`);
+function deny(reason) {
+  process.stdout.write(
+    `${JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason: reason,
+      },
+    })}\n`,
+  );
   process.exit(0);
+}
+
+/** Fail closed: the hook couldn't check the write, so it's denied, with one line on stderr. */
+function denyCantCheck(cause) {
+  process.stderr.write(`panel-guard: ${cause}; denying (the hook fails closed)\n`);
+  deny(`Founderive's write guard couldn't check this write (${cause}). Nothing in the app can be written from the panel until it can.`);
 }
 
 let input = "";
 try {
   input = fs.readFileSync(0, "utf8");
-} catch (error) {
-  failOpen(`couldn't read stdin (${error.message})`);
+} catch {
+  denyCantCheck("malformed input");
 }
 
 let call;
 try {
   call = JSON.parse(input);
 } catch {
-  failOpen("stdin isn't JSON");
+  denyCantCheck("malformed input");
 }
 
 const repoEnv = process.env.FOUNDERIVE_GUARD_REPO;
-if (!repoEnv) failOpen("FOUNDERIVE_GUARD_REPO isn't set");
+if (!repoEnv) denyCantCheck("missing guard settings");
 
 const toolInput = call && typeof call === "object" ? call.tool_input : null;
-const target = toolInput && typeof toolInput === "object" ? (toolInput.file_path ?? toolInput.notebook_path) : undefined;
-if (typeof target !== "string" || target === "") failOpen("no file_path or notebook_path in the tool call");
+const targets = ["file_path", "notebook_path", "path"]
+  .map((field) => (toolInput && typeof toolInput === "object" ? toolInput[field] : undefined))
+  .filter((value) => typeof value === "string" && value !== "");
+if (targets.length === 0) denyCantCheck("no file path");
 
 const cwd = typeof call.cwd === "string" && call.cwd !== "" ? call.cwd : process.cwd();
-const real = realPathOf(path.isAbsolute(target) ? target : path.resolve(cwd, target));
+const reals = targets.map((target) => realPathOf(path.isAbsolute(target) ? target : path.resolve(cwd, target)));
 
 const repo = realPathOf(repoEnv);
 const data = process.env.FOUNDERIVE_GUARD_DATA ? realPathOf(process.env.FOUNDERIVE_GUARD_DATA) : null;
 const settings = process.env.FOUNDERIVE_GUARD_SETTINGS ? realPathOf(process.env.FOUNDERIVE_GUARD_SETTINGS) : null;
 
 // The data folder is spared only when it doesn't hold the repo itself (the panel never launches with one that does).
-const spared = data !== null && !within(data, repo) && within(data, real);
-const inApp = within(repo, real) && !spared;
-const inSettings = settings !== null && within(settings, real);
+const blocked = reals.some((real) => {
+  const spared = data !== null && !within(data, repo) && within(data, real);
+  const inApp = within(repo, real) && !spared;
+  const inSettings = settings !== null && within(settings, real);
+  return inApp || inSettings;
+});
 
-if (inApp || inSettings) {
+if (blocked) {
   const where = data ?? "outside the Founderive app folder";
-  process.stdout.write(
-    `${JSON.stringify({
-      hookSpecificOutput: {
-        hookEventName: "PreToolUse",
-        permissionDecision: "deny",
-        permissionDecisionReason: `Founderive keeps the app's files read-only from the panel. Write inside your data folder (${where}) instead.`,
-      },
-    })}\n`,
-  );
+  deny(`Founderive keeps the app's files read-only from the panel. Write inside your data folder (${where}) instead.`);
 }
 process.exit(0);

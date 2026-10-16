@@ -101,6 +101,7 @@ What the rules cover: Claude Code's Edit, Write and NotebookEdit tools on those 
 
 - A shell command that writes to the repo without naming the file. In the default permission mode it still asks the founder first; in a bypass mode it runs.
 - Codex gets no flags and relies on its own default workspace sandbox; a founder running Codex with a permissive sandbox turns that off.
+- A founder whose own Claude settings set `disableAllHooks` turns the guard off; the deny rules still apply.
 
 The agent's home files are written only to a safe data folder, checked on real paths, so a symlinked data folder that resolves into the app is never written to. A symlinked `CLAUDE.md` or `AGENTS.md` in the data folder is the founder's: the link itself is archived (never followed) and a regular file is written in its place by rename. A symlinked `.gitignore` is refused before anything is written.
 
@@ -156,6 +157,10 @@ The first-run empty states already point at "Import a folder"; the page's own co
 - Session: the spawn receives the resolved cwd and, for Claude, the `--add-dir` and `--settings` args (the existing session tests stub the pty).
 - The import prompt carries the absolute skill path and data path (a pure prompt builder with a test).
 - Manual, once: start the panel after setup, run `pwd` and `pnpm -s data-dir` from the agent, confirm both are the data folder; ask the agent to edit a file under `web/` and confirm it's refused; ask it to list its skills and confirm the six are there.
+
+## Later, if it earns its place
+
+An OS-level sandbox for shell commands (Claude Code's `sandbox.filesystem` settings), so a shell command can't write to the app either. Today a shell command that would change the app asks first in the default permission mode and runs in a bypass mode; that's a documented limit, not an enforced boundary.
 
 ## Out of scope
 

@@ -69,10 +69,11 @@ export function denyRules(repo: string, rootEntries: DirEntry[] | null): string[
 }
 
 /**
- * The PreToolUse hook that runs `web/scripts/panel-guard.mjs` before every Edit, Write and NotebookEdit, in every
- * permission mode. The script refuses a path inside the repo that isn't inside the data folder, and the settings
- * folder. It only sees Claude's file tools, not shell commands. Every path is shell-quoted. The script lives under
- * `web/`, which the deny rules cover, so the agent can't change it.
+ * The PreToolUse hook that runs `web/scripts/panel-guard.mjs` before every Edit, Write, NotebookEdit and MultiEdit, in
+ * every permission mode. The script refuses a path inside the repo that isn't inside the data folder, and the settings
+ * folder. It only sees Claude's file tools, not shell commands. Every path is shell-quoted, including the node
+ * binary's own path (`process.execPath`), so the hook runs the server's own node rather than depending on the shell's
+ * PATH having one. The script lives under `web/`, which the deny rules cover, so the agent can't change it.
  */
 export function guardHook(paths: { repo: string; data: string | null; settings: string }) {
   const env = [`FOUNDERIVE_GUARD_REPO=${shellQuote(paths.repo)}`];
@@ -80,7 +81,10 @@ export function guardHook(paths: { repo: string; data: string | null; settings: 
   if (paths.data !== null) env.push(`FOUNDERIVE_GUARD_DATA=${shellQuote(paths.data)}`);
   env.push(`FOUNDERIVE_GUARD_SETTINGS=${shellQuote(paths.settings)}`);
   const script = shellQuote(path.join(paths.repo, "web", "scripts", "panel-guard.mjs"));
-  return { PreToolUse: [{ matcher: "Edit|Write|NotebookEdit", hooks: [{ type: "command", command: `${env.join(" ")} node ${script}` }] }] };
+  // The server's own node (process.execPath), not a bare `node`: the hook can't depend on the shell's PATH, where a
+  // missing `node` would exit 127 and silently fail to block anything.
+  const node = shellQuote(process.execPath);
+  return { PreToolUse: [{ matcher: "Edit|Write|NotebookEdit|MultiEdit", hooks: [{ type: "command", command: `${env.join(" ")} ${node} ${script}` }] }] };
 }
 
 /** The settings file's text for a set of deny rules and, optionally, the guard hook. */

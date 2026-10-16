@@ -144,11 +144,11 @@ describe("writeLaunchSettings", () => {
     expect(settings.hooks).toEqual({
       PreToolUse: [
         {
-          matcher: "Edit|Write|NotebookEdit",
+          matcher: "Edit|Write|NotebookEdit|MultiEdit",
           hooks: [
             {
               type: "command",
-              command: `FOUNDERIVE_GUARD_REPO=${shellQuote(tmpRepo)} FOUNDERIVE_GUARD_DATA=${shellQuote(data)} FOUNDERIVE_GUARD_SETTINGS=${shellQuote(settingsDir)} node ${shellQuote(path.join(tmpRepo, "web", "scripts", "panel-guard.mjs"))}`,
+              command: `FOUNDERIVE_GUARD_REPO=${shellQuote(tmpRepo)} FOUNDERIVE_GUARD_DATA=${shellQuote(data)} FOUNDERIVE_GUARD_SETTINGS=${shellQuote(settingsDir)} ${shellQuote(process.execPath)} ${shellQuote(path.join(tmpRepo, "web", "scripts", "panel-guard.mjs"))}`,
             },
           ],
         },
@@ -158,9 +158,9 @@ describe("writeLaunchSettings", () => {
     expect(settings.permissions.deny).toContain(`Edit(/${tmpRepo}/web/**)`);
   });
 
-  it("quotes a path with a space or a quote in the hook command", () => {
+  it("quotes a path with a space or a quote in the hook command, and the node binary itself", () => {
     expect(guardHook({ repo: "/Users/sam/My App", data: "/Users/sam/it's data", settings: "/tmp/s" }).PreToolUse[0].hooks[0].command).toBe(
-      "FOUNDERIVE_GUARD_REPO='/Users/sam/My App' FOUNDERIVE_GUARD_DATA='/Users/sam/it'\\''s data' FOUNDERIVE_GUARD_SETTINGS='/tmp/s' node '/Users/sam/My App/web/scripts/panel-guard.mjs'",
+      `FOUNDERIVE_GUARD_REPO='/Users/sam/My App' FOUNDERIVE_GUARD_DATA='/Users/sam/it'\\''s data' FOUNDERIVE_GUARD_SETTINGS='/tmp/s' ${shellQuote(process.execPath)} '/Users/sam/My App/web/scripts/panel-guard.mjs'`,
     );
   });
 
