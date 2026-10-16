@@ -120,8 +120,10 @@ export function loginShellLauncher(repo: string, opts: { shell?: string; now?: (
   return {
     command: async (tool, h) => {
       if (h.mode === "record") await writeAgentHome();
-      const extra = tool === "claude" ? claudeArgs(h, repo, await writeLaunchSettings(repo, h.mode === "record" ? h.cwd : path.join(repo, "founder-data"))) : [];
-      return { file: shell, args: ["-l", "-c", [tool, ...extra.map(shellQuote)].join(" ")] };
+      const extra = tool === "claude" ? claudeArgs(h, repo, await writeLaunchSettings(repo, h.mode === "record" ? h.cwd : (h.data ?? path.join(repo, "founder-data")))) : [];
+      // Flags (e.g. --add-dir) are fixed literals, kept bare; only the paths that follow them need quoting.
+      const quoted = extra.map((a) => (a.startsWith("--") ? a : shellQuote(a)));
+      return { file: shell, args: ["-l", "-c", [tool, ...quoted].join(" ")] };
     },
     available: () => {
       if (cache && now() - cache.at < AVAILABILITY_CACHE_MS) return Promise.resolve(cache.value);

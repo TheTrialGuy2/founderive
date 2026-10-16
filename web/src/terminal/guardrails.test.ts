@@ -11,11 +11,16 @@ afterEach(async () => {
 
 describe("panelHome", () => {
   it("is the data folder once setup is complete", () => {
-    expect(panelHome({ repo: "/r/app", data: "/Users/sam/Founderive/Lantern", setupComplete: true })).toEqual({ cwd: "/Users/sam/Founderive/Lantern", mode: "record", name: "Lantern" });
+    expect(panelHome({ repo: "/r/app", data: "/Users/sam/Founderive/Lantern", setupComplete: true })).toEqual({
+      cwd: "/Users/sam/Founderive/Lantern",
+      mode: "record",
+      name: "Lantern",
+      data: "/Users/sam/Founderive/Lantern",
+    });
   });
-  it("is the repo before setup, or when there is no data folder", () => {
-    expect(panelHome({ repo: "/r/app", data: "/r/app/founder-data", setupComplete: false })).toEqual({ cwd: "/r/app", mode: "repo", name: "app" });
-    expect(panelHome({ repo: "/r/app", data: null, setupComplete: false })).toEqual({ cwd: "/r/app", mode: "repo", name: "app" });
+  it("is the repo before setup, or when there is no data folder, but still carries the data folder when one exists", () => {
+    expect(panelHome({ repo: "/r/app", data: "/r/app/founder-data", setupComplete: false })).toEqual({ cwd: "/r/app", mode: "repo", name: "app", data: "/r/app/founder-data" });
+    expect(panelHome({ repo: "/r/app", data: null, setupComplete: false })).toEqual({ cwd: "/r/app", mode: "repo", name: "app", data: null });
   });
 });
 
@@ -93,15 +98,28 @@ describe("writeLaunchSettings", () => {
       await rm(tmpRepo, { recursive: true, force: true });
     }
   });
+
+  it("recreates its settings folder if something (e.g. macOS) cleaned it out from under a long-running process", async () => {
+    const tmpRepo = await mkdtemp(path.join(os.tmpdir(), "founderive-test-"));
+    try {
+      const file = await writeLaunchSettings(tmpRepo, path.join(tmpRepo, "founder-data"));
+      await rm(path.dirname(file), { recursive: true, force: true });
+      expect(existsSync(file)).toBe(false);
+      const file2 = await writeLaunchSettings(tmpRepo, path.join(tmpRepo, "founder-data"));
+      expect(existsSync(file2)).toBe(true);
+    } finally {
+      await rm(tmpRepo, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("claudeArgs", () => {
   const settings = "/tmp/x/claude-settings.json";
   it("adds the repo as a directory and the settings file when home is the record", () => {
-    expect(claudeArgs({ cwd: "/d", mode: "record", name: "d" }, "/r/app", settings)).toEqual(["--add-dir", "/r/app", "--settings", settings]);
+    expect(claudeArgs({ cwd: "/d", mode: "record", name: "d", data: "/d" }, "/r/app", settings)).toEqual(["--add-dir", "/r/app", "--settings", settings]);
   });
   it("adds only the settings file when home is the repo", () => {
-    expect(claudeArgs({ cwd: "/r/app", mode: "repo", name: "app" }, "/r/app", settings)).toEqual(["--settings", settings]);
+    expect(claudeArgs({ cwd: "/r/app", mode: "repo", name: "app", data: null }, "/r/app", settings)).toEqual(["--settings", settings]);
   });
 });
 

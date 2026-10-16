@@ -1,8 +1,11 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
+import { useTempData } from "../store/test-helpers";
+import { removeLaunchSettings } from "./guardrails";
 import type { ServerMessage, Tool } from "./protocol";
 import { startTerminalServer } from "./server";
 import { commandExists, loginShellLauncher, TerminalSession, type Launcher } from "./session";
@@ -10,7 +13,7 @@ import { commandExists, loginShellLauncher, TerminalSession, type Launcher } fro
 const TOKEN = "t".repeat(64);
 const APP = 3999;
 
-const HOME = { cwd: process.cwd(), mode: "repo" as const, name: "web" };
+const HOME = { cwd: process.cwd(), mode: "repo" as const, name: "web", data: null };
 
 /** A Launcher whose one tool runs the given program, standing in for `claude`. codex is "not installed". */
 function launcherFor(file: string, args: string[] = []): Launcher {
@@ -124,15 +127,20 @@ describe("terminal server", () => {
 
   it("spawns the program in the home's folder and passes the command the home produced", async () => {
     const seen: { cwd?: string; file?: string; args?: string[] } = {};
+    let onExit: ((e: { exitCode: number }) => void) | null = null;
     const fakePty = {
       onData() {},
-      onExit() {},
+      onExit(fn: (e: { exitCode: number }) => void) {
+        onExit = fn;
+      },
       write() {},
-      kill() {},
+      kill() {
+        onExit?.({ exitCode: 0 });
+      },
       pid: 0,
       resize() {},
     };
-    const home = { cwd: tmpdir(), mode: "record" as const, name: "Lantern" };
+    const home = { cwd: tmpdir(), mode: "record" as const, name: "Lantern", data: tmpdir() };
     const l: Launcher = {
       ...launcherFor("/bin/cat"),
       home: async () => home,
@@ -156,6 +164,8 @@ describe("terminal server", () => {
     expect(seen).toEqual({ cwd: tmpdir(), file: "/bin/cat", args: ["--in", tmpdir()] });
     const last = states.filter((x) => x.type === "state").pop() as Extract<ServerMessage, { type: "state" }>;
     expect(last.home).toEqual({ name: "Lantern", mode: "record" });
+    // Simulate the program having already exited, so afterEach's session.shutdown() doesn't wait out the grace period.
+    fakePty.kill();
     ws.close();
   });
 
@@ -482,11 +492,17 @@ describe("terminal server", () => {
   });
 
   it("ignores a resize that races the program's exit instead of showing the founder a raw error", async () => {
+    let onExit: ((e: { exitCode: number }) => void) | null = null;
     const fakePty = {
       onData: () => ({ dispose() {} }),
-      onExit: () => ({ dispose() {} }),
+      onExit: (fn: (e: { exitCode: number }) => void) => {
+        onExit = fn;
+        return { dispose() {} };
+      },
       write() {},
-      kill() {},
+      kill() {
+        onExit?.({ exitCode: 0 });
+      },
       pid: 0,
       resize() {
         throw new Error("ioctl(2) failed, EBADF");
@@ -502,7 +518,60 @@ describe("terminal server", () => {
     const errors = until(ws, (m) => m.some((x) => x.type === "error"), 300).catch(() => null);
     ws.send(JSON.stringify({ type: "resize", cols: 100, rows: 30 }));
     expect(await errors).toBeNull();
+    // Simulate the program having already exited, so afterEach's session.shutdown() doesn't wait out the grace period.
+    fakePty.kill();
     ws.close();
+  });
+});
+
+describe("loginShellLauncher (the real launcher)", () => {
+  it("resolves home from the founder's own data, and writes the command claude or codex actually needs", async () => {
+    const tmpRepo = await mkdtemp(join(tmpdir(), "founderive-launcher-test-"));
+    await writeFile(join(tmpRepo, "AGENTS.md"), "# Working in Founderive\n");
+    await mkdir(join(tmpRepo, "web"));
+    const { dir: dataDirPath, cleanup } = await useTempData();
+    try {
+      const launcher = loginShellLauncher(tmpRepo, { shell: "/bin/sh" });
+
+      // The fixture's founder.md has setupComplete: true, so home is the data folder.
+      const recordHome = await launcher.home();
+      expect(recordHome).toEqual({ mode: "record", cwd: dataDirPath, name: basename(dataDirPath), data: dataDirPath });
+
+      // setupComplete turned false: falls back to the repo, but still knows where the data folder is.
+      const founderPath = join(dataDirPath, "founder.md");
+      const original = await readFile(founderPath, "utf8");
+      await writeFile(founderPath, original.replace("setupComplete: true", "setupComplete: false"));
+      const repoHome = await launcher.home();
+      expect(repoHome).toEqual({ mode: "repo", cwd: tmpRepo, name: basename(tmpRepo), data: dataDirPath });
+
+      // No founder.md at all: repo mode too.
+      await rm(founderPath, { force: true });
+      expect((await launcher.home()).mode).toBe("repo");
+
+      // command("claude", recordHome): --add-dir and the settings file, flags bare, paths quoted.
+      const claudeRecord = await launcher.command("claude", recordHome);
+      expect(claudeRecord.file).toBe("/bin/sh");
+      expect(claudeRecord.args.slice(0, 2)).toEqual(["-l", "-c"]);
+      const claudeRecordCmd = claudeRecord.args[2];
+      expect(claudeRecordCmd.startsWith("claude --add-dir '")).toBe(true);
+      expect(claudeRecordCmd).toContain("--settings '");
+      expect(claudeRecordCmd.endsWith("claude-settings.json'")).toBe(true);
+      expect(existsSync(join(dataDirPath, "CLAUDE.md"))).toBe(true);
+
+      // command("claude", repoHome): the settings file, but no --add-dir.
+      const claudeRepo = await launcher.command("claude", repoHome);
+      const claudeRepoCmd = claudeRepo.args[2];
+      expect(claudeRepoCmd).toContain("--settings");
+      expect(claudeRepoCmd).not.toContain("--add-dir");
+
+      // command("codex", recordHome): codex gets no extra arguments.
+      const codexRecord = await launcher.command("codex", recordHome);
+      expect(codexRecord.args[2]).toBe("codex");
+    } finally {
+      await removeLaunchSettings();
+      await cleanup();
+      await rm(tmpRepo, { recursive: true, force: true });
+    }
   });
 });
 

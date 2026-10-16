@@ -1,14 +1,14 @@
-import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { PanelHome } from "./protocol";
 
-export type Home = PanelHome & { cwd: string };
+export type Home = PanelHome & { cwd: string; data: string | null };
 
-/** The program's working directory: the founder's record once setup is complete, the repo root before that. */
+/** The program's working directory: the founder's record once setup is complete, the repo root before that. `data` is the resolved data folder whenever one exists, even in repo mode. */
 export function panelHome(input: { repo: string; data: string | null; setupComplete: boolean }): Home {
-  if (input.data && input.setupComplete) return { cwd: input.data, mode: "record", name: path.basename(input.data) };
-  return { cwd: input.repo, mode: "repo", name: path.basename(input.repo) };
+  if (input.data && input.setupComplete) return { cwd: input.data, mode: "record", name: path.basename(input.data), data: input.data };
+  return { cwd: input.repo, mode: "repo", name: path.basename(input.repo), data: input.data };
 }
 
 /** `//` is Claude Code's spelling of an absolute path in a permission rule (a single slash anchors to the settings file). */
@@ -42,6 +42,8 @@ export async function writeLaunchSettings(repo: string, data: string): Promise<s
   const dataTop = relative && !relative.startsWith("..") && !path.isAbsolute(relative) ? relative.split(path.sep)[0] : null;
   const keep = ["founderive.local.json", ...(dataTop ? [dataTop] : [])];
   const dir = await launchSettingsDir();
+  // The OS can clean a temp folder out from under a long-running process; recreate it if it's gone.
+  await mkdir(dir, { recursive: true });
   const file = path.join(dir, "claude-settings.json");
   await writeFile(file, claudeSettings(repo, entries, keep), "utf8");
   return file;
