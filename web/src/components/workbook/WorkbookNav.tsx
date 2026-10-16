@@ -46,9 +46,6 @@ export function WorkbookNav() {
         <Link href={feedbackHref} className="block text-xs font-medium text-teal-dark hover:text-navy">
           Send feedback
         </Link>
-        <Link href="/demo/founder/today" className="block text-xs font-medium text-teal-dark hover:text-navy">
-          View product demo →
-        </Link>
       </div>
     </nav>
   );

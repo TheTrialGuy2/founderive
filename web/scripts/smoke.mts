@@ -23,8 +23,6 @@ const routes = [
   "/import",
   "/import/folder",
   "/feedback",
-  "/demo/founder/today",
-  "/demo/operator/overview",
 ];
 
 // Next 16 streams RSC payloads as inline `self.__next_f.push(...)` scripts (and HTML comments as hydration
