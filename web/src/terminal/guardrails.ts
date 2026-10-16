@@ -4,21 +4,24 @@ import path from "node:path";
 import { realPathOf } from "../store/paths";
 import type { PanelHome } from "./protocol";
 
-/** `refused` is the data folder setting that was refused, only in `unsafe` mode. */
-export type Home = PanelHome & { cwd: string; data: string | null; refused?: string };
+/**
+ * `refused` is the data folder setting that was refused, only in `unsafe` mode. `exists` says whether the data folder
+ * is there yet: a missing one is created on Start (`command`), never when the home is only being looked at.
+ */
+export type Home = PanelHome & { cwd: string; data: string | null; exists: boolean; refused?: string };
 
 /**
  * Where the program runs. Always the data folder: `record` once setup is complete, `setup` before that. A data folder
  * that fails `dataFolderIsSafe` is `unsafe`: nothing starts, and `cwd` is the repo only so the state has a name to show.
  */
-export function panelHome(input: { repo: string; data: string; safe: boolean; setupComplete: boolean }): Home {
-  if (!input.safe) return { cwd: input.repo, mode: "unsafe", name: path.basename(input.repo), data: null, refused: input.data };
-  return { cwd: input.data, mode: input.setupComplete ? "record" : "setup", name: path.basename(input.data), data: input.data };
+export function panelHome(input: { repo: string; data: string; safe: boolean; exists: boolean; setupComplete: boolean }): Home {
+  if (!input.safe) return { cwd: input.repo, mode: "unsafe", name: path.basename(input.repo), data: null, exists: false, refused: input.data };
+  return { cwd: input.data, mode: input.exists && input.setupComplete ? "record" : "setup", name: path.basename(input.data), data: input.data, exists: input.exists };
 }
 
 /** What the panel says when the data folder setting is refused. */
 export function unsafeDataFolderMessage(dir: string): string {
-  return `The data folder setting points inside the Founderive app (${dir}). Move it outside the app folder, or use founder-data/, then start again.`;
+  return `The data folder setting is the Founderive app folder, is inside it, or contains it (${dir}). Move it outside the app folder, or use founder-data/, then start again.`;
 }
 
 /** `//` is Claude Code's spelling of an absolute path in a permission rule (a single slash anchors to the settings file). */
@@ -48,8 +51,9 @@ const GIT_PUSH = ["Bash(git push *)", "Bash(git push:*)"];
  * `<repo>/founder-data` and denies the whole record. Checked against Claude Code itself: with that one rule, a Write to
  * `founder-data/note.md` was denied; with the explicit rules, it succeeded and root/web writes were denied.
  *
- * Not covered: a new top-level folder, or a new root file without a dot in its name and not in `ROOT_FILES`, created
- * after launch. Then no git push.
+ * Not covered by these rules: a new top-level folder, or a new root file without a dot in its name and not in
+ * `ROOT_FILES`, created after launch. The PreToolUse hook (`web/scripts/panel-guard.mjs`, see `guardHook`) closes that:
+ * it refuses any Edit, Write or NotebookEdit inside the repo but outside the data folder. Then no git push.
  */
 export function denyRules(repo: string, rootEntries: DirEntry[] | null): string[] {
   const root = absoluteRule(repo);
@@ -64,9 +68,24 @@ export function denyRules(repo: string, rootEntries: DirEntry[] | null): string[
   return [...deny, ...GIT_PUSH];
 }
 
-/** The settings file's text for a set of deny rules. */
-export function claudeSettingsFor(rules: string[]): string {
-  return `${JSON.stringify({ permissions: { deny: rules } }, null, 2)}\n`;
+/**
+ * The PreToolUse hook that runs `web/scripts/panel-guard.mjs` before every Edit, Write and NotebookEdit, in every
+ * permission mode. The script refuses a path inside the repo that isn't inside the data folder, and the settings
+ * folder. It only sees Claude's file tools, not shell commands. Every path is shell-quoted. The script lives under
+ * `web/`, which the deny rules cover, so the agent can't change it.
+ */
+export function guardHook(paths: { repo: string; data: string | null; settings: string }) {
+  const env = [`FOUNDERIVE_GUARD_REPO=${shellQuote(paths.repo)}`];
+  // No data folder (never the case at launch; `command` refuses unsafe homes): the whole repo is refused.
+  if (paths.data !== null) env.push(`FOUNDERIVE_GUARD_DATA=${shellQuote(paths.data)}`);
+  env.push(`FOUNDERIVE_GUARD_SETTINGS=${shellQuote(paths.settings)}`);
+  const script = shellQuote(path.join(paths.repo, "web", "scripts", "panel-guard.mjs"));
+  return { PreToolUse: [{ matcher: "Edit|Write|NotebookEdit", hooks: [{ type: "command", command: `${env.join(" ")} node ${script}` }] }] };
+}
+
+/** The settings file's text for a set of deny rules and, optionally, the guard hook. */
+export function claudeSettingsFor(rules: string[], hooks?: ReturnType<typeof guardHook>): string {
+  return `${JSON.stringify({ permissions: { deny: rules }, ...(hooks ? { hooks } : {}) }, null, 2)}\n`;
 }
 
 let settingsDir: string | null = null;
@@ -85,7 +104,7 @@ async function dirEntries(dir: string): Promise<DirEntry[]> {
  * Writes the launch settings to this process's temp folder (overwriting any previous launch's) and returns the file's
  * path. Only `<repo>/founder-data` is ever spared, and only when `data` is exactly that folder (on the real paths);
  * any other `data`, or null, gets the whole repo denied. Rules are written for the repo as given and, when it differs,
- * its real path. The settings folder itself is denied too.
+ * its real path. The settings folder itself is denied too. The guard hook (`guardHook`) is added on the real paths.
  */
 export async function writeLaunchSettings(repo: string, data: string | null): Promise<string> {
   const dir = await launchSettingsDir();
@@ -98,10 +117,12 @@ export async function writeLaunchSettings(repo: string, data: string | null): Pr
   for (const spelling of new Set([path.resolve(repo), realRepo])) {
     for (const rule of denyRules(spelling, entries)) if (!GIT_PUSH.includes(rule)) rules.add(rule);
   }
+  const realDir = await realpath(dir);
   rules.add(`Edit(${absoluteRule(dir)}/**)`);
-  rules.add(`Edit(${absoluteRule(await realpath(dir))}/**)`);
+  rules.add(`Edit(${absoluteRule(realDir)}/**)`);
+  const hooks = guardHook({ repo: realRepo, data: data === null ? null : realPathOf(data), settings: realDir });
   const file = path.join(dir, "claude-settings.json");
-  await writeFile(file, claudeSettingsFor([...rules, ...GIT_PUSH]), "utf8");
+  await writeFile(file, claudeSettingsFor([...rules, ...GIT_PUSH], hooks), "utf8");
   return file;
 }
 

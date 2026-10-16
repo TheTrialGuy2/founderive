@@ -1,10 +1,11 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
+import path from "node:path";
 import { promisify } from "node:util";
 import type { IPty } from "node-pty";
 import { writeAgentHome } from "../store/agent-home";
 import { initData } from "../store/init";
-import { dataDir, dataFolderIsSafe } from "../store/paths";
+import { dataDir, dataFolderIsSafe, realPathOf } from "../store/paths";
 import { readEntry } from "../store/read";
 import { claudeArgs, panelHome, shellQuote, unsafeDataFolderMessage, writeLaunchSettings, type Home } from "./guardrails";
 import { TOOLS, type Tool } from "./protocol";
@@ -57,7 +58,7 @@ export type Launcher = {
   command: (tool: Tool, home: Home) => Promise<{ file: string; args: string[] }>;
   /** Whether each tool is installed. Async so the server never blocks the event loop to find out. */
   available: () => Promise<Record<Tool, boolean>>;
-  /** Where the next program runs, resolved fresh each time: always the data folder (created from the starter if missing), or `unsafe`. */
+  /** Where the next program runs, resolved fresh each time and read-only: always the data folder (`exists: false` if it isn't there yet), or `unsafe`. */
   home: () => Promise<Home>;
   platform: "supported" | "windows";
   /** Loads the terminal library. Defaults to node-pty; a test can stand in a missing or fake one. */
@@ -86,7 +87,7 @@ export async function commandExists(tool: string, shell = process.env.SHELL || "
 /**
  * Runs the founder's own CLI through their login shell (so their PATH and sign-in are theirs), always in the founder's
  * data folder, with the app repo reachable as an added directory and a settings file that keeps the app's files and
- * git push out of reach. A data folder setting that points inside the app (anywhere but founder-data/) starts nothing.
+ * git push out of reach. A data folder setting that is the app folder, is inside it (anywhere but founder-data/) or contains it starts nothing.
  */
 export function loginShellLauncher(repo: string, opts: { shell?: string; now?: () => number } = {}): Launcher {
   const shell = opts.shell || process.env.SHELL || "/bin/zsh";
@@ -101,20 +102,38 @@ export function loginShellLauncher(repo: string, opts: { shell?: string; now?: (
     return value;
   };
 
-  /** Throws when the data folder setting itself is invalid (founderive.local.json); the panel shows that message. */
+  /**
+   * Read-only: the server calls it on every page connect, so it never creates anything. A missing data folder is
+   * `setup` with `exists: false`; Start (`command`) creates it. Throws when the data folder setting itself is invalid
+   * (founderive.local.json); the panel shows that message.
+   */
   const home = async (): Promise<Home> => {
     const dir = dataDir();
-    if (!dataFolderIsSafe(repo, dir)) return panelHome({ repo, data: dir, safe: false, setupComplete: false });
-    // Not created yet: create it from the starter now, exactly what setup's first save does (initData never
-    // overwrites), so the program always has the data folder to start in.
-    if (!existsSync(dir)) await initData();
+    if (!dataFolderIsSafe(repo, dir)) return panelHome({ repo, data: dir, safe: false, exists: false, setupComplete: false });
+    if (!existsSync(dir)) return panelHome({ repo, data: dir, safe: true, exists: false, setupComplete: false });
     const founder = await readEntry("founder", "founder.md");
-    return panelHome({ repo, data: dir, safe: true, setupComplete: !!(founder?.ok && founder.data.setupComplete) });
+    return panelHome({ repo, data: dir, safe: true, exists: true, setupComplete: !!(founder?.ok && founder.data.setupComplete) });
+  };
+
+  /**
+   * On Start, a data folder that isn't there yet is created from the starter (initData never overwrites), exactly
+   * what setup's first save does. Only the default `<repo>/founder-data`, or a folder whose parent exists: a configured
+   * folder on a drive that isn't connected is refused rather than recreated somewhere the founder won't look.
+   */
+  const ensureDataFolder = async (dir: string): Promise<void> => {
+    if (existsSync(dir)) return;
+    const isDefault = realPathOf(dir) === path.join(realPathOf(repo), "founder-data");
+    if (!isDefault && !existsSync(path.dirname(path.resolve(dir)))) {
+      throw new Error(`Your data folder isn't there (${dir}). Check its drive is connected, or fix founderive.local.json, then start again.`);
+    }
+    await initData();
   };
 
   return {
     command: async (tool, h) => {
       if (h.mode === "unsafe" || !h.data) throw new Error(unsafeDataFolderMessage(h.refused ?? h.cwd));
+      // Checked fresh, not only from `h.exists`: the folder may have gone (or come) since the home was read.
+      await ensureDataFolder(h.data);
       // The rules are useful before setup too. writeAgentHome checks the data folder is safe again on its own.
       await writeAgentHome();
       // Codex gets no flags: it runs in the data folder and relies on its own default workspace sandbox to keep the repo read-only, which a founder running it with a permissive sandbox turns off.

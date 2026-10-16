@@ -26,7 +26,7 @@ export type PanelView =
 const NOTE: Record<"record" | "setup" | "unsafe", string | null> = {
   record: null,
   setup: "Finish setup in the app. Claude already works in your record.",
-  unsafe: "Your data folder setting points inside the Founderive app. Move it, or use founder-data/, then start Claude.",
+  unsafe: "Your data folder setting is the Founderive app folder, is inside it, or contains it. Move it, or use founder-data/, then start Claude.",
 };
 
 export function panelView({ terminal, platform, conn, state, exited }: PanelInput): PanelView {

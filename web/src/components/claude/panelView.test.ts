@@ -59,9 +59,9 @@ describe("panelView", () => {
     expect(panelView(ready)).toMatchObject({ kind: "start", note: null });
   });
 
-  it("when the data folder setting points inside the app, says what to do before starting", () => {
+  it("when the data folder setting is refused, says what to do before starting", () => {
     const unsafe = panelView({ ...ready, state: { ...ready.state!, home: { name: "app", mode: "unsafe" } } });
-    expect(unsafe).toMatchObject({ kind: "start", note: "Your data folder setting points inside the Founderive app. Move it, or use founder-data/, then start Claude." });
+    expect(unsafe).toMatchObject({ kind: "start", note: "Your data folder setting is the Founderive app folder, is inside it, or contains it. Move it, or use founder-data/, then start Claude." });
   });
 
   it("names the data folder while running before setup too", () => {

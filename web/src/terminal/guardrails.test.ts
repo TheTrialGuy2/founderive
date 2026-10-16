@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { claudeArgs, denyRules, panelHome, removeLaunchSettings, ROOT_FILES, shellQuote, unsafeDataFolderMessage, writeLaunchSettings } from "./guardrails";
+import { claudeArgs, denyRules, guardHook, panelHome, removeLaunchSettings, ROOT_FILES, shellQuote, unsafeDataFolderMessage, writeLaunchSettings } from "./guardrails";
 
 afterEach(async () => {
   await removeLaunchSettings();
@@ -11,19 +11,25 @@ afterEach(async () => {
 
 describe("panelHome", () => {
   it("is the data folder once setup is complete", () => {
-    expect(panelHome({ repo: "/r/app", data: "/Users/sam/Founderive/Lantern", safe: true, setupComplete: true })).toEqual({
+    expect(panelHome({ repo: "/r/app", data: "/Users/sam/Founderive/Lantern", safe: true, exists: true, setupComplete: true })).toEqual({
       cwd: "/Users/sam/Founderive/Lantern",
       mode: "record",
       name: "Lantern",
       data: "/Users/sam/Founderive/Lantern",
+      exists: true,
     });
   });
   it("is the data folder before setup too", () => {
-    expect(panelHome({ repo: "/r/app", data: "/r/app/founder-data", safe: true, setupComplete: false })).toEqual({ cwd: "/r/app/founder-data", mode: "setup", name: "founder-data", data: "/r/app/founder-data" });
+    expect(panelHome({ repo: "/r/app", data: "/r/app/founder-data", safe: true, exists: true, setupComplete: false })).toEqual({ cwd: "/r/app/founder-data", mode: "setup", name: "founder-data", data: "/r/app/founder-data", exists: true });
+  });
+  it("is setup, and says the folder isn't there yet, when the data folder is missing", () => {
+    expect(panelHome({ repo: "/r/app", data: "/r/app/founder-data", safe: true, exists: false, setupComplete: false })).toEqual({ cwd: "/r/app/founder-data", mode: "setup", name: "founder-data", data: "/r/app/founder-data", exists: false });
   });
   it("is unsafe, with no data folder, when the setting is refused, and keeps the refused path for the message", () => {
-    expect(panelHome({ repo: "/r/app", data: "/r/app/web", safe: false, setupComplete: true })).toEqual({ cwd: "/r/app", mode: "unsafe", name: "app", data: null, refused: "/r/app/web" });
-    expect(unsafeDataFolderMessage("/r/app/web")).toBe("The data folder setting points inside the Founderive app (/r/app/web). Move it outside the app folder, or use founder-data/, then start again.");
+    expect(panelHome({ repo: "/r/app", data: "/r/app/web", safe: false, exists: true, setupComplete: true })).toEqual({ cwd: "/r/app", mode: "unsafe", name: "app", data: null, exists: false, refused: "/r/app/web" });
+    expect(unsafeDataFolderMessage("/r/app/web")).toBe(
+      "The data folder setting is the Founderive app folder, is inside it, or contains it (/r/app/web). Move it outside the app folder, or use founder-data/, then start again.",
+    );
   });
 });
 
@@ -128,6 +134,49 @@ describe("writeLaunchSettings", () => {
     const file = await writeLaunchSettings(tmpRepo, null);
     const deny = JSON.parse(await readFile(file, "utf8")).permissions.deny as string[];
     expect(deny).toContain(`Edit(/${path.dirname(file)}/**)`);
+  });
+
+  it("adds the guard hook for Edit, Write and NotebookEdit, with the real repo, data and settings paths shell-quoted", async () => {
+    const data = path.join(tmpRepo, "founder-data");
+    const file = await writeLaunchSettings(tmpRepo, data);
+    const settings = JSON.parse(await readFile(file, "utf8"));
+    const settingsDir = await realpath(path.dirname(file));
+    expect(settings.hooks).toEqual({
+      PreToolUse: [
+        {
+          matcher: "Edit|Write|NotebookEdit",
+          hooks: [
+            {
+              type: "command",
+              command: `FOUNDERIVE_GUARD_REPO=${shellQuote(tmpRepo)} FOUNDERIVE_GUARD_DATA=${shellQuote(data)} FOUNDERIVE_GUARD_SETTINGS=${shellQuote(settingsDir)} node ${shellQuote(path.join(tmpRepo, "web", "scripts", "panel-guard.mjs"))}`,
+            },
+          ],
+        },
+      ],
+    });
+    // The deny rules stay alongside the hook.
+    expect(settings.permissions.deny).toContain(`Edit(/${tmpRepo}/web/**)`);
+  });
+
+  it("quotes a path with a space or a quote in the hook command", () => {
+    expect(guardHook({ repo: "/Users/sam/My App", data: "/Users/sam/it's data", settings: "/tmp/s" }).PreToolUse[0].hooks[0].command).toBe(
+      "FOUNDERIVE_GUARD_REPO='/Users/sam/My App' FOUNDERIVE_GUARD_DATA='/Users/sam/it'\\''s data' FOUNDERIVE_GUARD_SETTINGS='/tmp/s' node '/Users/sam/My App/web/scripts/panel-guard.mjs'",
+    );
+  });
+
+  it("uses the repo's real path in the hook when a symlink leads to it", async () => {
+    const linkParent = await mkdtemp(path.join(os.tmpdir(), "founderive-link-"));
+    try {
+      const linked = path.join(linkParent, "app");
+      await symlink(tmpRepo, linked);
+      const settings = JSON.parse(await readFile(await writeLaunchSettings(linked, path.join(linked, "founder-data")), "utf8"));
+      const command = settings.hooks.PreToolUse[0].hooks[0].command as string;
+      expect(command).toContain(`FOUNDERIVE_GUARD_REPO=${shellQuote(tmpRepo)} `);
+      expect(command).toContain(`FOUNDERIVE_GUARD_DATA=${shellQuote(path.join(tmpRepo, "founder-data"))} `);
+      expect(command).not.toContain(linked);
+    } finally {
+      await rm(linkParent, { recursive: true, force: true });
+    }
   });
 
   it("removeLaunchSettings deletes the file writeLaunchSettings wrote", async () => {

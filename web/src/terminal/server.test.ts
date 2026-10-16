@@ -13,7 +13,7 @@ import { commandExists, loginShellLauncher, TerminalSession, type Launcher } fro
 const TOKEN = "t".repeat(64);
 const APP = 3999;
 
-const HOME = { cwd: process.cwd(), mode: "setup" as const, name: "web", data: process.cwd() };
+const HOME = { cwd: process.cwd(), mode: "setup" as const, name: "web", data: process.cwd(), exists: true };
 
 /** A Launcher whose one tool runs the given program, standing in for `claude`. codex is "not installed". */
 function launcherFor(file: string, args: string[] = []): Launcher {
@@ -140,7 +140,7 @@ describe("terminal server", () => {
       pid: 0,
       resize() {},
     };
-    const home = { cwd: tmpdir(), mode: "record" as const, name: "Lantern", data: tmpdir() };
+    const home = { cwd: tmpdir(), mode: "record" as const, name: "Lantern", data: tmpdir(), exists: true };
     const l: Launcher = {
       ...launcherFor("/bin/cat"),
       home: async () => home,
@@ -173,7 +173,7 @@ describe("terminal server", () => {
     let commanded = false;
     const l: Launcher = {
       ...launcherFor("/bin/cat"),
-      home: async () => ({ cwd: "/r/app", mode: "unsafe", name: "app", data: null, refused: "/r/app/web" }),
+      home: async () => ({ cwd: "/r/app", mode: "unsafe", name: "app", data: null, exists: false, refused: "/r/app/web" }),
       command: async () => {
         commanded = true;
         return { file: "/bin/cat", args: [] };
@@ -187,7 +187,7 @@ describe("terminal server", () => {
     start_(ws);
     expect((await got).find((m) => m.type === "error")).toEqual({
       type: "error",
-      message: "The data folder setting points inside the Founderive app (/r/app/web). Move it outside the app folder, or use founder-data/, then start again.",
+      message: "The data folder setting is the Founderive app folder, is inside it, or contains it (/r/app/web). Move it outside the app folder, or use founder-data/, then start again.",
     });
     expect(commanded).toBe(false);
     ws.close();
@@ -561,14 +561,14 @@ describe("loginShellLauncher (the real launcher)", () => {
 
       // The fixture's founder.md has setupComplete: true, so home is the record.
       const recordHome = await launcher.home();
-      expect(recordHome).toEqual({ mode: "record", cwd: dataDirPath, name: basename(dataDirPath), data: dataDirPath });
+      expect(recordHome).toEqual({ mode: "record", cwd: dataDirPath, name: basename(dataDirPath), data: dataDirPath, exists: true });
 
       // setupComplete turned false: still the data folder, in setup mode.
       const founderPath = join(dataDirPath, "founder.md");
       const original = await readFile(founderPath, "utf8");
       await writeFile(founderPath, original.replace("setupComplete: true", "setupComplete: false"));
       const setupHome = await launcher.home();
-      expect(setupHome).toEqual({ mode: "setup", cwd: dataDirPath, name: basename(dataDirPath), data: dataDirPath });
+      expect(setupHome).toEqual({ mode: "setup", cwd: dataDirPath, name: basename(dataDirPath), data: dataDirPath, exists: true });
 
       // No founder.md at all, but the folder exists: setup mode too, and nothing is created.
       await rm(founderPath, { force: true });
@@ -597,7 +597,7 @@ describe("loginShellLauncher (the real launcher)", () => {
     }
   });
 
-  it("creates <repo>/founder-data from the starter on the first start, and spares it while denying the repo's root files", async () => {
+  it("creates <repo>/founder-data from the starter on Start, never when the home is only read, and spares it while denying the repo's root files", async () => {
     const tmpRepo = await realpath(await mkdtemp(join(tmpdir(), "founderive-launcher-test-")));
     await writeFile(join(tmpRepo, "AGENTS.md"), "# Working in Founderive\n");
     await mkdir(join(tmpRepo, "web"));
@@ -607,10 +607,13 @@ describe("loginShellLauncher (the real launcher)", () => {
     try {
       expect(existsSync(data)).toBe(false);
       const launcher = loginShellLauncher(tmpRepo, { shell: "/bin/sh" });
+      // Reading the home (every page connect does) creates nothing.
       const home = await launcher.home();
-      expect(existsSync(join(data, "founder.md"))).toBe(true);
-      expect(home).toEqual({ mode: "setup", cwd: data, name: "founder-data", data });
+      expect(home).toEqual({ mode: "setup", cwd: data, name: "founder-data", data, exists: false });
+      expect(existsSync(data)).toBe(false);
+      // Start does.
       const deny = (await settingsFrom((await launcher.command("claude", home)).args[2])).permissions.deny;
+      expect(existsSync(join(data, "founder.md"))).toBe(true);
       expect(deny.some((d) => d.includes("founder-data"))).toBe(false);
       expect(deny).not.toContain(`Edit(/${tmpRepo}/**)`);
       expect(deny).not.toContain(`Edit(/${tmpRepo}/*)`);
@@ -619,6 +622,53 @@ describe("loginShellLauncher (the real launcher)", () => {
       await removeLaunchSettings();
       await cleanup();
       await rm(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses to start, and creates nothing, when a configured data folder's parent is missing (a drive that isn't connected)", async () => {
+    const tmpRepo = await realpath(await mkdtemp(join(tmpdir(), "founderive-launcher-test-")));
+    await writeFile(join(tmpRepo, "AGENTS.md"), "# Working in Founderive\n");
+    await mkdir(join(tmpRepo, "web"));
+    const outside = await realpath(await mkdtemp(join(tmpdir(), "founderive-drive-")));
+    const data = join(outside, "Volumes-Missing", "Lantern");
+    const { cleanup } = await useTempData(false);
+    process.env.FOUNDER_DATA_DIR = data;
+    try {
+      const launcher = loginShellLauncher(tmpRepo, { shell: "/bin/sh" });
+      const home = await launcher.home();
+      expect(home).toEqual({ mode: "setup", cwd: data, name: "Lantern", data, exists: false });
+      await expect(launcher.command("claude", home)).rejects.toThrow(
+        `Your data folder isn't there (${data}). Check its drive is connected, or fix founderive.local.json, then start again.`,
+      );
+      expect(existsSync(join(outside, "Volumes-Missing"))).toBe(false);
+      expect(existsSync(join(tmpRepo, "CLAUDE.md"))).toBe(false);
+    } finally {
+      await removeLaunchSettings();
+      await cleanup();
+      await rm(tmpRepo, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("creates a configured data folder on Start when its parent exists", async () => {
+    const tmpRepo = await realpath(await mkdtemp(join(tmpdir(), "founderive-launcher-test-")));
+    await writeFile(join(tmpRepo, "AGENTS.md"), "# Working in Founderive\n");
+    await mkdir(join(tmpRepo, "web"));
+    const outside = await realpath(await mkdtemp(join(tmpdir(), "founderive-drive-")));
+    const data = join(outside, "Lantern");
+    const { cleanup } = await useTempData(false);
+    process.env.FOUNDER_DATA_DIR = data;
+    try {
+      const launcher = loginShellLauncher(tmpRepo, { shell: "/bin/sh" });
+      const home = await launcher.home();
+      expect(existsSync(data)).toBe(false);
+      await launcher.command("codex", home);
+      expect(existsSync(join(data, "founder.md"))).toBe(true);
+    } finally {
+      await removeLaunchSettings();
+      await cleanup();
+      await rm(tmpRepo, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
     }
   });
 
@@ -633,8 +683,8 @@ describe("loginShellLauncher (the real launcher)", () => {
       for (const dir of [tmpRepo, join(tmpRepo, "founderive-mvp"), join(tmpRepo, "web", "founder-data")]) {
         process.env.FOUNDER_DATA_DIR = dir;
         const home = await launcher.home();
-        expect(home).toEqual({ mode: "unsafe", cwd: tmpRepo, name: basename(tmpRepo), data: null, refused: dir });
-        await expect(launcher.command("claude", home)).rejects.toThrow("points inside the Founderive app");
+        expect(home).toEqual({ mode: "unsafe", cwd: tmpRepo, name: basename(tmpRepo), data: null, exists: false, refused: dir });
+        await expect(launcher.command("claude", home)).rejects.toThrow("is the Founderive app folder, is inside it, or contains it");
       }
       expect(existsSync(join(tmpRepo, "CLAUDE.md"))).toBe(false);
       expect(existsSync(join(tmpRepo, "web"))).toBe(false);
