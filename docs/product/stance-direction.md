@@ -2,6 +2,19 @@
 
 A founder reads a belief on its step and sees "4 people discussed this". Today that line can't say whether those four backed the belief or cut against it. The evidence-system audit (`evidence-system-audit.md`) rates "contradictions by default" as missing: nothing in Founderive marks a conversation as evidence against a belief, so a negative case lives only in free text nobody rereads. This brief adds the smallest form of that lane: one choice the founder makes when they already say what a conversation changes.
 
+## What was verified (2026-10-16)
+
+Run against a scratch copy of `web/test-data` (Dana confirmed without a stance, plus a prospect Priya tagged `problem` with an unconfirmed draft), on the running app at `ad1f5c2` plus the "Evidence · N" label change. The Chrome extension wasn't connected, so pages were read as rendered HTML and the two writes went through the app's own commands; the two on-submit error states (no stance picked, a record in both decision lists) are covered by `confirmWhatChanges` and `parseDecisionForm` tests rather than seen in the browser.
+
+1. Priya, unconfirmed: the draft note, the radio row "Does it support what you believe?" with Supports it / Challenges it / Neither yet, and "Confirm what changed". Confirming with an empty stance is refused with "Say whether it supports or challenges what you believe, or neither yet."
+2. Priya after Challenges it: the card reads "Challenges it · Scheduling isn't a problem for agencies that already bought a tool." and the draft note is gone.
+3. Dana before: text as today plus "Say whether it supports or challenges what you believe. Open "Change it" to add it." and no stance preselected. After Supports it: "Supports it · Scheduling pain is weekly…", quiet line gone.
+4. Problem step: chip "2 people discussed this · 1 supports · 1 challenges"; "What challenges this · 1" sits above "People who discussed it · 2" and lists Priya with her role (segment, as on every person card), date, quote and "What it changed: …". Revenue step (Dana only): "1 person discussed this · 1 supports", no challenges section.
+5. Decisions: the form shows "Evidence for (optional)" and "Evidence against (optional)" with the same options. A decision citing Priya against shows "Against · 1" and no "Evidence for" list; the fixture's older decision still reads "Evidence · 1".
+6. `pnpm -s check-data` on the scratch folder: all files valid, no warnings.
+
+Decided during the build: the decision card says "Evidence · N" when nothing is against and "Evidence for · N" only beside an "Against" list, so older decisions look as they did. The `interpretation` action in AGENTS.md now drafts "what this changes" and sends the founder to the page, since a confirmation always carries a stance and only the form sets one. A stance counts only once "what this changes" is confirmed, and the schema refuses a stance on an unconfirmed record, so an agent-written one is caught by check-data.
+
 What it is not: a score, a per-area matrix, an inference by an agent, or a change to Home. The founder decides whether a conversation supports or challenges what they believe. The app counts and lists.
 
 ## The UI budget
