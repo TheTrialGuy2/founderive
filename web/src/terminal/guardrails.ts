@@ -16,21 +16,20 @@ const absoluteRule = (p: string) => `/${p}`;
 
 /**
  * Claude Code settings for one launch: no edits under any of the repo's entries except the ones to keep (the data
- * folder when it lives inside the repo, and the local settings file), and no git push. An entry with a dot in its name
- * is a file; the rest are folders.
+ * folder when it lives inside the repo, and the local settings file), and no git push.
  */
-export function claudeSettings(repo: string, entries: string[], keep: string[]): string {
+export function claudeSettings(repo: string, entries: { name: string; isDirectory: boolean }[], keep: string[]): string {
   const kept = new Set(keep);
   const deny = entries
-    .filter((name) => !kept.has(name))
-    .map((name) => (path.extname(name) ? `Edit(${absoluteRule(path.join(repo, name))})` : `Edit(${absoluteRule(path.join(repo, name))}/**)`));
+    .filter(({ name }) => !kept.has(name))
+    .map(({ name, isDirectory }) => (isDirectory ? `Edit(${absoluteRule(path.join(repo, name))}/**)` : `Edit(${absoluteRule(path.join(repo, name))})`));
   deny.push("Bash(git push *)", "Bash(git push:*)");
   return `${JSON.stringify({ permissions: { deny } }, null, 2)}\n`;
 }
 
 /** Writes the launch settings to a fresh temp folder and returns the file's path. The data folder is never denied. */
 export async function writeLaunchSettings(repo: string, data: string): Promise<string> {
-  const entries = (await readdir(repo, { withFileTypes: true })).map((e) => e.name);
+  const entries = (await readdir(repo, { withFileTypes: true })).map((e) => ({ name: e.name, isDirectory: e.isDirectory() }));
   const relative = path.relative(repo, data);
   const dataTop = relative && !relative.startsWith("..") && !path.isAbsolute(relative) ? relative.split(path.sep)[0] : null;
   const keep = ["founderive.local.json", ...(dataTop ? [dataTop] : [])];
