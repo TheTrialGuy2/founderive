@@ -95,7 +95,7 @@ Then use it in one of two ways:
   and say **"set me up"**. Claude starts Founderive for you, then asks what you want to be true by the end of the week. The instructions it follows are in [AGENTS.md](AGENTS.md).
 
 - **Use the Claude panel inside Founderive.** Start Founderive with `node start.mjs`, click **Open Claude** in the corner of any workbook page, then **Start Claude** (or **Start Codex**). The first time, Claude asks you to sign in, right in the panel.
-  - Claude starts in your Founderive folder (your record), with the app alongside as a tool it can read but not change. Before setup it starts in the app folder.
+  - Claude starts in your Founderive folder (your record), with the app alongside as a tool it can read; Claude's file tools can't change it, and shell commands that would still ask you first. Before setup it starts in the app folder.
   - Inside the terminal every key goes to Claude. Press **F6** (fn+F6 on most Mac laptops) to leave the terminal.
   - Escape closes the panel when focus is outside the terminal, or anywhere in the panel when nothing is running.
   - On a step page, **Ask Claude about this step** types a starter line for you to send. If Claude isn't running yet, the panel keeps the line until you start Claude and type it in.
