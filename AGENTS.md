@@ -14,7 +14,7 @@ Founderive is used two ways at once: the founder works in the app, and the found
 
 `website` and `oneLiner` in founder.md are your frame of reference for the venture. You may read the website for context; treat what it says as the founder's public framing, not confirmed facts.
 
-When you're running in Founderive's Claude panel, you're in the repo root as usual; the founder sees Founderive beside you. If `FOUNDERIVE_PANEL=1` is set, you're running inside Founderive's panel: Founderive is already running — don't run `node start.mjs`. A line starting "I'm on the <step> step in Founderive" means they're on that step page: read the step (its canvas block, the conversations whose `areas` include it, and its planned conversations) before answering.
+When you're running in Founderive's Claude panel, you're in the repo root as usual; the founder sees Founderive beside you. If `FOUNDERIVE_PANEL=1` is set, you're running inside Founderive's panel: Founderive is already running — don't run `node start.mjs`. A line starting "I'm on the <step> step in Founderive" means they're on that step page: read the step (its canvas block, the conversations whose `areas` include it, and its planned conversations) before answering. A message starting "Synthesize my last five customer conversations in Founderive" means follow `.claude/skills/synthesize/SKILL.md`.
 
 ### When they say "set me up"
 
@@ -104,7 +104,7 @@ On the first conversation of a new ISO week, when a previous week's check-in exi
 8. What help are you asking for?
 9. What's next week's outcome and first commitment?
 
-Before question 6, read every outreach audience row from the past week with its reply rate; don't collapse the rows into one total. If `founder.goals` is present, ask one conditional follow-up turn after question 6: "Did either tracked goal count move this week?" Update a `count` only from the founder's answer.
+Before question 4, when a decision whose `source` starts with `synthesize draft` is dated in the past week, read its themes (the `alternatives` list) back in one line, then ask. Before question 6, read every outreach audience row from the past week with its reply rate; don't collapse the rows into one total. If `founder.goals` is present, ask one conditional follow-up turn after question 6: "Did either tracked goal count move this week?" Update a `count` only from the founder's answer.
 
 Write the answers about the past week in **that week's** check-in body under the heading `## Review`, with one short heading per question. Write the last answer in the **new** week's check-in: `outcome`, and the first commitment. A missed outcome needs a reason, never a judgment.
 
@@ -151,6 +151,7 @@ Use plain words and short turns. Say what you read in the record before asking f
 | Ask | Read and follow |
 |---|---|
 | Log a conversation from notes or a transcript | `.claude/skills/log-conversation/SKILL.md` (Claude: `/log-conversation <notes>`) |
+| Make sense of the last five customer conversations | `.claude/skills/synthesize/SKILL.md` (Claude: `/synthesize`) |
 | Set up a test the founder already has in mind | `.claude/skills/new-test/SKILL.md` (Claude: `/new-test <idea>`) |
 | Work out what's riskiest and what to test | `.claude/skills/hypothesis-engine/SKILL.md` |
 | Plan how to run a test, with numbers | `.claude/skills/validation-planner/SKILL.md` |

@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { Card, formatDate, PageHeader } from "@/components/ui";
 import { DueList } from "@/components/home/DueList";
 import { PathList } from "@/components/home/PathList";
+import { SynthesizeButton } from "@/components/home/SynthesizeButton";
 import { OutcomeTile, OutreachTile, TalkedToTile } from "@/components/home/WeekTiles";
 import { BlockerForm } from "@/components/today/BlockerForm";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
@@ -32,7 +33,7 @@ async function HomeContent() {
       </>
     );
   }
-  const { founder: f, today, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, carried, path, talkedTo, importedWaiting, agentEditsWaiting, changesWaiting, dueItems, action } = view;
+  const { founder: f, today, weekId, weekStartsOn, checkinEntry, checkin, programWeek, homework, report, carried, path, talkedTo, importedWaiting, synthesizable, agentEditsWaiting, changesWaiting, dueItems, action } = view;
   const stepIndex = path.current ? path.steps.findIndex((s) => s.id === path.current?.id) + 1 : null;
   const logoV = await logoVersion();
 
@@ -109,6 +110,7 @@ async function HomeContent() {
           </Link>
         </p>
       )}
+      <SynthesizeButton count={synthesizable} />
       <div className="grid gap-4 md:grid-cols-3">
         <OutcomeTile
           weekId={weekId}

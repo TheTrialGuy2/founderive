@@ -7,7 +7,7 @@ import { all, isRealDate, lines, oneOf, orNull, text, type Parsed } from "./form
 import { updateEntry } from "../store/update";
 
 export type Decision = KindData<"decision">;
-export type DecisionRow = { path: string; data: Decision; broken: BrokenLink[] };
+export type DecisionRow = { path: string; data: Decision; broken: BrokenLink[]; notes: string };
 export const DECISIONS_DIR = "decisions";
 
 export type DecisionInput = {
@@ -98,7 +98,7 @@ export async function loadDecisions(): Promise<{
 }> {
   const [entries, conversations, tests, present] = await Promise.all([listEntries("decision"), listEntries("conversation"), listEntries("test"), existingPaths()]);
   const rows = entries
-    .flatMap((e) => (e.ok ? [{ path: e.path, data: e.data, broken: brokenLinks(linksOf("decision", e.data), (r) => present.has(r)) }] : []))
+    .flatMap((e) => (e.ok ? [{ path: e.path, data: e.data, broken: brokenLinks(linksOf("decision", e.data), (r) => present.has(r)), notes: e.body }] : []))
     .sort((a, b) => b.data.date.localeCompare(a.data.date) || a.path.localeCompare(b.path));
   const testOptions = tests.flatMap((t) => (t.ok ? [{ path: t.path, title: t.data.title }] : []));
   const evidenceOptions = [

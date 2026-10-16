@@ -26,3 +26,23 @@ export function setSection(body: string, heading: string, content: string): stri
   }
   return [...lines.slice(0, b.start), ...block, ...lines.slice(b.end)].join("\n");
 }
+
+/** Splits a record body into its `## ` sections, in order. Text before the first heading comes first with heading null. Empty sections are dropped. */
+export function bodySections(body: string): { heading: string | null; text: string }[] {
+  const lines = body.split(/\r?\n/);
+  const headingAt = (line: string) => {
+    const m = /^## (.+)$/.exec(line);
+    return m ? m[1] : null;
+  };
+  const starts: { index: number; heading: string | null }[] = [{ index: 0, heading: null }];
+  lines.forEach((line, i) => {
+    const h = headingAt(line);
+    if (h !== null) starts.push({ index: i, heading: h });
+  });
+  const sections = starts.map((s, i) => {
+    const end = i + 1 < starts.length ? starts[i + 1].index : lines.length;
+    const from = s.heading === null ? s.index : s.index + 1;
+    return { heading: s.heading, text: lines.slice(from, end).join("\n").trim() };
+  });
+  return sections.filter((s) => s.text.length > 0);
+}
