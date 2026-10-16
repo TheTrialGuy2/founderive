@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { SYNTHESIZE_LINE, synthesizable, synthesizeLabel, type SynthesisRecord } from "./synthesis";
 
@@ -47,5 +49,15 @@ describe("synthesizeLabel", () => {
 describe("SYNTHESIZE_LINE", () => {
   it("is the exact line AGENTS.md routes to the skill", () => {
     expect(SYNTHESIZE_LINE).toBe("Synthesize my last five customer conversations in Founderive.");
+  });
+});
+
+describe("the synthesis line", () => {
+  const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+  it("is routed by AGENTS.md (which says 'starting', so without the final period)", () => {
+    expect(read("../../../AGENTS.md")).toContain(SYNTHESIZE_LINE.replace(/\.$/, ""));
+  });
+  it("is named by the synthesize skill", () => {
+    expect(read("../../../.claude/skills/synthesize/SKILL.md")).toContain(SYNTHESIZE_LINE);
   });
 });

@@ -113,14 +113,14 @@ No entry in `SKILL_PROMPTS` (`web/src/lib/prompts.ts`): nothing shows it, since 
 
 ## Code
 
-- `web/src/core/conversations.ts`: `synthesizable(records)` returns the qualifying conversations, newest first. One function, reused by `loadToday()` and by any later page that lists them.
+- `web/src/core/synthesis.ts`: `synthesizable(records)` returns the qualifying conversations, newest first, beside the button's label and the exact line, so the three things that must stay in step live in one file.
 - `web/src/commands/today.ts`: `synthesizable: number` on the ready view and in the JSON.
 - `web/src/app/(workbook)/today/page.tsx`: a `SynthesizeButton` client component (next to `AskClaude` in `components/`) rendered when `synthesizable >= 3`. It calls `askClaude()` with the fixed line.
 - `web/src/commands/today-text.ts`: no change. The count is context for the agent, not a line Home speaks.
 
 ## Tests
 
-- `core/conversations.test.ts`: `synthesizable` counts customer and prospect only, excludes `seeded`, excludes a conversation with no content, orders newest first, and caps nothing (the cap of five is the skill's).
+- `core/synthesis.test.ts`: `synthesizable` counts customer and prospect only, excludes `seeded`, excludes a conversation with no content, orders newest first, and caps nothing (the cap of five is the skill's).
 - `commands/today.test.ts`: the JSON carries `synthesizable`.
 - Home: the button is absent at two qualifying conversations, present at three with "your 3 conversations", and says "last 5" at five or more.
 - The skill is prose. After it's written, run it once in the panel against a data folder with six confirmed conversations, two of them at the same company and one that cuts against the Customer step, and check: it reads five, every theme cites two or more people and names its company count, the same-company theme carries the one-source note, the contradicting conversation appears under "What contradicts", the record passes `check-data`, and Decisions shows it as imported with the themes under alternatives.

@@ -23,7 +23,7 @@ A conversation qualifies when all three hold:
 
 ## Steps
 
-1. **Read the conversations.** Every file in `<data>/conversations/`. Keep the ones that qualify, newest first by `date` (fall back to the date in the file name when `date` is missing). Take the first five. Read each one's frontmatter and body. Say who they were in one line, with companies counted: "Dana, Marcus, a clinic owner, Priya and Tom, 2 Oct to 14 Oct, at 3 companies." A conversation with no `org` counts as its own company. Fewer than three qualify: say so, say what would make one count (confirm it on People, or add a quote, a number or notes), and stop.
+1. **Read the conversations.** Every file in `<data>/conversations/`. Keep the ones that qualify, newest first by `date` (fall back to the date in the file name when `date` is missing). Take the first five. Same-day conversations are ordered by file name, so your five match the app's count. Read each one's frontmatter and body. Say who they were in one line, with companies counted: "Dana, Marcus, a clinic owner, Priya and Tom, 2 Oct to 14 Oct, at 3 companies." A conversation with no `org` counts as its own company. Fewer than three qualify: say so, say what would make one count (confirm it on People, or add a quote, a number or notes), and stop.
 2. **Read the Customer step.** `<data>/canvas/customer.md` if it exists. Its `text` is what the founder believes now; you'll compare the conversations against it and copy it into `beliefBefore`.
 3. **Draft three themes.** For each:
    - a short name in the founder's kind of words
@@ -34,8 +34,10 @@ A conversation qualifies when all three hold:
    - Anything that cuts against the Customer step's text, or against another theme, goes in a "what contradicts" list with the same attribution. Never drop a negative case.
 4. **Confirm the themes, one turn each.** For each theme ask: keep it, rename it, or drop it? Keep the founder's wording. Don't propose a fourth unless they drop one and ask for another.
 5. **Implications and the message, one turn each.** From the confirmed themes, draft two product implications and one message to test this week, in customer language taken from the quotes. The founder confirms or rewrites each.
-6. **Next decision and decide-by.** Ask: "What decision do these themes put in front of you now, in one line?" Then: "When will you make it?" (a real date). The line becomes the record's title.
-7. **Write one decision record** at `<data>/decisions/<today>-synthesis-<slug>.md`, where `<slug>` is a lowercase-hyphen slug of the title. Never overwrite; add `-2` if the name exists.
+6. **What surprised you?** Ask it as one turn. Keep the founder's words for the record.
+7. **What should not change yet?** One turn. Keep their words.
+8. **Next decision and decide-by.** Ask: "What decision do these themes put in front of you now, in one line?" Wait for the answer. On the next turn ask: "When will you make it?" (a real date). The line becomes the record's title.
+9. **Write one decision record** at `<data>/decisions/<today>-synthesis-<slug>.md`, where `<slug>` is a lowercase-hyphen slug of the title. Never overwrite; add `-2` if the name exists.
 
    ```markdown
    ---
@@ -65,13 +67,13 @@ A conversation qualifies when all three hold:
    <evidence against the Customer step's text or against a theme, attributed; write "Nothing in these five." when empty>
 
    ## What surprised us
-   <in the founder's words; ask if they haven't said>
+   <the founder's answer from step 6>
 
    ## What we should change
    <the two product implications>
 
    ## What we should not change yet
-   <in the founder's words; ask if they haven't said>
+   <the founder's answer from step 7>
 
    ## Message to test this week
    "<the one message, in customer language>"
@@ -85,8 +87,8 @@ A conversation qualifies when all three hold:
    - `alternatives` holds the themes because the schema has no themes field and the themes are what the founder is choosing between.
    - `status` stays `open`. Never write `decision`, `why` or `reversible`; the founder resolves it on Decisions.
    - `seeded: true` because you drafted it. The app shows it as "Imported — confirm" until the founder confirms it. Never clear it.
-8. **Offer a follow-up, don't force it.** Ask once: turn the message into a test (`.claude/skills/new-test/SKILL.md`), or add a commitment to this week's check-in `{ id, text: "Test: <message>", due, status: open, link: "decisions/<the file name>" }`? Only if the founder says yes.
-9. **Run `pnpm check-data`** from `web/` and fix what it flags. Close with one short summary: the three themes with counts and companies, what contradicts (or that nothing did), the message, the decide-by date, and that the record waits on Decisions.
+10. **Offer a follow-up, don't force it.** Ask once: turn the message into a test (`.claude/skills/new-test/SKILL.md`), or add a commitment to this week's check-in `{ id, text: "Test: <message>", due, status: open, link: "decisions/<the file name>" }`? Only if the founder says yes.
+11. **Run `pnpm -s check-data`** from `web/` and fix what it flags. Close with one short summary: the three themes with counts and companies, what contradicts (or that nothing did), the message, the decide-by date, and that the record waits on Decisions. Say that the decide-by date shows on Home once they confirm the record on Decisions.
 
 ## Never
 
