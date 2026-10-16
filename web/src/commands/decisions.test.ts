@@ -122,7 +122,7 @@ describe("decision log", () => {
   });
   it("keeps a revisit date on a decided record only, on or after the decision's date", async () => {
     const before = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no", revisitOn: "2026-10-01" }));
-    expect(!before.ok && before.errors).toEqual({ revisitOn: "Pick a revisit date after the decision's date." });
+    expect(!before.ok && before.errors).toEqual({ revisitOn: "Pick a revisit date on or after the decision's date." });
     expect(!before.ok && before.values.revisitOn).toBe("2026-10-01");
     const bad = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no", revisitOn: "soon" }));
     expect(!bad.ok && bad.errors).toEqual({ revisitOn: "Use a real revisit date." });
@@ -161,6 +161,21 @@ describe("decision log", () => {
     expect(e?.ok && e.data.revisitedOn).toBe("2026-10-21");
     expect(e?.ok && e.body.trim()).toBe("## Why in full\n\nThe owner feels it.\n\n## Outcome\n\nTwo of five signed.");
     await expect(recordOutcome(rel, "Again", "2026-10-22")).rejects.toThrow(/already been revisited/);
+  });
+  it("refuses an outcome on a decision that no longer exists, or a date that isn't real", async () => {
+    await expect(recordOutcome("decisions/2026-10-01-gone.md", "x", "2026-10-21")).rejects.toThrow(/no longer exists/);
+    const r = parseDecisionForm(form({ title: "X", date: "2026-10-09", decision: "Y", why: "Z", reversible: "no", revisitOn: "2026-10-20" }));
+    if (!r.ok) throw new Error(JSON.stringify(r.errors));
+    const rel = await createDecision(r.input);
+    await expect(recordOutcome(rel, "x", "soon")).rejects.toThrow(/real date/);
+  });
+  it("refuses an outcome on an imported decision until the founder confirms it", async () => {
+    await mkdir(path.join(env.dir, "decisions"), { recursive: true });
+    await writeFile(
+      path.join(env.dir, "decisions/2026-10-05-imp.md"),
+      "---\nseeded: true\nsource: notes\ntitle: Imp\ndate: 2026-10-05\ndecision: C\nwhy: D\nreversible: true\nrevisitOn: 2026-10-01\n---\n",
+    );
+    await expect(recordOutcome("decisions/2026-10-05-imp.md", "x", "2026-10-21")).rejects.toThrow(/imported decision first/);
   });
   it("refuses an outcome on an open question or a decision without a revisit date", async () => {
     const open = parseDecisionForm(form({ title: "Who pays?", date: "2026-10-15", status: "open" }));

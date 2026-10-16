@@ -42,7 +42,7 @@ export function parseDecisionForm(fd: FormData): Parsed<DecisionInput> {
   if (values.decideBy && !isRealDate(values.decideBy)) errors.decideBy = "Use a real decide-by date.";
   if (values.area && !oneOf(AREAS, values.area)) errors.area = "Pick an area from the list, or none.";
   if (values.revisitOn && !isRealDate(values.revisitOn)) errors.revisitOn = "Use a real revisit date.";
-  else if (values.revisitOn && isRealDate(values.date) && values.revisitOn < values.date) errors.revisitOn = "Pick a revisit date after the decision's date.";
+  else if (values.revisitOn && isRealDate(values.date) && values.revisitOn < values.date) errors.revisitOn = "Pick a revisit date on or after the decision's date.";
   if (against.some((p) => evidence.includes(p))) errors.against = "A record can be for or against, not both.";
   if (values.status === "decided" && !values.decision) errors.decision = "Say what you decided.";
   if (values.status === "decided" && !values.why) errors.why = "Say why. Future you will want to know.";
@@ -97,7 +97,7 @@ export async function resolveDecision(path: string, input: { decision: string; w
   await updateEntry("decision", path, (data, body) => {
     if (!data) throw new Error("That decision no longer exists. Reload the page.");
     if (data.status !== "open") throw new Error("That question has already been decided. Reload the page.");
-    if (revisitOn && revisitOn < data.date) throw new Error("Pick a revisit date after the decision's date.");
+    if (revisitOn && revisitOn < data.date) throw new Error("Pick a revisit date on or after the decision's date.");
     return { data: { ...data, status: "decided", decision, why, reversible: input.reversible === "yes", ...(revisitOn ? { revisitOn } : {}) }, body };
   });
 }
@@ -112,6 +112,7 @@ export async function recordOutcome(path: string, text: string, today: string): 
   await updateEntry("decision", path, (data, body) => {
     if (!data) throw new Error("That decision no longer exists. Reload the page.");
     if (data.status !== "decided") throw new Error("An open question has no outcome yet. Decide it first.");
+    if (data.seeded) throw new Error("Confirm this imported decision first.");
     if (!data.revisitOn) throw new Error("This decision has no revisit date. Reload the page.");
     if (data.revisitedOn) throw new Error("That decision has already been revisited. Reload the page.");
     const kept = body.replace(/\s+$/, "");

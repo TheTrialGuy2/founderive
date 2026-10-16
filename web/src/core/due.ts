@@ -26,10 +26,14 @@ export function dueItems(input: {
     ...input.homework.filter((h) => h.status === "open").map((h): DueItem => ({ key: `homework:${h.id}`, kind: "homework", id: h.id, text: h.title, due: h.due ?? null, week: null })),
     ...(input.followUps ?? []).map((f): DueItem => ({ key: `followup:${f.id}`, kind: "followup", id: f.id, text: f.text, due: f.due, week: null, href: f.href })),
     ...(input.decisions ?? []).map((d): DueItem => ({ key: `decision:${d.id}`, kind: "decision", id: d.id, text: `Decide: ${d.title}`, due: d.decideBy, week: null, href: d.href })),
-    ...(input.revisits ?? []).map((r): DueItem => ({ key: `revisit:${r.id}`, kind: "revisit", id: r.id, text: `What happened after: ${r.title}?`, due: r.revisitOn, week: null, href: r.href })),
+    ...(input.revisits ?? []).map((r): DueItem => ({ key: `revisit:${r.id}`, kind: "revisit", id: r.id, text: `What happened after: ${r.title.replace(/\?+\s*$/, "")}?`, due: r.revisitOn, week: null, href: r.href })),
   ];
   return items.sort((a, b) => (a.due ?? LAST).localeCompare(b.due ?? LAST));
 }
+
+/** The loop on a decision is open: decided, the founder's own (not an import), the revisit date has come, and nothing has been recorded. Home and the card both use this, so they can't drift. */
+export const revisitDue = (d: { status: string; seeded?: boolean; revisitOn?: string | null; revisitedOn?: string | null }, today: string): boolean =>
+  d.status === "decided" && !d.seeded && !!d.revisitOn && d.revisitOn <= today && !d.revisitedOn;
 
 /** When something is due, in words: "due today", "due Fri", "from last week", "from Sep 30". Never "overdue". */
 export function dueWords(item: { due?: string | null; week?: string | null }, today: string): string {

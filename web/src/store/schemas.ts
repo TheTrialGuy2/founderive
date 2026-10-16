@@ -371,7 +371,7 @@ export const decisionSchema = z
     if (!d.decision?.trim()) ctx.addIssue({ code: "custom", path: ["decision"], message: "a decided record needs the decision" });
     if (!d.why?.trim()) ctx.addIssue({ code: "custom", path: ["why"], message: "a decided record needs why" });
     if (d.reversible == null) ctx.addIssue({ code: "custom", path: ["reversible"], message: "a decided record needs reversible" });
-    if (d.revisitedOn && !d.revisitOn) ctx.addIssue({ code: "custom", path: ["revisitedOn"], message: "revisitedOn needs a revisitOn" });
+    if (d.revisitedOn != null && d.revisitOn == null) ctx.addIssue({ code: "custom", path: ["revisitedOn"], message: "revisitedOn needs a revisitOn" });
   });
 
 /** A beta tester's feedback, kept locally. It holds only what they typed, the page and the app version. */

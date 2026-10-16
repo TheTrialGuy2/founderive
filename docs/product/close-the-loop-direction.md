@@ -40,7 +40,7 @@ Unchanged. The create form's decided branch and the resolve form each gain one o
 ### States
 
 - **Blank:** no revisit. Nothing changes anywhere.
-- **A date before the decision's date:** the form refuses with "Pick a revisit date after the decision's date." and keeps the founder's input.
+- **A date before the decision's date:** the form refuses with "Pick a revisit date on or after the decision's date." and keeps the founder's input.
 - **An open question with a date:** the create form refuses with the existing open-conflict message, "Choose 'A decision already made,' or clear this for an open question."
 - **Set:** the card shows "Revisit on <date>" beside the decided badge until the date passes.
 - **Error:** the existing write error, with every field kept.

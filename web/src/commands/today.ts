@@ -1,7 +1,7 @@
 import { capacityWarning } from "../core/capacity";
 import { dueFollowUps, needsInterpretation } from "../core/conversations";
 import { synthesizable } from "../core/synthesis";
-import { dueItems as buildDueItems, type DueItem } from "../core/due";
+import { dueItems as buildDueItems, revisitDue, type DueItem } from "../core/due";
 import { guideProgress, guideStepForWeek, type GuideStep } from "../core/guide";
 import { homeAction, type HomeAction } from "../core/home";
 import { activeChoices, nextStep, type Candidate } from "../core/next-step";
@@ -119,9 +119,8 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
   });
   // A decided decision whose revisit date has come and that has no outcome yet. Never before the date, never an import.
   const revisits = decisionRows.flatMap((entry, index) => {
-    const d = entry.data;
-    if (d.seeded || d.status !== "decided" || !d.revisitOn || d.revisitOn > today || d.revisitedOn) return [];
-    return [{ id: entry.path, title: d.title, href: decisionHref(index, entry.path), revisitOn: d.revisitOn }];
+    if (!revisitDue(entry.data, today)) return [];
+    return [{ id: entry.path, title: entry.data.title, href: decisionHref(index, entry.path), revisitOn: entry.data.revisitOn! }];
   });
 
   const next = nextStep({
