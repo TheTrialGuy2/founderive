@@ -155,7 +155,8 @@ function DecisionCard({ row, labels }: { row: DecisionRow; labels: Map<string, s
             </dd>
           </div>
         )}
-        {d.evidence.length > 0 && <RecordList label={`Evidence for · ${d.evidence.length}`} paths={d.evidence} labels={labels} />}
+        {/* "Evidence for" only beside an "Against" list, so a decision with nothing against looks as it always did. */}
+        {d.evidence.length > 0 && <RecordList label={`${d.against.length > 0 ? "Evidence for" : "Evidence"} · ${d.evidence.length}`} paths={d.evidence} labels={labels} />}
         {d.against.length > 0 && <RecordList label={`Against · ${d.against.length}`} paths={d.against} labels={labels} />}
         {d.relatedTest && (
           <div>
