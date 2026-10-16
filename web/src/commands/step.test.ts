@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
-import { createConversation } from "./conversations";
+import { confirmWhatChanges, createConversation } from "./conversations";
 import { planConversation } from "./path";
 import { loadStep } from "./step";
 
@@ -76,5 +76,28 @@ describe("loadStep", () => {
     if (v.status !== "ready") throw new Error(v.status);
     expect(v.people.find((p) => p.person === "Dee")?.changed).toBeNull();
     expect(v.people.find((p) => p.person === "Eli")?.changed).toBe("Simplify onboarding");
+  });
+  it("counts the founder's stances on the step and lists the challengers newest first; nothing until someone picks one", async () => {
+    const base = { type: "customer" as const, org: null, segment: "Agency owner", context: null, questionsAsked: null, observedBehavior: null, quotes: ["noted"], numbers: [], alternatives: null, urgency: null, buyingProcess: null, areas: ["problem"], followUps: [], whatChanges: null, whatChangesConfirmed: false, notes: "" };
+    const ann = await createConversation({ ...base, person: "Ann", date: "2026-10-01" });
+    const bea = await createConversation({ ...base, person: "Bea", date: "2026-10-10" });
+    const cass = await createConversation({ ...base, person: "Cass", date: "2026-10-05" });
+    await createConversation({ ...base, person: "Dee", date: "2026-10-06" });
+    let v = await loadStep("problem");
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.step.discussed).toBe(4);
+    expect(v.counts).toEqual({ supports: 0, challenges: 0 });
+    expect(v.challengers).toEqual([]);
+    await confirmWhatChanges(ann, "Owners don't feel it", "challenges");
+    await confirmWhatChanges(bea, "Owners feel it weekly", "supports");
+    await confirmWhatChanges(cass, "Scheduling isn't a problem once a tool is bought", "challenges");
+    v = await loadStep("problem");
+    if (v.status !== "ready") throw new Error(v.status);
+    expect(v.step.discussed).toBe(4);
+    expect(v.counts).toEqual({ supports: 1, challenges: 2 });
+    expect(v.challengers.map((p) => [p.person, p.role, p.date, p.line, p.changed])).toEqual([
+      ["Cass", "Agency owner", "2026-10-05", "noted", "Scheduling isn't a problem once a tool is bought"],
+      ["Ann", "Agency owner", "2026-10-01", "noted", "Owners don't feel it"],
+    ]);
   });
 });
