@@ -1,8 +1,11 @@
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { lstat, mkdtemp, readFile, readlink, rm, stat, symlink, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AGENT_HOME_FILES, agentHomeFiles, ensureIgnored, writeAgentHome } from "./agent-home";
 import { checkData } from "./check";
+import { repoRoot } from "./paths";
 import { useTempData } from "./test-helpers";
 
 let env: Awaited<ReturnType<typeof useTempData>>;
@@ -71,6 +74,54 @@ describe("writeAgentHome", () => {
     await writeAgentHome();
     expect(await readFile(path.join(env.dir, "_archive", "CLAUDE.md"), "utf8")).toBe("My own notes for Claude.\n");
     expect(await readFile(path.join(env.dir, "_archive", "CLAUDE-2.md"), "utf8")).toBe("Second thoughts.\n");
+  });
+  it("archives a symlinked CLAUDE.md as the link itself (never its target) and writes a regular file in its place", async () => {
+    const elsewhere = await mkdtemp(path.join(os.tmpdir(), "founderive-target-"));
+    try {
+      const target = path.join(elsewhere, "notes.md");
+      await writeFile(target, "The founder's linked notes.\n");
+      await symlink(target, path.join(env.dir, "CLAUDE.md"));
+      await writeAgentHome();
+      const archived = path.join(env.dir, "_archive", "CLAUDE.md");
+      expect((await lstat(archived)).isSymbolicLink()).toBe(true);
+      expect(await readlink(archived)).toBe(target);
+      const written = path.join(env.dir, "CLAUDE.md");
+      expect((await lstat(written)).isSymbolicLink()).toBe(false);
+      expect((await readFile(written, "utf8")).startsWith(HEADER)).toBe(true);
+      expect(await readFile(target, "utf8")).toBe("The founder's linked notes.\n");
+    } finally {
+      await rm(elsewhere, { recursive: true, force: true });
+    }
+  });
+  it("refuses a symlinked .gitignore before writing anything", async () => {
+    const elsewhere = await mkdtemp(path.join(os.tmpdir(), "founderive-target-"));
+    try {
+      const target = path.join(elsewhere, "gitignore");
+      await writeFile(target, "node_modules\n");
+      await symlink(target, path.join(env.dir, ".gitignore"));
+      await expect(writeAgentHome()).rejects.toThrow("is a symbolic link");
+      expect(await readFile(target, "utf8")).toBe("node_modules\n");
+      expect(existsSync(path.join(env.dir, "CLAUDE.md"))).toBe(false);
+      await expect(ensureIgnored(env.dir, AGENT_HOME_FILES)).rejects.toThrow("is a symbolic link");
+    } finally {
+      await rm(elsewhere, { recursive: true, force: true });
+    }
+  });
+  it("writes nothing when the data folder is a symlink that resolves into the app", async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), "founderive-link-"));
+    // A folder inside the app's web/ that doesn't exist: if the guard failed, writing would create it.
+    const inside = path.join(repoRoot(), "web", `.founderive-test-${path.basename(parent)}`);
+    try {
+      const link = path.join(parent, "data");
+      await symlink(inside, link);
+      process.env.FOUNDER_DATA_DIR = link;
+      await writeAgentHome();
+      expect(existsSync(inside)).toBe(false);
+    } finally {
+      process.env.FOUNDER_DATA_DIR = env.dir;
+      await rm(inside, { recursive: true, force: true });
+      await rm(parent, { recursive: true, force: true });
+    }
   });
   it("leaves the files untouched when they already say the same thing", async () => {
     await writeAgentHome();

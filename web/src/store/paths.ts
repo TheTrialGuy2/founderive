@@ -59,6 +59,47 @@ export function dataDir(): string {
   return path.resolve(repoRoot(), "founder-data");
 }
 
+/**
+ * The real path of `p`: symlinks resolved and, on a case-insensitive disk, the real case. A path that doesn't exist yet
+ * resolves its parent the same way and appends its name, so a symlinked parent is still seen; a symlink whose target
+ * doesn't exist yet (realpath fails on it) is followed to that target.
+ */
+export function realPathOf(p: string, hops = 0): string {
+  const abs = path.resolve(p);
+  try {
+    return fs.realpathSync.native(abs);
+  } catch {
+    // doesn't fully resolve: resolve the parent, then look at this name itself
+  }
+  const parent = path.dirname(abs);
+  if (parent === abs || hops > 40) return abs;
+  const candidate = path.join(realPathOf(parent, hops + 1), path.basename(abs));
+  try {
+    if (fs.lstatSync(candidate).isSymbolicLink()) return realPathOf(path.resolve(path.dirname(candidate), fs.readlinkSync(candidate)), hops + 1);
+  } catch {
+    // not there at all: the name as it would be created
+  }
+  return candidate;
+}
+
+/** Whether `child` is `parent` or inside it (both already resolved). */
+function within(parent: string, child: string): boolean {
+  const rel = path.relative(parent, child);
+  return rel === "" || (!path.isAbsolute(rel) && rel.split(path.sep)[0] !== "..");
+}
+
+/**
+ * Whether `data` may be the founder's data folder for the app at `repo`, on the real paths (symlinks resolved): either
+ * entirely outside the repo (not the repo, not inside it, not a folder that contains it), or exactly
+ * `<repo>/founder-data`. Nothing else inside the repo is safe, so the deny rules never have to spare an app folder.
+ */
+export function dataFolderIsSafe(repo: string, data: string): boolean {
+  const r = realPathOf(repo);
+  const d = realPathOf(data);
+  if (d === path.join(r, "founder-data")) return true;
+  return !within(r, d) && !within(d, r);
+}
+
 /** Resolves a founder-data-relative path, refusing anything that escapes the folder. */
 export function resolveInData(rel: string): string {
   const root = dataDir();

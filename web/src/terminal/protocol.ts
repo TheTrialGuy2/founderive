@@ -2,8 +2,11 @@
 export type Tool = "claude" | "codex";
 export const TOOLS: readonly Tool[] = ["claude", "codex"];
 
-/** Where the program runs: the founder's record once setup is complete, the app's repo before that. */
-export type HomeMode = "record" | "repo";
+/**
+ * Where the program runs, always the founder's data folder: `record` once setup is complete, `setup` before that.
+ * `unsafe` when the data folder setting points inside the app (anywhere but founder-data/): nothing starts.
+ */
+export type HomeMode = "record" | "setup" | "unsafe";
 export type PanelHome = { name: string; mode: HomeMode };
 
 export type ClientMessage =

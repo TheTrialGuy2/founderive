@@ -1,7 +1,6 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { lstat, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { dataFolderIsSafe } from "../terminal/guardrails";
-import { dataDir, repoRoot, resolveInData } from "./paths";
+import { dataDir, dataFolderIsSafe, repoRoot, resolveInData } from "./paths";
 import { archiveFile, writeFileAtomic } from "./write";
 
 /** The two files the panel's agent reads in the data folder. Generated on every start; never records. */
@@ -30,6 +29,7 @@ export function agentHomeFiles(rules: string, repo: string, data: string): { cla
 /** Adds the names to `<dir>/.gitignore` when they're missing (creating the file if needed). Returns whether it wrote. */
 export async function ensureIgnored(dir: string, names: readonly string[]): Promise<boolean> {
   const file = path.join(dir, ".gitignore");
+  await refuseSymlinkedGitignore(file);
   let current = "";
   try {
     current = await readFile(file, "utf8");
@@ -45,11 +45,33 @@ export async function ensureIgnored(dir: string, names: readonly string[]): Prom
   return true;
 }
 
+async function lstatOrNull(file: string) {
+  try {
+    return await lstat(file);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  }
+}
+
+/** A symlinked .gitignore could point anywhere (the app's own, say); Founderive never writes through it. */
+async function refuseSymlinkedGitignore(file: string): Promise<void> {
+  if ((await lstatOrNull(file))?.isSymbolicLink()) throw new Error(`${file} is a symbolic link. Founderive won't write through it; replace it with a regular file.`);
+}
+
 /**
  * Writes one generated file, unless it already says exactly that (so a panel start doesn't fire a data-change event
- * for nothing). A file there that Founderive didn't generate is the founder's own: it moves to _archive/ first.
+ * for nothing). A file there that Founderive didn't generate is the founder's own: it moves to _archive/ first. A
+ * symlink there is always the founder's (Founderive never makes one): the link itself is archived, never followed, and
+ * the new file is written by rename, which replaces a link rather than writing through it.
  */
 async function writeGenerated(rel: string, content: string): Promise<void> {
+  const stat = await lstatOrNull(resolveInData(rel));
+  if (stat?.isSymbolicLink()) {
+    await archiveFile(rel);
+    await writeFileAtomic(rel, content);
+    return;
+  }
   let current: string | null = null;
   try {
     current = await readFile(resolveInData(rel), "utf8");
@@ -63,12 +85,15 @@ async function writeGenerated(rel: string, content: string): Promise<void> {
 
 /**
  * Writes CLAUDE.md and AGENTS.md into the data folder from the repo's AGENTS.md, and keeps them out of the data folder's
- * git. Does nothing when the data folder is the repo, contains it, or sits inside the app's own folders.
+ * git. Does nothing unless the data folder is safe (`dataFolderIsSafe`: outside the repo on its real path, or exactly
+ * `<repo>/founder-data`), so a symlinked data folder that resolves into the app is never written to.
  */
 export async function writeAgentHome(): Promise<void> {
   const repo = repoRoot();
   const data = dataDir();
   if (!dataFolderIsSafe(repo, data)) return;
+  // Checked before anything is written, so a refused .gitignore leaves no generated file behind un-ignored.
+  await refuseSymlinkedGitignore(path.join(data, ".gitignore"));
   const rules = await readFile(path.join(repo, "AGENTS.md"), "utf8");
   const files = agentHomeFiles(rules, repo, data);
   await writeGenerated("CLAUDE.md", files.claude);

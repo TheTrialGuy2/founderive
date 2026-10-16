@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -13,7 +13,7 @@ import { commandExists, loginShellLauncher, TerminalSession, type Launcher } fro
 const TOKEN = "t".repeat(64);
 const APP = 3999;
 
-const HOME = { cwd: process.cwd(), mode: "repo" as const, name: "web", data: null };
+const HOME = { cwd: process.cwd(), mode: "setup" as const, name: "web", data: process.cwd() };
 
 /** A Launcher whose one tool runs the given program, standing in for `claude`. codex is "not installed". */
 function launcherFor(file: string, args: string[] = []): Launcher {
@@ -121,7 +121,7 @@ describe("terminal server", () => {
     const ws = connect(port);
     const msgs = await until(ws, (m) => m.some((x) => x.type === "state"));
     const state = msgs.find((x) => x.type === "state") as Extract<ServerMessage, { type: "state" }>;
-    expect(state.home).toEqual({ name: "web", mode: "repo" });
+    expect(state.home).toEqual({ name: "web", mode: "setup" });
     ws.close();
   });
 
@@ -166,6 +166,30 @@ describe("terminal server", () => {
     expect(last.home).toEqual({ name: "Lantern", mode: "record" });
     // Simulate the program having already exited, so afterEach's session.shutdown() doesn't wait out the grace period.
     fakePty.kill();
+    ws.close();
+  });
+
+  it("starts nothing when the data folder setting is unsafe, and says so", async () => {
+    let commanded = false;
+    const l: Launcher = {
+      ...launcherFor("/bin/cat"),
+      home: async () => ({ cwd: "/r/app", mode: "unsafe", name: "app", data: null, refused: "/r/app/web" }),
+      command: async () => {
+        commanded = true;
+        return { file: "/bin/cat", args: [] };
+      },
+    };
+    const port = await start(l);
+    const ws = connect(port);
+    const first = await until(ws, (m) => m.some((x) => x.type === "state"));
+    expect((first.find((x) => x.type === "state") as Extract<ServerMessage, { type: "state" }>).home).toEqual({ name: "app", mode: "unsafe" });
+    const got = until(ws, (m) => m.some((x) => x.type === "error"));
+    start_(ws);
+    expect((await got).find((m) => m.type === "error")).toEqual({
+      type: "error",
+      message: "The data folder setting points inside the Founderive app (/r/app/web). Move it outside the app folder, or use founder-data/, then start again.",
+    });
+    expect(commanded).toBe(false);
     ws.close();
   });
 
@@ -525,7 +549,9 @@ describe("terminal server", () => {
 });
 
 describe("loginShellLauncher (the real launcher)", () => {
-  it("resolves home from the founder's own data, and writes the command claude or codex actually needs", async () => {
+  const settingsFrom = async (cmd: string) => JSON.parse(await readFile(cmd.slice(cmd.lastIndexOf(" '") + 2, -1), "utf8")) as { permissions: { deny: string[] } };
+
+  it("always starts in the data folder: record once setup is complete, setup before, and writes what claude or codex needs", async () => {
     const tmpRepo = await mkdtemp(join(tmpdir(), "founderive-launcher-test-"));
     await writeFile(join(tmpRepo, "AGENTS.md"), "# Working in Founderive\n");
     await mkdir(join(tmpRepo, "web"));
@@ -533,39 +559,37 @@ describe("loginShellLauncher (the real launcher)", () => {
     try {
       const launcher = loginShellLauncher(tmpRepo, { shell: "/bin/sh" });
 
-      // The fixture's founder.md has setupComplete: true, so home is the data folder.
+      // The fixture's founder.md has setupComplete: true, so home is the record.
       const recordHome = await launcher.home();
       expect(recordHome).toEqual({ mode: "record", cwd: dataDirPath, name: basename(dataDirPath), data: dataDirPath });
 
-      // setupComplete turned false: falls back to the repo, but still knows where the data folder is.
+      // setupComplete turned false: still the data folder, in setup mode.
       const founderPath = join(dataDirPath, "founder.md");
       const original = await readFile(founderPath, "utf8");
       await writeFile(founderPath, original.replace("setupComplete: true", "setupComplete: false"));
-      const repoHome = await launcher.home();
-      expect(repoHome).toEqual({ mode: "repo", cwd: tmpRepo, name: basename(tmpRepo), data: dataDirPath });
+      const setupHome = await launcher.home();
+      expect(setupHome).toEqual({ mode: "setup", cwd: dataDirPath, name: basename(dataDirPath), data: dataDirPath });
 
-      // No founder.md at all: repo mode too.
+      // No founder.md at all, but the folder exists: setup mode too, and nothing is created.
       await rm(founderPath, { force: true });
-      expect((await launcher.home()).mode).toBe("repo");
+      expect(await launcher.home()).toMatchObject({ mode: "setup", cwd: dataDirPath });
+      expect(existsSync(founderPath)).toBe(false);
 
-      // command("claude", recordHome): --add-dir and the settings file, every argument quoted.
-      const claudeRecord = await launcher.command("claude", recordHome);
-      expect(claudeRecord.file).toBe("/bin/sh");
-      expect(claudeRecord.args.slice(0, 2)).toEqual(["-l", "-c"]);
-      const claudeRecordCmd = claudeRecord.args[2];
-      expect(claudeRecordCmd.startsWith(`claude '--add-dir' '${tmpRepo}' '--settings' '`)).toBe(true);
-      expect(claudeRecordCmd.endsWith("claude-settings.json'")).toBe(true);
-      expect(existsSync(join(dataDirPath, "CLAUDE.md"))).toBe(true);
+      // command("claude", …): --add-dir and the settings file in both modes, every argument quoted, rules written.
+      for (const home of [recordHome, setupHome]) {
+        await rm(join(dataDirPath, "CLAUDE.md"), { force: true });
+        const claude = await launcher.command("claude", home);
+        expect(claude.file).toBe("/bin/sh");
+        expect(claude.args.slice(0, 2)).toEqual(["-l", "-c"]);
+        expect(claude.args[2].startsWith(`claude '--add-dir' '${tmpRepo}' '--settings' '`)).toBe(true);
+        expect(claude.args[2].endsWith("claude-settings.json'")).toBe(true);
+        expect(existsSync(join(dataDirPath, "CLAUDE.md"))).toBe(true);
+        // The data folder is outside this repo: the whole repo is denied.
+        expect((await settingsFrom(claude.args[2])).permissions.deny).toContain(`Edit(/${tmpRepo}/**)`);
+      }
 
-      // command("claude", repoHome): the settings file, but no --add-dir.
-      const claudeRepo = await launcher.command("claude", repoHome);
-      const claudeRepoCmd = claudeRepo.args[2];
-      expect(claudeRepoCmd).toContain("--settings");
-      expect(claudeRepoCmd).not.toContain("--add-dir");
-
-      // command("codex", recordHome): codex gets no extra arguments.
-      const codexRecord = await launcher.command("codex", recordHome);
-      expect(codexRecord.args[2]).toBe("codex");
+      // command("codex", …): codex gets no extra arguments.
+      expect((await launcher.command("codex", setupHome)).args[2]).toBe("codex");
     } finally {
       await removeLaunchSettings();
       await cleanup();
@@ -573,20 +597,47 @@ describe("loginShellLauncher (the real launcher)", () => {
     }
   });
 
-  it("starts in the repo with nothing spared when the data folder is the repo itself", async () => {
+  it("creates <repo>/founder-data from the starter on the first start, and spares it while denying the repo's root files", async () => {
+    const tmpRepo = await realpath(await mkdtemp(join(tmpdir(), "founderive-launcher-test-")));
+    await writeFile(join(tmpRepo, "AGENTS.md"), "# Working in Founderive\n");
+    await mkdir(join(tmpRepo, "web"));
+    const data = join(tmpRepo, "founder-data");
+    const { cleanup } = await useTempData(false);
+    process.env.FOUNDER_DATA_DIR = data;
+    try {
+      expect(existsSync(data)).toBe(false);
+      const launcher = loginShellLauncher(tmpRepo, { shell: "/bin/sh" });
+      const home = await launcher.home();
+      expect(existsSync(join(data, "founder.md"))).toBe(true);
+      expect(home).toEqual({ mode: "setup", cwd: data, name: "founder-data", data });
+      const deny = (await settingsFrom((await launcher.command("claude", home)).args[2])).permissions.deny;
+      expect(deny.some((d) => d.includes("founder-data"))).toBe(false);
+      expect(deny).not.toContain(`Edit(/${tmpRepo}/**)`);
+      expect(deny).not.toContain(`Edit(/${tmpRepo}/*)`);
+      for (const rule of [`Edit(/${tmpRepo}/web/**)`, `Edit(/${tmpRepo}/AGENTS.md)`, `Edit(/${tmpRepo}/founderive.local.json)`, `Edit(/${tmpRepo}/*.*)`]) expect(deny).toContain(rule);
+    } finally {
+      await removeLaunchSettings();
+      await cleanup();
+      await rm(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  it("is unsafe, starts nothing and writes nothing when the data folder is the repo itself or inside its app folders", async () => {
     const tmpRepo = await mkdtemp(join(tmpdir(), "founderive-launcher-test-"));
     await writeFile(join(tmpRepo, "AGENTS.md"), "# Working in Founderive\n");
     await writeFile(join(tmpRepo, "founder.md"), "---\nname: Sam\nventure: Lantern\nsetupComplete: true\n---\n");
+    await mkdir(join(tmpRepo, "founderive-mvp"));
     const { cleanup } = await useTempData(false);
-    process.env.FOUNDER_DATA_DIR = tmpRepo;
     try {
       const launcher = loginShellLauncher(tmpRepo, { shell: "/bin/sh" });
-      const home = await launcher.home();
-      expect(home).toEqual({ mode: "repo", cwd: tmpRepo, name: basename(tmpRepo), data: null });
-      const cmd = (await launcher.command("claude", home)).args[2];
-      const settings = JSON.parse(await readFile(cmd.slice(cmd.lastIndexOf(" '") + 2, -1), "utf8"));
-      expect(settings.permissions.deny).toContain(`Edit(/${tmpRepo}/**)`);
+      for (const dir of [tmpRepo, join(tmpRepo, "founderive-mvp"), join(tmpRepo, "web", "founder-data")]) {
+        process.env.FOUNDER_DATA_DIR = dir;
+        const home = await launcher.home();
+        expect(home).toEqual({ mode: "unsafe", cwd: tmpRepo, name: basename(tmpRepo), data: null, refused: dir });
+        await expect(launcher.command("claude", home)).rejects.toThrow("points inside the Founderive app");
+      }
       expect(existsSync(join(tmpRepo, "CLAUDE.md"))).toBe(false);
+      expect(existsSync(join(tmpRepo, "web"))).toBe(false);
     } finally {
       await removeLaunchSettings();
       await cleanup();

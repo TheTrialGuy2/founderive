@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { link, mkdir, rename, unlink, writeFile } from "node:fs/promises";
+import { link, lstat, mkdir, readlink, rename, symlink, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { stringifyFrontmatter } from "./frontmatter";
 import { resolveInData } from "./paths";
@@ -91,7 +91,10 @@ export async function archiveFile(rel: string): Promise<string> {
     const to = resolveInData(target);
     await mkdir(path.dirname(to), { recursive: true });
     try {
-      await link(from, to);
+      // A symlink is archived as the link itself: link() would follow it (macOS does) and hard-link its target.
+      const st = await lstat(from);
+      if (st.isSymbolicLink()) await symlink(await readlink(from), to);
+      else await link(from, to);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === "EEXIST") continue;
       throw err;

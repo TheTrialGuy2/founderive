@@ -23,7 +23,11 @@ export type PanelView =
   | { kind: "start"; status: "Not started" | "Stopped"; stopped: boolean; tools: Tool[]; note: string | null }
   | { kind: "running"; status: `Running · ${Tool}${string}`; tool: Tool };
 
-const BEFORE_SETUP = "Finish setup, then Claude starts in your record.";
+const NOTE: Record<"record" | "setup" | "unsafe", string | null> = {
+  record: null,
+  setup: "Finish setup in the app. Claude already works in your record.",
+  unsafe: "Your data folder setting points inside the Founderive app. Move it, or use founder-data/, then start Claude.",
+};
 
 export function panelView({ terminal, platform, conn, state, exited }: PanelInput): PanelView {
   if (platform === "windows" || state?.platform === "windows") return { kind: "windows", status: "Not available" };
@@ -36,6 +40,6 @@ export function panelView({ terminal, platform, conn, state, exited }: PanelInpu
   }
   const tools = TOOLS.filter((t) => state.available[t]);
   if (tools.length === 0) return { kind: "not-installed", status: "Not started" };
-  const note = state.home?.mode === "repo" ? BEFORE_SETUP : null;
+  const note = state.home ? NOTE[state.home.mode] : null;
   return exited ? { kind: "start", status: "Stopped", stopped: true, tools, note } : { kind: "start", status: "Not started", stopped: false, tools, note };
 }

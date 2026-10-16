@@ -53,10 +53,19 @@ describe("panelView", () => {
     expect(panelView({ ...ready, state: { ...ready.state!, running: "codex" } })).toMatchObject({ kind: "running", status: "Running · codex · in Lantern" });
   });
 
-  it("before setup, says Claude will start in the record once setup is done", () => {
-    const before = panelView({ ...ready, state: { ...ready.state!, home: { name: "app", mode: "repo" } } });
-    expect(before).toMatchObject({ kind: "start", note: "Finish setup, then Claude starts in your record." });
+  it("before setup, says Claude already works in the record", () => {
+    const before = panelView({ ...ready, state: { ...ready.state!, home: { name: "founder-data", mode: "setup" } } });
+    expect(before).toMatchObject({ kind: "start", note: "Finish setup in the app. Claude already works in your record." });
     expect(panelView(ready)).toMatchObject({ kind: "start", note: null });
+  });
+
+  it("when the data folder setting points inside the app, says what to do before starting", () => {
+    const unsafe = panelView({ ...ready, state: { ...ready.state!, home: { name: "app", mode: "unsafe" } } });
+    expect(unsafe).toMatchObject({ kind: "start", note: "Your data folder setting points inside the Founderive app. Move it, or use founder-data/, then start Claude." });
+  });
+
+  it("names the data folder while running before setup too", () => {
+    expect(panelView({ ...ready, state: { ...ready.state!, running: "claude", home: { name: "founder-data", mode: "setup" } } })).toMatchObject({ status: "Running · claude · in founder-data" });
   });
 
   it("falls back to the plain status when the server didn't say where", () => {

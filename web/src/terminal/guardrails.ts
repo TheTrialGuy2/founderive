@@ -1,62 +1,67 @@
 import { mkdir, mkdtemp, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { realPathOf } from "../store/paths";
 import type { PanelHome } from "./protocol";
 
-export type Home = PanelHome & { cwd: string; data: string | null };
+/** `refused` is the data folder setting that was refused, only in `unsafe` mode. */
+export type Home = PanelHome & { cwd: string; data: string | null; refused?: string };
 
-/** The program's working directory: the founder's record once setup is complete, the repo root before that. `data` is the resolved data folder whenever one exists, even in repo mode. */
-export function panelHome(input: { repo: string; data: string | null; setupComplete: boolean }): Home {
-  if (input.data && input.setupComplete) return { cwd: input.data, mode: "record", name: path.basename(input.data), data: input.data };
-  return { cwd: input.repo, mode: "repo", name: path.basename(input.repo), data: input.data };
+/**
+ * Where the program runs. Always the data folder: `record` once setup is complete, `setup` before that. A data folder
+ * that fails `dataFolderIsSafe` is `unsafe`: nothing starts, and `cwd` is the repo only so the state has a name to show.
+ */
+export function panelHome(input: { repo: string; data: string; safe: boolean; setupComplete: boolean }): Home {
+  if (!input.safe) return { cwd: input.repo, mode: "unsafe", name: path.basename(input.repo), data: null, refused: input.data };
+  return { cwd: input.data, mode: input.setupComplete ? "record" : "setup", name: path.basename(input.data), data: input.data };
+}
+
+/** What the panel says when the data folder setting is refused. */
+export function unsafeDataFolderMessage(dir: string): string {
+  return `The data folder setting points inside the Founderive app (${dir}). Move it outside the app folder, or use founder-data/, then start again.`;
 }
 
 /** `//` is Claude Code's spelling of an absolute path in a permission rule (a single slash anchors to the settings file). */
 const absoluteRule = (p: string) => `/${p}`;
 
-/** Repo folders that are the app itself; a data folder inside any of them is refused. */
-const APP_FOLDERS = ["web", ".git", ".claude", "docs", "starter-data"];
-
-/** The path segments of `child` under `parent` ([] when they're the same folder), or null when `child` isn't inside `parent`. */
-function segmentsWithin(parent: string, child: string): string[] | null {
-  const rel = path.relative(path.resolve(parent), path.resolve(child));
-  if (rel === "") return [];
-  if (path.isAbsolute(rel)) return null;
-  const segments = rel.split(path.sep);
-  return segments[0] === ".." ? null : segments;
-}
-
 /**
- * Whether the panel may treat `data` as the founder's data folder: not the repo itself, not a folder that contains the
- * repo, and not inside one of the app's own folders. Outside the repo, or inside it under another path, is fine.
+ * Root files denied by name even when they don't exist yet, so Claude's file tools can't create them. The one that
+ * matters most is founderive.local.json: creating it would move the data folder on the next start.
  */
-export function dataFolderIsSafe(repo: string, data: string): boolean {
-  const inRepo = segmentsWithin(repo, data);
-  if (inRepo) return inRepo.length > 0 && !APP_FOLDERS.includes(inRepo[0].toLowerCase());
-  return segmentsWithin(data, repo) === null;
-}
+export const ROOT_FILES = ["founderive.local.json", "CLAUDE.md", "AGENTS.md", "start.mjs", "package.json", "README.md"];
 
 export type DirEntry = { name: string; isDirectory: boolean };
-/** One folder on the way from the repo to the data folder: every entry is denied except `keep` (the next step down). */
-export type DenyLevel = { dir: string; entries: DirEntry[]; keep: string | null };
+
+const GIT_PUSH = ["Bash(git push *)", "Bash(git push:*)"];
 
 /**
- * Deny rules, level by level: at each folder, every entry except the one leading to the data folder. A folder that
- * keeps nothing is also denied as a whole, so new files there are covered too. Files and folders follow the real
- * entry type. Then no git push.
+ * The deny rules for the repo, in one of two shapes (`dataFolderIsSafe` allows nothing else):
+ *
+ * - Data folder outside the repo (`rootEntries` null): the whole repo, `Edit(//<repo>/**)`.
+ * - Data folder at `<repo>/founder-data` (`rootEntries` = the repo's top-level entries): every existing top-level
+ *   entry except founder-data (folders as `/**`, files exactly), the `ROOT_FILES` by name whether or not they exist,
+ *   and `Edit(//<repo>/*.*)` for any new root file with a dot in its name (founder-data has none).
+ *
+ * Why not `Edit(//<repo>/*)` for every root file: Read and Edit rules use gitignore syntax
+ * (https://code.claude.com/docs/en/permissions#read-and-edit). The docs say `*` matches within a single path segment,
+ * but under gitignore semantics a pattern that matches a folder also covers everything inside it, so `<repo>/*` matches
+ * `<repo>/founder-data` and denies the whole record. Checked against Claude Code itself: with that one rule, a Write to
+ * `founder-data/note.md` was denied; with the explicit rules, it succeeded and root/web writes were denied.
+ *
+ * Not covered: a new top-level folder, or a new root file without a dot in its name and not in `ROOT_FILES`, created
+ * after launch. Then no git push.
  */
-export function denyRules(_repo: string, levels: DenyLevel[]): string[] {
-  const deny: string[] = [];
-  for (const { dir, entries, keep } of levels) {
-    for (const { name, isDirectory } of entries) {
-      if (name === keep) continue;
-      const target = absoluteRule(path.join(dir, name));
-      deny.push(isDirectory ? `Edit(${target}/**)` : `Edit(${target})`);
-    }
-    if (keep === null) deny.push(`Edit(${absoluteRule(path.resolve(dir))}/**)`);
+export function denyRules(repo: string, rootEntries: DirEntry[] | null): string[] {
+  const root = absoluteRule(repo);
+  if (rootEntries === null) return [`Edit(${root}/**)`, ...GIT_PUSH];
+  const deny = new Set<string>();
+  for (const { name, isDirectory } of rootEntries) {
+    if (name === "founder-data") continue;
+    deny.add(isDirectory ? `Edit(${root}/${name}/**)` : `Edit(${root}/${name})`);
   }
-  deny.push("Bash(git push *)", "Bash(git push:*)");
-  return deny;
+  for (const name of ROOT_FILES) deny.add(`Edit(${root}/${name})`);
+  deny.add(`Edit(${root}/*.*)`);
+  return [...deny, ...GIT_PUSH];
 }
 
 /** The settings file's text for a set of deny rules. */
@@ -72,43 +77,31 @@ async function launchSettingsDir(): Promise<string> {
   return settingsDir;
 }
 
-async function dirEntries(dir: string): Promise<DirEntry[] | null> {
-  try {
-    return (await readdir(dir, { withFileTypes: true })).map((e) => ({ name: e.name, isDirectory: e.isDirectory() }));
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT" || (err as NodeJS.ErrnoException).code === "ENOTDIR") return null;
-    throw err;
-  }
-}
-
-/** The levels from the repo down to the data folder. A data folder outside the repo, unsafe, or null: the repo's top level, nothing kept. */
-export async function denyLevels(repo: string, data: string | null): Promise<DenyLevel[]> {
-  const segments = data && dataFolderIsSafe(repo, data) ? segmentsWithin(repo, data) : null;
-  if (!segments) return [{ dir: repo, entries: (await dirEntries(repo)) ?? [], keep: null }];
-  const levels: DenyLevel[] = [];
-  let dir = repo;
-  for (const keep of segments) {
-    const entries = await dirEntries(dir);
-    if (!entries) break; // the rest of the way doesn't exist yet; nothing below it to deny
-    levels.push({ dir, entries, keep });
-    dir = path.join(dir, keep);
-  }
-  return levels;
+async function dirEntries(dir: string): Promise<DirEntry[]> {
+  return (await readdir(dir, { withFileTypes: true })).map((e) => ({ name: e.name, isDirectory: e.isDirectory() }));
 }
 
 /**
  * Writes the launch settings to this process's temp folder (overwriting any previous launch's) and returns the file's
- * path. Only the data folder is spared, and only when `dataFolderIsSafe`; the settings folder itself is denied too.
+ * path. Only `<repo>/founder-data` is ever spared, and only when `data` is exactly that folder (on the real paths);
+ * any other `data`, or null, gets the whole repo denied. Rules are written for the repo as given and, when it differs,
+ * its real path. The settings folder itself is denied too.
  */
 export async function writeLaunchSettings(repo: string, data: string | null): Promise<string> {
   const dir = await launchSettingsDir();
   // The OS can clean a temp folder out from under a long-running process; recreate it if it's gone.
   await mkdir(dir, { recursive: true });
-  const rules = denyRules(repo, await denyLevels(repo, data));
-  const settingsRules = new Set([`Edit(${absoluteRule(dir)}/**)`, `Edit(${absoluteRule(await realpath(dir))}/**)`]);
-  rules.splice(rules.length - 2, 0, ...settingsRules);
+  const realRepo = realPathOf(repo);
+  const inRepo = data !== null && realPathOf(data) === path.join(realRepo, "founder-data");
+  const entries = inRepo ? await dirEntries(realRepo) : null;
+  const rules = new Set<string>();
+  for (const spelling of new Set([path.resolve(repo), realRepo])) {
+    for (const rule of denyRules(spelling, entries)) if (!GIT_PUSH.includes(rule)) rules.add(rule);
+  }
+  rules.add(`Edit(${absoluteRule(dir)}/**)`);
+  rules.add(`Edit(${absoluteRule(await realpath(dir))}/**)`);
   const file = path.join(dir, "claude-settings.json");
-  await writeFile(file, claudeSettingsFor(rules), "utf8");
+  await writeFile(file, claudeSettingsFor([...rules, ...GIT_PUSH]), "utf8");
   return file;
 }
 
@@ -118,9 +111,9 @@ export async function removeLaunchSettings(): Promise<void> {
   settingsDir = null;
 }
 
-/** Claude Code's extra arguments: the repo as an added directory when home is the record, and the settings file always. */
-export function claudeArgs(home: Home, repo: string, settingsFile: string): string[] {
-  return [...(home.mode === "record" ? ["--add-dir", repo] : []), "--settings", settingsFile];
+/** Claude Code's extra arguments: the repo as an added directory (it's never the working directory) and the settings file. */
+export function claudeArgs(repo: string, settingsFile: string): string[] {
+  return ["--add-dir", repo, "--settings", settingsFile];
 }
 
 /** Quotes one argument for `sh -c`. */
