@@ -11,22 +11,26 @@ afterEach(async () => {
 
 describe("panelHome", () => {
   it("is the data folder once setup is complete", () => {
-    expect(panelHome({ repo: "/r/app", data: "/Users/sam/Founderive/Lantern", safe: true, exists: true, setupComplete: true })).toEqual({
+    expect(panelHome({ repo: "/r/app", data: "/Users/sam/Founderive/Lantern", safe: true, exists: true, hasRecord: true, setupComplete: true })).toEqual({
       cwd: "/Users/sam/Founderive/Lantern",
       mode: "record",
       name: "Lantern",
       data: "/Users/sam/Founderive/Lantern",
       exists: true,
+      hasRecord: true,
     });
   });
   it("is the data folder before setup too", () => {
-    expect(panelHome({ repo: "/r/app", data: "/r/app/founder-data", safe: true, exists: true, setupComplete: false })).toEqual({ cwd: "/r/app/founder-data", mode: "setup", name: "founder-data", data: "/r/app/founder-data", exists: true });
+    expect(panelHome({ repo: "/r/app", data: "/r/app/founder-data", safe: true, exists: true, hasRecord: true, setupComplete: false })).toEqual({ cwd: "/r/app/founder-data", mode: "setup", name: "founder-data", data: "/r/app/founder-data", exists: true, hasRecord: true });
   });
   it("is setup, and says the folder isn't there yet, when the data folder is missing", () => {
-    expect(panelHome({ repo: "/r/app", data: "/r/app/founder-data", safe: true, exists: false, setupComplete: false })).toEqual({ cwd: "/r/app/founder-data", mode: "setup", name: "founder-data", data: "/r/app/founder-data", exists: false });
+    expect(panelHome({ repo: "/r/app", data: "/r/app/founder-data", safe: true, exists: false, hasRecord: false, setupComplete: false })).toEqual({ cwd: "/r/app/founder-data", mode: "setup", name: "founder-data", data: "/r/app/founder-data", exists: false, hasRecord: false });
+  });
+  it("is setup with hasRecord: false when the folder exists but founder.md doesn't", () => {
+    expect(panelHome({ repo: "/r/app", data: "/r/app/founder-data", safe: true, exists: true, hasRecord: false, setupComplete: false })).toEqual({ cwd: "/r/app/founder-data", mode: "setup", name: "founder-data", data: "/r/app/founder-data", exists: true, hasRecord: false });
   });
   it("is unsafe, with no data folder, when the setting is refused, and keeps the refused path for the message", () => {
-    expect(panelHome({ repo: "/r/app", data: "/r/app/web", safe: false, exists: true, setupComplete: true })).toEqual({ cwd: "/r/app", mode: "unsafe", name: "app", data: null, exists: false, refused: "/r/app/web" });
+    expect(panelHome({ repo: "/r/app", data: "/r/app/web", safe: false, exists: true, hasRecord: true, setupComplete: true })).toEqual({ cwd: "/r/app", mode: "unsafe", name: "app", data: null, exists: false, hasRecord: false, refused: "/r/app/web" });
     expect(unsafeDataFolderMessage("/r/app/web")).toBe(
       "The data folder setting is the Founderive app folder, is inside it, or contains it (/r/app/web). Move it outside the app folder, or use founder-data/, then start again.",
     );

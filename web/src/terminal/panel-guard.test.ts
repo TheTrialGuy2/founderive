@@ -118,6 +118,14 @@ describe("panel-guard, failing closed", () => {
     expect(r.stderr.trim().split("\n")).toHaveLength(1);
   });
 
+  // The whole decision runs inside one top-level try/catch now (defense in depth, on top of the per-field guards
+  // above). There's no way to make a throwing getter arrive through JSON on stdin, so this just reaffirms that the
+  // existing malformed-stdin case still denies closed after wrapping the decision this way.
+  it("still denies closed on malformed stdin now that the whole decision is wrapped in one top-level try/catch", () => {
+    const r = guard({ FOUNDERIVE_GUARD_REPO: "/r/app", FOUNDERIVE_GUARD_DATA: "/d", FOUNDERIVE_GUARD_SETTINGS: "/s" }, "{not json");
+    expectDenyCantCheck(r, "malformed input");
+  });
+
   it("denies when the repo isn't set", () => {
     const r = guard({}, call("Write", { file_path: "/anywhere/NEWFILE" }, "/"));
     expectDenyCantCheck(r, "missing guard settings");

@@ -57,46 +57,54 @@ function denyCantCheck(cause) {
   deny(`Founderive's write guard couldn't check this write (${cause}). Nothing in the app can be written from the panel until it can.`);
 }
 
-let input = "";
+// Defense in depth: the per-field checks below already deny closed on every malformed input or environment they
+// recognize, but the whole decision runs inside one more try/catch so an unforeseen crash anywhere in it (a future
+// change, an edge case not yet thought of) still denies closed instead of letting an uncaught exception escape
+// (which Claude Code could otherwise treat as "no decision", i.e. allow).
 try {
-  input = fs.readFileSync(0, "utf8");
+  let input = "";
+  try {
+    input = fs.readFileSync(0, "utf8");
+  } catch {
+    denyCantCheck("malformed input");
+  }
+
+  let call;
+  try {
+    call = JSON.parse(input);
+  } catch {
+    denyCantCheck("malformed input");
+  }
+
+  const repoEnv = process.env.FOUNDERIVE_GUARD_REPO;
+  if (!repoEnv) denyCantCheck("missing guard settings");
+
+  const toolInput = call && typeof call === "object" ? call.tool_input : null;
+  const targets = ["file_path", "notebook_path", "path"]
+    .map((field) => (toolInput && typeof toolInput === "object" ? toolInput[field] : undefined))
+    .filter((value) => typeof value === "string" && value !== "");
+  if (targets.length === 0) denyCantCheck("no file path");
+
+  const cwd = typeof call.cwd === "string" && call.cwd !== "" ? call.cwd : process.cwd();
+  const reals = targets.map((target) => realPathOf(path.isAbsolute(target) ? target : path.resolve(cwd, target)));
+
+  const repo = realPathOf(repoEnv);
+  const data = process.env.FOUNDERIVE_GUARD_DATA ? realPathOf(process.env.FOUNDERIVE_GUARD_DATA) : null;
+  const settings = process.env.FOUNDERIVE_GUARD_SETTINGS ? realPathOf(process.env.FOUNDERIVE_GUARD_SETTINGS) : null;
+
+  // The data folder is spared only when it doesn't hold the repo itself (the panel never launches with one that does).
+  const blocked = reals.some((real) => {
+    const spared = data !== null && !within(data, repo) && within(data, real);
+    const inApp = within(repo, real) && !spared;
+    const inSettings = settings !== null && within(settings, real);
+    return inApp || inSettings;
+  });
+
+  if (blocked) {
+    const where = data ?? "outside the Founderive app folder";
+    deny(`Founderive keeps the app's files read-only from the panel. Write inside your data folder (${where}) instead.`);
+  }
+  process.exit(0);
 } catch {
   denyCantCheck("malformed input");
 }
-
-let call;
-try {
-  call = JSON.parse(input);
-} catch {
-  denyCantCheck("malformed input");
-}
-
-const repoEnv = process.env.FOUNDERIVE_GUARD_REPO;
-if (!repoEnv) denyCantCheck("missing guard settings");
-
-const toolInput = call && typeof call === "object" ? call.tool_input : null;
-const targets = ["file_path", "notebook_path", "path"]
-  .map((field) => (toolInput && typeof toolInput === "object" ? toolInput[field] : undefined))
-  .filter((value) => typeof value === "string" && value !== "");
-if (targets.length === 0) denyCantCheck("no file path");
-
-const cwd = typeof call.cwd === "string" && call.cwd !== "" ? call.cwd : process.cwd();
-const reals = targets.map((target) => realPathOf(path.isAbsolute(target) ? target : path.resolve(cwd, target)));
-
-const repo = realPathOf(repoEnv);
-const data = process.env.FOUNDERIVE_GUARD_DATA ? realPathOf(process.env.FOUNDERIVE_GUARD_DATA) : null;
-const settings = process.env.FOUNDERIVE_GUARD_SETTINGS ? realPathOf(process.env.FOUNDERIVE_GUARD_SETTINGS) : null;
-
-// The data folder is spared only when it doesn't hold the repo itself (the panel never launches with one that does).
-const blocked = reals.some((real) => {
-  const spared = data !== null && !within(data, repo) && within(data, real);
-  const inApp = within(repo, real) && !spared;
-  const inSettings = settings !== null && within(settings, real);
-  return inApp || inSettings;
-});
-
-if (blocked) {
-  const where = data ?? "outside the Founderive app folder";
-  deny(`Founderive keeps the app's files read-only from the panel. Write inside your data folder (${where}) instead.`);
-}
-process.exit(0);

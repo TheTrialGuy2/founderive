@@ -6,17 +6,19 @@ import type { PanelHome } from "./protocol";
 
 /**
  * `refused` is the data folder setting that was refused, only in `unsafe` mode. `exists` says whether the data folder
- * is there yet: a missing one is created on Start (`command`), never when the home is only being looked at.
+ * is there yet: a missing one is created on Start (`command`), never when the home is only being looked at. `hasRecord`
+ * says whether `founder.md` exists in it (always false when `exists` is false): an existing folder with `founder.md`
+ * missing still gets the record created on Start, the same as a folder that isn't there at all.
  */
-export type Home = PanelHome & { cwd: string; data: string | null; exists: boolean; refused?: string };
+export type Home = PanelHome & { cwd: string; data: string | null; exists: boolean; hasRecord: boolean; refused?: string };
 
 /**
  * Where the program runs. Always the data folder: `record` once setup is complete, `setup` before that. A data folder
  * that fails `dataFolderIsSafe` is `unsafe`: nothing starts, and `cwd` is the repo only so the state has a name to show.
  */
-export function panelHome(input: { repo: string; data: string; safe: boolean; exists: boolean; setupComplete: boolean }): Home {
-  if (!input.safe) return { cwd: input.repo, mode: "unsafe", name: path.basename(input.repo), data: null, exists: false, refused: input.data };
-  return { cwd: input.data, mode: input.exists && input.setupComplete ? "record" : "setup", name: path.basename(input.data), data: input.data, exists: input.exists };
+export function panelHome(input: { repo: string; data: string; safe: boolean; exists: boolean; hasRecord: boolean; setupComplete: boolean }): Home {
+  if (!input.safe) return { cwd: input.repo, mode: "unsafe", name: path.basename(input.repo), data: null, exists: false, hasRecord: false, refused: input.data };
+  return { cwd: input.data, mode: input.exists && input.setupComplete ? "record" : "setup", name: path.basename(input.data), data: input.data, exists: input.exists, hasRecord: input.hasRecord };
 }
 
 /** What the panel says when the data folder setting is refused. */

@@ -104,26 +104,30 @@ export function loginShellLauncher(repo: string, opts: { shell?: string; now?: (
 
   /**
    * Read-only: the server calls it on every page connect, so it never creates anything. A missing data folder is
-   * `setup` with `exists: false`; Start (`command`) creates it. Throws when the data folder setting itself is invalid
-   * (founderive.local.json); the panel shows that message.
+   * `setup` with `exists: false, hasRecord: false`; Start (`command`) creates it. An existing folder without
+   * `founder.md` is `setup` with `exists: true, hasRecord: false`; Start creates the record in it too. Throws when
+   * the data folder setting itself is invalid (founderive.local.json); the panel shows that message.
    */
   const home = async (): Promise<Home> => {
     const dir = dataDir();
-    if (!dataFolderIsSafe(repo, dir)) return panelHome({ repo, data: dir, safe: false, exists: false, setupComplete: false });
-    if (!existsSync(dir)) return panelHome({ repo, data: dir, safe: true, exists: false, setupComplete: false });
+    if (!dataFolderIsSafe(repo, dir)) return panelHome({ repo, data: dir, safe: false, exists: false, hasRecord: false, setupComplete: false });
+    if (!existsSync(dir)) return panelHome({ repo, data: dir, safe: true, exists: false, hasRecord: false, setupComplete: false });
     const founder = await readEntry("founder", "founder.md");
-    return panelHome({ repo, data: dir, safe: true, exists: true, setupComplete: !!(founder?.ok && founder.data.setupComplete) });
+    return panelHome({ repo, data: dir, safe: true, exists: true, hasRecord: founder !== null, setupComplete: !!(founder?.ok && founder.data.setupComplete) });
   };
 
   /**
-   * On Start, a data folder that isn't there yet is created from the starter (initData never overwrites), exactly
-   * what setup's first save does. Only the default `<repo>/founder-data`, or a folder whose parent exists: a configured
-   * folder on a drive that isn't connected is refused rather than recreated somewhere the founder won't look.
+   * On Start, a data folder whose `founder.md` is missing gets the record created from the starter (initData never
+   * overwrites), exactly what setup's first save does — whether the folder itself is missing or already exists but
+   * is empty (a founder ran `mkdir` and pointed founderive.local.json at it, say). Checked fresh on disk, not from
+   * the home passed in, since the folder may have changed since it was read. Only the default `<repo>/founder-data`,
+   * the folder itself existing, or a folder whose parent exists: a configured folder on a drive that isn't connected
+   * is refused rather than recreated somewhere the founder won't look.
    */
   const ensureDataFolder = async (dir: string): Promise<void> => {
-    if (existsSync(dir)) return;
+    if (existsSync(path.join(dir, "founder.md"))) return;
     const isDefault = realPathOf(dir) === path.join(realPathOf(repo), "founder-data");
-    if (!isDefault && !existsSync(path.dirname(path.resolve(dir)))) {
+    if (!isDefault && !existsSync(dir) && !existsSync(path.dirname(path.resolve(dir)))) {
       throw new Error(`Your data folder isn't there (${dir}). Check its drive is connected, or fix founderive.local.json, then start again.`);
     }
     await initData();
@@ -132,7 +136,7 @@ export function loginShellLauncher(repo: string, opts: { shell?: string; now?: (
   return {
     command: async (tool, h) => {
       if (h.mode === "unsafe" || !h.data) throw new Error(unsafeDataFolderMessage(h.refused ?? h.cwd));
-      // Checked fresh, not only from `h.exists`: the folder may have gone (or come) since the home was read.
+      // Checked fresh, not only from `h.exists`/`h.hasRecord`: the folder (or its record) may have changed since the home was read.
       await ensureDataFolder(h.data);
       // The rules are useful before setup too. writeAgentHome checks the data folder is safe again on its own.
       await writeAgentHome();
