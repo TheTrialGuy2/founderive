@@ -110,7 +110,7 @@ The settings file lives in one `founderive-panel-*` folder under the OS temp dir
 ### What the founder sees
 
 - Nothing new on Home or in the panel's buttons.
-- The panel's header line gains the home folder name once a program is running: "Running · claude · in Intraview". That's the one visible change.
+- The panel's header line gains the home folder name once a program is running: "Running · claude · in Lantern". That's the one visible change.
 - Before setup, the start view says Claude already works in the record; with an unsafe data folder setting, it says what to change.
 
 ### The creator who is also a user
