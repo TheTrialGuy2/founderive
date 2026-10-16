@@ -3,10 +3,8 @@
 import { useActionState } from "react";
 import { resolveDecisionAction } from "@/app/(workbook)/decisions/actions";
 import { describedBy, Field, FormAlert } from "@/components/workbook/Field";
-import { buttonPrimary, errorText, inputClass } from "@/components/workbook/form";
+import { buttonPrimary, errorText, inputClass, radioChip } from "@/components/workbook/form";
 import { IDLE } from "@/lib/action-state";
-
-const chip = "flex min-h-10 items-center gap-2 rounded-md border border-line bg-paper px-3 text-sm text-ink has-[:checked]:border-teal-dark has-[:checked]:bg-aqua/40";
 
 export function ResolveDecisionForm({ path }: { path: string }) {
   const [state, action, pending] = useActionState(resolveDecisionAction, IDLE);
@@ -26,11 +24,14 @@ export function ResolveDecisionForm({ path }: { path: string }) {
         <legend className="mb-1 text-sm font-medium text-ink">Can you undo it easily?</legend>
         <div className="flex flex-wrap gap-2">
           {[["yes", "Yes, easy to undo"], ["no", "No, hard to undo"]].map(([value, label]) => (
-            <label key={value} className={chip}><input type="radio" name="reversible" value={value} defaultChecked={values.reversible === value} /> {label}</label>
+            <label key={value} className={radioChip}><input type="radio" name="reversible" value={value} defaultChecked={values.reversible === value} /> {label}</label>
           ))}
         </div>
         {errors.reversible && <p id={`${path}-reversible-error`} className={errorText}>{errors.reversible}</p>}
       </fieldset>
+      <Field id={`${path}-revisitOn`} label="Revisit on (optional)" hint="The day Home asks what happened." error={errors.revisitOn}>
+        <input id={`${path}-revisitOn`} name="revisitOn" type="date" defaultValue={values.revisitOn} className={inputClass} aria-invalid={!!errors.revisitOn} aria-describedby={describedBy(`${path}-revisitOn`, errors.revisitOn, "The day Home asks what happened.")} />
+      </Field>
       <button type="submit" disabled={pending} className={buttonPrimary}>{pending ? "Saving…" : "Save decision"}</button>
     </form>
   );
