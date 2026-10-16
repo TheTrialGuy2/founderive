@@ -5,7 +5,7 @@ const ready: PanelInput = {
   terminal: true,
   platform: "supported",
   conn: "open",
-  state: { running: null, available: { claude: true, codex: true }, platform: "supported" },
+  state: { running: null, available: { claude: true, codex: true }, platform: "supported", home: null },
   exited: false,
 };
 
