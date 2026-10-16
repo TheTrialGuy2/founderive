@@ -52,14 +52,14 @@ Claude Code starts with a settings file the app generates per launch (next to th
 ```json
 {
   "permissions": {
-    "deny": ["Edit(//<repo>/**)", "Bash(git push *)", "Bash(git push:*)"]
+    "deny": ["Edit(//<repo>/web/**)", "Edit(//<repo>/.claude/**)", "Edit(//<repo>/docs/**)", "Edit(//<repo>/AGENTS.md)", "…one rule per top-level entry of the repo…", "Bash(git push *)", "Bash(git push:*)"]
   }
 }
 ```
 
 So a panel session can't change the app or reach a remote, whatever permission mode the founder picks. It can still read the repo, run its scripts, and write the founder's record. Codex gets the same effect from its sandbox; if a later Codex version needs an explicit flag, the launcher adds it there.
 
-The `Edit` rule also blocks the Write and NotebookEdit tools on the same path. The `//` prefix makes the path absolute (a single slash would anchor it to the settings file's folder), so the rule holds wherever the repo lives.
+The default data folder is `founder-data/` inside the repo, so one rule over the whole repo would block the founder's own record. The app instead denies each top-level entry of the repo, read at launch, except the data folder's top segment (when it's inside the repo) and `founderive.local.json`. The `Edit` rule also blocks the Write and NotebookEdit tools on the same path. The `//` prefix makes the path absolute (a single slash would anchor it to the settings file's folder), so the rule holds wherever the repo lives.
 
 ### What the founder sees
 
