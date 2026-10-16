@@ -71,6 +71,15 @@ The `Edit` rule also blocks the Write and NotebookEdit tools on the same path. T
 
 The design separates the two roles by folder. Founder side: the data folder is home, the repo is a read-only tool. Creator side: a terminal in the repo, on a branch. One recommendation in the README's developer notes: run Founderive from a second clone kept on `main`, develop in another, and point the run clone's `founderive.local.json` at the data folder. Then the panel never inherits a working branch, and `git pull` in the run clone is the same "update" step every founder does.
 
+### Bringing in what they already have
+
+A new founder usually has notes, documents and spreadsheets on their computer already. The "Import a folder" page and the import-folder skill exist for that: the agent reads a folder, drafts records marked "Imported — confirm", and never touches the originals. Two things change with the panel's new home:
+
+- **The page's prompt.** Today it says "paste this into Claude Code or Codex, opened in the Founderive folder" and points at the skill as "in this repo". It becomes an "Ask Claude" button that types the prompt into the panel, the way Home's synthesize button does, with the skill path and the data path written out in full. The copy-to-clipboard prompt stays for a founder using Claude elsewhere, with the same full paths.
+- **Where the documents can be.** The page names two ways, simplest first. Put the documents, or copies, in `_reference/` inside the Founderive folder: that's their private reference folder, the agent can read it without asking, and the app never writes there. Or name any folder on the computer: the agent asks once for permission to read it, because it's outside its home, and the founder says yes. Either way the originals are never changed.
+
+The pre-setup status line and the first-run empty states already point at "Import a folder"; the page's own copy is the only text that changes.
+
 ## Agent instructions
 
 `AGENTS.md`:
@@ -86,7 +95,8 @@ The design separates the two roles by folder. Founder side: the data folder is h
 - `web/src/terminal/guardrails.ts`: `claudeSettings(repo: string): string` (the JSON above) and `writeLaunchSettings()` to the temp folder.
 - `web/src/terminal/protocol.ts` and `ClaudePanel.tsx`: the `state` message carries `home: { name: string; mode: "record" | "repo" }`; the header shows "in <name>" and the pre-setup line.
 - `scripts/terminal.mts`: unchanged apart from the launcher now taking the repo root and resolving home itself.
-- `README.md`: a developer note on the two-clone setup; the Claude panel section says where the agent starts.
+- `web/src/app/(workbook)/import/folder/page.tsx`: the prompt gains full paths; an `AskClaude`-style button types it into the panel; the copy names `_reference/` and the one-time permission for another folder.
+- `README.md`: a developer note on the two-clone setup; the Claude panel section says where the agent starts; the Import section names `_reference/`.
 
 ## Tests
 
@@ -95,6 +105,7 @@ The design separates the two roles by folder. Founder side: the data folder is h
 - Home resolution: no data folder → repo, mode `repo`; folder without `founder.md` or with `setupComplete: false` → repo; `setupComplete: true` → data folder, mode `record`.
 - `claudeSettings` denies `Edit` under the repo with a `//` absolute path, and `git push` in both rule spellings.
 - Session: the spawn receives the resolved cwd and, for Claude, the `--add-dir` and `--settings` args (the existing session tests stub the pty).
+- The import prompt carries the absolute skill path and data path (a pure prompt builder with a test).
 - Manual, once: start the panel after setup, run `pwd` and `pnpm -s data-dir` from the agent, confirm both are the data folder; ask the agent to edit a file under `web/` and confirm it's refused; ask it to list its skills and confirm the six are there.
 
 ## Out of scope
