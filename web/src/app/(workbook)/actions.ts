@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { addCommitment, recordChoice, setBlocker, setCommitmentStatus, setOutcome } from "@/commands/checkin";
+import { addLinkedCommitment } from "@/commands/commitments";
 import { reviewAgentEdit, type AgentEditKind } from "@/commands/agent-edits";
 import { setHomeworkStatus } from "@/commands/homework";
 import { clearLogo, setLogo } from "@/commands/logo";
@@ -91,6 +92,15 @@ export async function saveNewCommitment(_prev: ActionState, fd: FormData): Promi
   return run(async () => {
     await assertThisWeek(field(fd, "week"));
     await addCommitment(field(fd, "week"), { text: values.text, due: values.due || null });
+  }, values);
+}
+
+/** A commitment made on a conversation or decision: the record's path goes in `link`. Separate from saveNewCommitment, so Home's form never trusts a hidden link. */
+export async function saveLinkedCommitment(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const values = { text: field(fd, "text"), due: field(fd, "due") };
+  return run(async () => {
+    await assertThisWeek(field(fd, "week"));
+    await addLinkedCommitment(field(fd, "week"), { text: values.text, due: values.due || null, link: field(fd, "link") });
   }, values);
 }
 
