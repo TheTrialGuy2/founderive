@@ -18,5 +18,6 @@ export async function addLinkedCommitment(weekId: string, input: { text: string;
   const entry = await readEntry(source.kind, source.path);
   if (!entry) throw new Error("The commitment wasn't saved because this record is no longer there. Reload the page.");
   if (!entry.ok) throw new Error("The commitment wasn't saved because this record needs repair. Fix the flagged file and try again.");
+  if (entry.data.seeded) throw new Error("The commitment wasn't saved because this record is still an import. Confirm it first.");
   return addCommitment(weekId, { text, due: due || null, link: source.path });
 }

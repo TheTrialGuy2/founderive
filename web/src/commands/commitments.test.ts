@@ -38,4 +38,10 @@ describe("addLinkedCommitment", () => {
     await expect(addLinkedCommitment("2026-W42", { text: "Call", due: null, link: DANA })).rejects.toThrow("needs repair");
     expect((await loadCheckin("2026-W42")).data.commitments).toHaveLength(2);
   });
+  it("refuses a source the founder hasn't confirmed yet", async () => {
+    const rel = path.join(env.dir, DANA);
+    await writeFile(rel, (await readFile(rel, "utf8")).replace(/^---\n/, "---\nseeded: true\nsource: notes\n"));
+    await expect(addLinkedCommitment("2026-W42", { text: "Call", due: null, link: DANA })).rejects.toThrow("still an import");
+    expect((await loadCheckin("2026-W42")).data.commitments).toHaveLength(2);
+  });
 });
