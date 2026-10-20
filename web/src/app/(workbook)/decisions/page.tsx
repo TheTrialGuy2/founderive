@@ -5,6 +5,8 @@ import { Badge, Card, formatDate, PageHeader } from "@/components/ui";
 import { DecisionForm } from "@/components/decisions/DecisionForm";
 import { ResolveDecisionForm } from "@/components/decisions/ResolveDecisionForm";
 import { OutcomeForm } from "@/components/decisions/OutcomeForm";
+import { LinkedCommitmentForm } from "@/components/commitments/LinkedCommitmentForm";
+import { LinkedCommitments } from "@/components/commitments/LinkedCommitments";
 import { BrokenLinks } from "@/components/workbook/BrokenLinks";
 import { SeededNote } from "@/components/workbook/SeededNote";
 import { CopyPrompt } from "@/components/workbook/CopyPrompt";
@@ -16,6 +18,7 @@ import { loadFounderToday, loadPromptContext } from "@/commands/today";
 import { revisitDue } from "@/core/due";
 import { bodySections } from "@/core/markdown";
 import { hrefFor } from "@/core/slug";
+import { isoWeekId } from "@/core/week";
 import { AREA_LABELS } from "@/lib/loop-labels";
 import { fillPrompt, SKILL_PROMPTS } from "@/lib/prompts";
 import { pageHref, pageNumber, paginate } from "@/lib/pagination";
@@ -57,7 +60,7 @@ async function DecisionsContent({ requestedPage }: { requestedPage: number }) {
         <ul className="space-y-3">
           {paged.items.map((r) => (
             <li key={r.path}>
-              <DecisionCard row={r} labels={labels} today={today} />
+              <DecisionCard row={r} labels={labels} today={today} weekId={isoWeekId(today)} />
             </li>
           ))}
         </ul>
@@ -99,7 +102,7 @@ function RecordList({ label, paths, labels }: { label: string; paths: string[]; 
   );
 }
 
-function DecisionCard({ row, labels, today }: { row: DecisionRow; labels: Map<string, string>; today: string }) {
+function DecisionCard({ row, labels, today, weekId }: { row: DecisionRow; labels: Map<string, string>; today: string; weekId: string }) {
   const d = row.data;
   // The loop is open once the revisit date has come and nothing has been recorded. The form shows only then.
   const loopOpen = revisitDue(d, today);
@@ -181,6 +184,16 @@ function DecisionCard({ row, labels, today }: { row: DecisionRow; labels: Map<st
               <p className="whitespace-pre-wrap text-muted">{s.text}</p>
             </div>
           ))}
+        </div>
+      )}
+      {/* What was promised because of this decision. The form only once the founder has confirmed the record. */}
+      {(row.commitments.length > 0 || !d.seeded) && (
+        <div className="mt-4 border-t border-line pt-4">
+          <h3 className="text-sm font-medium text-ink">Commitments</h3>
+          <div className="mt-2">
+            <LinkedCommitments commitments={row.commitments} today={today} />
+          </div>
+          {!d.seeded && <LinkedCommitmentForm weekId={weekId} link={row.path} sourceKind="decision" />}
         </div>
       )}
       {d.status === "open" && <ResolveDecisionForm path={row.path} />}

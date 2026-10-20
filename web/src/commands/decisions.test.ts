@@ -3,6 +3,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
+import { addCommitment } from "./checkin";
 import { createConversation } from "./conversations";
 import { createDecision, loadDecisions, parseDecisionForm, recordOutcome, resolveDecision } from "./decisions";
 import { confirmImportedRecord } from "./import";
@@ -191,5 +192,15 @@ describe("decision log", () => {
     expect((await loadDecisions()).rows[0].data.seeded).toBe(true);
     await confirmImportedRecord("decisions/2026-10-05-imp.md");
     expect((await loadDecisions()).rows[0].data.seeded).toBeUndefined();
+  });
+  it("attaches each decision's commitments, read once for the page", async () => {
+    const c = await createConversation(DANA);
+    const r = parseDecisionForm(form({ title: "Focus on small agencies", date: "2026-10-09", decision: "Only agencies with 10-50 caregivers", why: "The owner feels the pain directly", reversible: "yes", evidence: [c] }));
+    if (!r.ok) throw new Error(JSON.stringify(r.errors));
+    const d = await createDecision(r.input);
+    await addCommitment("2026-W42", { text: "Tell the two large agencies", link: d });
+    const { rows } = await loadDecisions();
+    expect(rows.find((row) => row.path === d)?.commitments).toEqual([{ week: "2026-W42", id: expect.any(String), text: "Tell the two large agencies", due: null, status: "open", reason: null }]);
+    expect(rows.filter((row) => row.path !== d).every((row) => row.commitments.length === 0)).toBe(true);
   });
 });
