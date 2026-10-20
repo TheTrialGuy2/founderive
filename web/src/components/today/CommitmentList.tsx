@@ -1,20 +1,32 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { saveCommitmentStatus, saveHomeworkStatus, saveNewCommitment } from "@/app/(workbook)/actions";
 import { buttonQuiet, errorText, inputClass } from "@/components/workbook/form";
+import type { CommitmentSource } from "@/core/commitment-source";
 import { dueWords } from "@/core/due";
+import { commitmentActionId } from "@/core/next-step";
 import { IDLE, type ActionState } from "@/lib/action-state";
 import { commitmentFields } from "@/lib/commitment-fields";
 import { ActionButton } from "./ActionButton";
 
 type Commitment = { id: string; text: string; due?: string | null; status: "open" | "done" | "dropped"; reason?: string | null; week?: string; repeat?: { every: "week" } };
 type Homework = { id: string; title: string; due?: string | null; status: "open" | "done" | "skipped"; skipReason?: string | null };
-type Props = { weekId: string; today: string; commitments: Commitment[]; carried: (Commitment & { week: string })[]; programWeek: number | null; programLabel: string | null; homework: Homework[] };
+type Props = {
+  weekId: string;
+  today: string;
+  commitments: Commitment[];
+  carried: (Commitment & { week: string })[];
+  programWeek: number | null;
+  programLabel: string | null;
+  homework: Homework[];
+  sources?: Map<string, CommitmentSource>;
+};
 
 const dueText = (due: string | null | undefined, today: string, week?: string) => dueWords({ due, week }, today) || null;
 
-export function CommitmentList({ weekId, today, commitments, carried, programWeek, programLabel, homework }: Props) {
+export function CommitmentList({ weekId, today, commitments, carried, programWeek, programLabel, homework, sources }: Props) {
   commitments = commitments.filter((commitment) => !commitment.repeat);
   // Open commitments from earlier weeks show here too, labelled with their week; they stay in that week's file.
   const open = [...commitments.filter((c) => c.status === "open"), ...carried];
@@ -28,6 +40,11 @@ export function CommitmentList({ weekId, today, commitments, carried, programWee
           <li key={`${c.week ?? weekId}:${c.id}`} className="rounded-lg border border-line p-3">
             {c.week && c.week !== weekId && <p className="text-xs font-medium text-teal-dark">From week {c.week}</p>}
             <p className="text-sm text-ink">{c.text}</p>
+            {sources?.get(commitmentActionId(c.id, c.week ?? weekId)) && (
+              <Link href={sources.get(commitmentActionId(c.id, c.week ?? weekId))!.href} className="block text-xs font-medium text-teal-dark underline-offset-2 hover:underline">
+                {sources.get(commitmentActionId(c.id, c.week ?? weekId))!.label}
+              </Link>
+            )}
             {dueText(c.due, today, c.week) && <p className="text-xs text-muted">{dueText(c.due, today, c.week)}</p>}
             <div className="mt-2 flex flex-wrap items-start gap-2">
               <ActionButton action={saveCommitmentStatus} fields={commitmentFields(c, weekId, "done")} label="Done" variant="quiet" />
