@@ -49,7 +49,7 @@ Ask one question per turn. A wall of questions is just a form.
 ### What you write, and where
 
 - **A new outcome, blocker or help request** → this week's check-in frontmatter (`outcome`, `blocker`, `helpNeeded`).
-- **A commitment they make** → `commitments` in this week's check-in: `{ id, text, due?, status: open, link? }`. When they make it while talking about a conversation, decision or test, `link` is that record's path (`conversations/2026-10-14-dana.md`), so Home can say where it came from and the record lists it. Never on a repeating definition.
+- **A commitment they make** → `commitments` in this week's check-in: `{ id, text, due?, status: open, link? }`. When they make it while talking about a conversation or a decision, `link` is that record's path (`conversations/2026-10-14-dana.md`), so Home can say where it came from and the record lists it. Never set a test's path yourself: a test's one commitment is written when the founder completes the test. Never on a repeating definition.
   - Ids are unique within the file. Use a short prefix and a counter.
   - `link` can point at a founder-data path (for example `program/week-05.md`) or `guide:<step id>`.
   - Finished → `status: done`. Dropped → `status: dropped` plus the `reason` they gave (required).
