@@ -43,4 +43,15 @@ describe("step links", () => {
     expect(hits[0]).toMatchObject({ path: "checkins/2026-W43.md" });
     expect(hits[0].warning).toMatch(/c-1/);
   });
+  it("warns when a commitment links to a record that isn't there, and not when it is", async () => {
+    await put("conversations/2026-10-08-dana.md", "---\ntype: customer\nperson: Dana\nareas: [problem]\n---\n");
+    await put(
+      "checkins/2026-W43.md",
+      "---\nweek: 2026-W43\ncommitments:\n  - id: c-1\n    text: Send the outline\n    link: conversations/2026-10-08-dana.md\n  - id: c-2\n    text: Lost\n    link: conversations/2026-01-01-gone.md\n  - id: c-3\n    text: Program work\n    link: program/week-09.md\n---\n",
+    );
+    const r = await checkData();
+    const hits = r.warnings.filter((w) => /links to/.test(w.warning));
+    expect(hits).toEqual([{ path: "checkins/2026-W43.md", warning: 'commitments: "c-2" links to conversations/2026-01-01-gone.md, which isn\'t in founder-data. Fix the link or remove it.' }]);
+    expect(r.errors).toEqual([]);
+  });
 });

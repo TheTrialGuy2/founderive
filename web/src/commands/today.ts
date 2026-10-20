@@ -17,6 +17,7 @@ import { dataDir, repoRoot } from "../store/paths";
 import { listEntries, readEntry, type Entry } from "../store/read";
 import type { KindData } from "../store/schemas";
 import { checkinPath, materializeRepeatingCommitments, weekOfCheckinPath } from "./checkin";
+import { resolveCommitmentSources } from "./commitment-sources";
 import { loadGuideFacts, loadLoopRecords, type LoopRecords } from "./loop";
 import { loadPathFor } from "./path";
 
@@ -160,7 +161,9 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
     .filter((c) => needsInterpretation(c.data, c.notes))
     .sort((a, b) => conversationDate(a).localeCompare(conversationDate(b)) || a.path.localeCompare(b.path))
     .map((c) => ({ path: c.path, person: c.data.person, date: conversationDate(c), href: `/conversations/${slugOf(c.path)}`, areas: c.data.areas }));
-  const dueList = buildDueItems({ commitments: ranked, homework, followUps, decisions: openDecisions, revisits });
+  // Where each linked commitment came from, read once per distinct link. A missing or unreadable source leaves the commitment without its line.
+  const sources = await resolveCommitmentSources(ranked.filter((c) => c.status === "open").map((c) => c.link));
+  const dueList = buildDueItems({ commitments: ranked, homework, followUps, decisions: openDecisions, revisits, sources });
   const action = homeAction({
     today,
     risk: next && next.tier === 1 ? { label: next.label, reason: next.reason, href: next.href ?? "/today" } : null,

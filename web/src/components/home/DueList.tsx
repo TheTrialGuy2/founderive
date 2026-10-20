@@ -59,6 +59,12 @@ export function DueList({ weekId, today, items, primaryKey, commitments, carried
                     i.text
                   )}
                   {dueWords(i, today) && <span className="text-muted"> · {dueWords(i, today)}</span>}
+                  {/* Where a commitment came from: the record it was made on. Quiet, under the text; the commitment itself stays plain. */}
+                  {i.source && (
+                    <Link href={i.source.href} className="mt-0.5 block text-xs font-medium text-teal-dark underline-offset-2 hover:underline">
+                      {i.source.label}
+                    </Link>
+                  )}
                 </span>
                 {done ? (
                   <ActionButton action={done.action} fields={done.fields} label="Done" variant={i.key === primaryKey ? "primary" : "quiet"} ariaLabel={`Done: ${i.text}`} />
