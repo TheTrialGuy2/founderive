@@ -167,6 +167,13 @@ describe("venture test commands", () => {
     const again = await readEntry("checkin", "checkins/2026-W42.md");
     expect(again?.ok && again.data.commitments.filter((c) => c.link === t)).toHaveLength(1);
   });
+  it("lists the commitment written when the test was completed, with its status", async () => {
+    const t = await createTest(PILOT, TODAY);
+    await linkEvidence(t, await createConversation(DANA));
+    const { commitmentId } = await completeTest(t, complete(), TODAY);
+    const view = await loadTest(slugOf(t));
+    expect(view.status === "ready" && view.commitments).toEqual([{ week: "2026-W42", id: commitmentId, text: "Onboard the two pilots", due: "2026-10-20", status: "open", reason: null }]);
+  });
   it("never strands the next commitment: completing again adds it once the check-in can be saved", async () => {
     const t = await createTest(PILOT, TODAY);
     await withNotes(t);
