@@ -1,8 +1,13 @@
+import type { CommitmentSource } from "./commitment-source";
 import { commitmentActionId } from "./next-step";
 import { addDays, isoWeekId } from "./week";
 
-/** `href` is set for a follow-up (its conversation), a decision and a revisit (the decision's card). A follow-up's `id` is `<conversation path>#<follow-up id>`. */
-export type DueItem = { key: string; kind: "commitment" | "homework" | "followup" | "decision" | "revisit"; id: string; text: string; due: string | null; week: string | null; href?: string };
+/**
+ * `href` is set for a follow-up (its conversation), a decision and a revisit (the decision's card). A follow-up's `id`
+ * is `<conversation path>#<follow-up id>`. `source` is set on a commitment whose link names a readable conversation,
+ * decision or test: where it came from, not where it lives.
+ */
+export type DueItem = { key: string; kind: "commitment" | "homework" | "followup" | "decision" | "revisit"; id: string; text: string; due: string | null; week: string | null; href?: string; source?: CommitmentSource };
 
 const LAST = "9999-12-31";
 const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" });
@@ -15,14 +20,19 @@ const at = (iso: string) => new Date(`${iso}T00:00:00Z`);
  * date has come (the caller filters by date), in one list, soonest first, undated last.
  */
 export function dueItems(input: {
-  commitments: { id: string; text: string; due?: string | null; status: string; week: string }[];
+  commitments: { id: string; text: string; due?: string | null; status: string; week: string; link?: string | null }[];
   homework: { id: string; title: string; due?: string | null; status: string }[];
   followUps?: { id: string; text: string; href: string; due: string }[];
   decisions?: { id: string; title: string; href: string; decideBy: string }[];
   revisits?: { id: string; title: string; href: string; revisitOn: string }[];
+  /** Resolved sources by commitment link (Task 9's loader fills it). A link with no entry gets no source. */
+  sources?: Map<string, CommitmentSource>;
 }): DueItem[] {
   const items: DueItem[] = [
-    ...input.commitments.filter((c) => c.status === "open").map((c): DueItem => ({ key: commitmentActionId(c.id, c.week), kind: "commitment", id: c.id, text: c.text, due: c.due ?? null, week: c.week })),
+    ...input.commitments.filter((c) => c.status === "open").map((c): DueItem => {
+      const source = c.link ? input.sources?.get(c.link) : undefined;
+      return { key: commitmentActionId(c.id, c.week), kind: "commitment", id: c.id, text: c.text, due: c.due ?? null, week: c.week, ...(source ? { source } : {}) };
+    }),
     ...input.homework.filter((h) => h.status === "open").map((h): DueItem => ({ key: `homework:${h.id}`, kind: "homework", id: h.id, text: h.title, due: h.due ?? null, week: null })),
     ...(input.followUps ?? []).map((f): DueItem => ({ key: `followup:${f.id}`, kind: "followup", id: f.id, text: f.text, due: f.due, week: null, href: f.href })),
     ...(input.decisions ?? []).map((d): DueItem => ({ key: `decision:${d.id}`, kind: "decision", id: d.id, text: `Decide: ${d.title}`, due: d.decideBy, week: null, href: d.href })),
