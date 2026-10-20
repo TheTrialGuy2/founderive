@@ -1,5 +1,6 @@
 import { capacityWarning } from "../core/capacity";
 import { dueFollowUps, needsInterpretation } from "../core/conversations";
+import { byNewestDecision, decisionHref } from "../core/decision-order";
 import { synthesizable } from "../core/synthesis";
 import { dueItems as buildDueItems, revisitDue, type DueItem } from "../core/due";
 import { guideProgress, guideStepForWeek, type GuideStep } from "../core/guide";
@@ -9,7 +10,6 @@ import { conversationDate, DEFAULT_TALK_GOAL, talkedToInWeek, type PathView } fr
 import { currentWeek, weekFile } from "../core/program";
 import { slugOf } from "../core/slug";
 import { localISODate, resolveToday } from "../core/today";
-import { PAGE_SIZE } from "../lib/pagination";
 import { currentTest, type CurrentTest } from "../core/venture-tests";
 import { addDays, isoWeekId, weekStart } from "../core/week";
 import { checkData, type CheckReport } from "../store/check";
@@ -105,14 +105,8 @@ export async function loadToday(preloaded?: LoopRecords): Promise<TodayView> {
   const report = await checkData();
   const followUps = dueFollowUps(records.conversations, today);
   const decisionHorizon = addDays(today, 7);
-  const decisionRows = (await listEntries("decision"))
-    .flatMap((entry) => (entry.ok ? [entry] : []))
-    .sort((a, b) => b.data.date.localeCompare(a.data.date) || a.path.localeCompare(b.path));
-  // Decisions are paginated newest first, so a link lands on the page the record is on.
-  const decisionHref = (index: number, rel: string) => {
-    const page = Math.floor(index / PAGE_SIZE) + 1;
-    return `/decisions${page > 1 ? `?page=${page}` : ""}#${slugOf(rel)}`;
-  };
+  // Decisions are paginated newest first, so a link lands on the page the record is on (core/decision-order).
+  const decisionRows = (await listEntries("decision")).flatMap((entry) => (entry.ok ? [entry] : [])).sort(byNewestDecision);
   const openDecisions = decisionRows.flatMap((entry, index) => {
     if (entry.data.seeded || entry.data.status !== "open" || !entry.data.decideBy || entry.data.decideBy > decisionHorizon) return [];
     return [{ id: entry.path, title: entry.data.title, decideBy: entry.data.decideBy, href: decisionHref(index, entry.path) }];

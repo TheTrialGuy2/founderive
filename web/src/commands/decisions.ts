@@ -1,4 +1,5 @@
 import { isCustomerEvidence } from "../core/conversations";
+import { byNewestDecision } from "../core/decision-order";
 import { brokenLinks, linksOf, type BrokenLink } from "../core/links";
 import { existingPaths, listEntries } from "../store/read";
 import { AREAS, kindOf, type Area, type KindData } from "../store/schemas";
@@ -130,7 +131,7 @@ export async function loadDecisions(): Promise<{
   const [entries, conversations, tests, present] = await Promise.all([listEntries("decision"), listEntries("conversation"), listEntries("test"), existingPaths()]);
   const rows = entries
     .flatMap((e) => (e.ok ? [{ path: e.path, data: e.data, broken: brokenLinks(linksOf("decision", e.data), (r) => present.has(r)), notes: e.body }] : []))
-    .sort((a, b) => b.data.date.localeCompare(a.data.date) || a.path.localeCompare(b.path));
+    .sort(byNewestDecision);
   const testOptions = tests.flatMap((t) => (t.ok ? [{ path: t.path, title: t.data.title }] : []));
   const evidenceOptions = [
     // Advice is never evidence (amendment §5.3), so each conversation says which it is.
