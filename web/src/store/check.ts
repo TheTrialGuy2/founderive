@@ -1,5 +1,6 @@
 import { access } from "node:fs/promises";
 import { canvasBlocks } from "../core/canvas";
+import { parseSourceLink } from "../core/commitment-source";
 import { looksLikeContactDetails } from "../core/privacy";
 import { brokenLinks, describeBrokenLink, linksOf } from "../core/links";
 import { AGENT_HOME_FILES } from "./agent-home";
@@ -91,6 +92,9 @@ export async function checkData(): Promise<CheckReport> {
         // A planned conversation's text is shown on Home and the step page, so it follows the same rule as `person`.
         if (id && c.status === "open" && looksLikeContactDetails(c.text))
           warnings.push({ path: rel, warning: `commitments: "${c.id}" holds contact details. Use a first name or a role, like Dana or agency owner, in its text.` });
+        // A commitment that names a conversation, decision or test it came from: the record should be there. A missing one is a warning, like any broken link.
+        if (c.link && parseSourceLink(c.link) && !present.has(c.link))
+          warnings.push({ path: rel, warning: `commitments: "${c.id}" links to ${c.link}, which isn't in founder-data. Fix the link or remove it.` });
       }
     if (kind === "test") testLinks.set(rel, (entry.data as KindData<"test">).relatedConversations);
     if (kind === "conversation") conversationLinks.set(rel, (entry.data as KindData<"conversation">).relatedTests);

@@ -29,6 +29,14 @@ async function ready() {
 }
 
 describe("loadToday", () => {
+  it("says where a linked commitment came from, and nothing when the source is gone", async () => {
+    await addCommitment("2026-W42", { text: "Send Dana the pilot outline", due: "2026-10-16", link: "conversations/2026-10-08-dana-ortiz.md" });
+    await addCommitment("2026-W42", { text: "Lost source", due: "2026-10-17", link: "conversations/2026-01-01-gone.md" });
+    const due = (await ready()).dueItems;
+    expect(due.find((i) => i.text === "Send Dana the pilot outline")).toMatchObject({ kind: "commitment", source: { label: "From conversation with Dana Ortiz", href: "/conversations/2026-10-08-dana-ortiz" } });
+    expect(due.find((i) => i.text === "Lost source")?.source).toBeUndefined();
+    expect(due.find((i) => i.id === "c-1")?.source).toBeUndefined();
+  });
   it("ranks this week's work and computes tomorrow on the server", async () => {
     await clearLoopRecords(env.dir);
     const view = await loadToday();

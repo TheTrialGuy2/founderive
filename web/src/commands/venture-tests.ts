@@ -1,4 +1,5 @@
 import { isEvidenceEligible, testLinks, type LinkState } from "../core/conversations";
+import type { LinkedCommitment } from "../core/commitment-source";
 import { brokenLinks, linksOf, type BrokenLink } from "../core/links";
 import { getSection, setSection } from "../core/markdown";
 import { pathForSlug, slugOf } from "../core/slug";
@@ -9,6 +10,7 @@ import { existingPaths, listEntries, readEntry } from "../store/read";
 import { BLOCK_ID_PATTERN, EVIDENCE_STRENGTHS, KINDS, type ConversationType, type KindData } from "../store/schemas";
 import { updateEntry } from "../store/update";
 import { appendCommitmentOnce, loadCheckin, newId, type Checkin } from "./checkin";
+import { linkedCommitmentsFor } from "./commitment-sources";
 import { createDated } from "./create";
 import { isRealDate, oneOf, orNull, required, text, type Parsed } from "./form";
 
@@ -371,6 +373,7 @@ export type TestView =
       linked: LinkedConversation[];
       conversations: ConversationOption[];
       broken: BrokenLink[];
+      commitments: LinkedCommitment[];
     };
 
 export async function loadTest(slug: string): Promise<TestView> {
@@ -379,6 +382,7 @@ export async function loadTest(slug: string): Promise<TestView> {
   if (!entry) return { status: "missing" };
   if (!entry.ok) return { status: "flagged", path: entry.path, error: entry.error };
   const present = await existingPaths();
+  const commitments = await linkedCommitmentsFor(entry.path);
   const records = (await listEntries("conversation"))
     .flatMap((c) => (c.ok ? [{ path: c.path, data: c.data, notes: c.body }] : []))
     .sort((a, b) => (b.data.date ?? "").localeCompare(a.data.date ?? ""));
@@ -405,5 +409,6 @@ export async function loadTest(slug: string): Promise<TestView> {
     linked: testLinks({ path: entry.path, data: entry.data }, records).map((l) => ({ ...option(l.conversation), state: l.state })),
     conversations: records.map(option),
     broken: brokenLinks(linksOf("test", entry.data), (r) => present.has(r)),
+    commitments,
   };
 }

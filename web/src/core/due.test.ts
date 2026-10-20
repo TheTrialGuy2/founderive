@@ -86,3 +86,23 @@ describe("dueItems with follow-ups", () => {
   });
 });
 
+describe("dueItems with sources", () => {
+  it("carries a resolved source beside a linked commitment, separate from href, and leaves the order alone", () => {
+    const sources = new Map([["conversations/2026-10-08-dana-ortiz.md", { label: "From conversation with Dana", href: "/conversations/2026-10-08-dana-ortiz" }]]);
+    const items = dueItems({
+      commitments: [
+        { id: "c-1", text: "Send Dana the outline", due: "2026-10-16", status: "open", week: "2026-W42", link: "conversations/2026-10-08-dana-ortiz.md" },
+        { id: "c-2", text: "Plain", due: "2026-10-14", status: "open", week: "2026-W42" },
+        { id: "c-3", text: "Broken", due: "2026-10-15", status: "open", week: "2026-W42", link: "conversations/2026-01-01-gone.md" },
+      ],
+      homework: [],
+      sources,
+    });
+    expect(items.map((i) => i.id)).toEqual(["c-2", "c-3", "c-1"]);
+    expect(items[2]).toMatchObject({ source: { label: "From conversation with Dana", href: "/conversations/2026-10-08-dana-ortiz" } });
+    expect(items[2].href).toBeUndefined();
+    expect(items[0].source).toBeUndefined();
+    expect(items[1].source).toBeUndefined();
+  });
+});
+

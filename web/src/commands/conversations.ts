@@ -1,4 +1,5 @@
 import { groupConversations } from "../core/conversations";
+import type { LinkedCommitment } from "../core/commitment-source";
 import { CONTACT_DETAILS_MESSAGE, looksLikeContactDetails } from "../core/privacy";
 import { brokenLinks, linksOf, type BrokenLink } from "../core/links";
 import { pathForSlug, slugOf } from "../core/slug";
@@ -7,6 +8,7 @@ import { BLOCK_ID_PATTERN, CONVERSATION_TYPES, KINDS, STANCES, type Conversation
 import { archiveEntry, ValidationError } from "../store/write";
 import { updateEntry } from "../store/update";
 import { newId } from "./checkin";
+import { linkedCommitmentsFor } from "./commitment-sources";
 import { createDated, type RecordMeta } from "./create";
 import { all, isRealDate, lines, oneOf, orNull, required, text, type Parsed } from "./form";
 
@@ -282,7 +284,7 @@ export async function loadConversations(): Promise<{ evidence: ConversationRow[]
 export type ConversationView =
   | { status: "missing" }
   | { status: "flagged"; path: string; error: string }
-  | { status: "ready"; path: string; slug: string; data: Conversation; notes: string; broken: BrokenLink[]; tests: TestOption[] };
+  | { status: "ready"; path: string; slug: string; data: Conversation; notes: string; broken: BrokenLink[]; tests: TestOption[]; commitments: LinkedCommitment[] };
 
 /** One conversation by URL slug, with its broken links and every readable test (to show linked titles and to link more). */
 export async function loadConversation(slug: string): Promise<ConversationView> {
@@ -292,6 +294,7 @@ export async function loadConversation(slug: string): Promise<ConversationView> 
   if (!entry.ok) return { status: "flagged", path: entry.path, error: entry.error };
   const present = await existingPaths();
   const tests = (await listEntries("test")).flatMap((t) => (t.ok ? [{ path: t.path, slug: slugOf(t.path), title: t.data.title, status: t.data.status }] : []));
+  const commitments = await linkedCommitmentsFor(entry.path);
   return {
     status: "ready",
     path: entry.path,
@@ -300,5 +303,6 @@ export async function loadConversation(slug: string): Promise<ConversationView> 
     notes: entry.body.trim(),
     broken: brokenLinks(linksOf("conversation", entry.data), (r) => present.has(r)),
     tests,
+    commitments,
   };
 }

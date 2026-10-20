@@ -6,6 +6,9 @@ import { ConversationForm } from "@/components/conversations/ConversationForm";
 import { FollowUps } from "@/components/conversations/FollowUps";
 import { WhatChangesForm } from "@/components/conversations/WhatChangesForm";
 import { LinkForm } from "@/components/loop/LinkForm";
+import { LinkedCommitmentForm } from "@/components/commitments/LinkedCommitmentForm";
+import { LinkedCommitments } from "@/components/commitments/LinkedCommitments";
+import { isoWeekId } from "@/core/week";
 import { ActionButton } from "@/components/today/ActionButton";
 import { SeededNote } from "@/components/workbook/SeededNote";
 import { BrokenLinks } from "@/components/workbook/BrokenLinks";
@@ -142,6 +145,14 @@ async function ConversationContent({ slug, returnTo }: { slug: string; returnTo:
         <Card title="Follow-ups">
           <FollowUps path={view.path} followUps={c.followUps} today={today} />
         </Card>
+
+        {/* What was promised because of this conversation. The form only once the founder has confirmed the record. */}
+        {(view.commitments.length > 0 || !c.seeded) && (
+          <Card title="Commitments">
+            <LinkedCommitments commitments={view.commitments} today={today} />
+            {!c.seeded && <LinkedCommitmentForm weekId={isoWeekId(today)} link={view.path} sourceKind="conversation" />}
+          </Card>
+        )}
 
         <Card title="Linked tests">
           {c.relatedTests.length === 0 ? (

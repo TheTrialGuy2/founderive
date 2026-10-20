@@ -34,6 +34,8 @@ function doneAction(i: DueItem, weekId: string, programWeek: number | null): { a
 /** Up to three things due, soonest first, with Done. "See all" opens the full list in place, with Drop and Skip. */
 export function DueList({ weekId, today, items, primaryKey, commitments, carried, programWeek, programLabel, homework }: Props) {
   const top = items.slice(0, 3);
+  // Sources resolved for the preview, handed to the full list so a commitment past the top three keeps its line.
+  const sources = new Map(items.flatMap((i) => (i.kind === "commitment" && i.source ? [[i.key, i.source] as const] : [])));
   return (
     <section aria-labelledby="due-heading" className="rounded-xl border border-line bg-paper p-4">
       <h2 id="due-heading" className="text-[11px] font-semibold tracking-[0.08em] text-muted uppercase">
@@ -59,6 +61,12 @@ export function DueList({ weekId, today, items, primaryKey, commitments, carried
                     i.text
                   )}
                   {dueWords(i, today) && <span className="text-muted"> · {dueWords(i, today)}</span>}
+                  {/* Where a commitment came from: the record it was made on. Quiet, under the text; the commitment itself stays plain. */}
+                  {i.source && (
+                    <Link href={i.source.href} className="mt-0.5 block text-xs font-medium text-teal-dark underline-offset-2 hover:underline">
+                      {i.source.label}
+                    </Link>
+                  )}
                 </span>
                 {done ? (
                   <ActionButton action={done.action} fields={done.fields} label="Done" variant={i.key === primaryKey ? "primary" : "quiet"} ariaLabel={`Done: ${i.text}`} />
@@ -75,7 +83,7 @@ export function DueList({ weekId, today, items, primaryKey, commitments, carried
       <details className="mt-3 text-sm">
         <summary className="cursor-pointer text-teal-dark">See all{items.length > 3 ? ` · ${items.length}` : ""}</summary>
         <div className="mt-3">
-          <CommitmentList weekId={weekId} today={today} commitments={commitments} carried={carried} programWeek={programWeek} programLabel={programLabel} homework={homework} />
+          <CommitmentList weekId={weekId} today={today} commitments={commitments} carried={carried} programWeek={programWeek} programLabel={programLabel} homework={homework} sources={sources} />
         </div>
       </details>
     </section>

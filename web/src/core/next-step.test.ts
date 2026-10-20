@@ -50,6 +50,24 @@ describe("nextStep", () => {
       ["c", 6],
     ]);
   });
+  it("a conversation- or decision-linked commitment is an ordinary commitment; a test-linked one keeps tier 7", () => {
+    const ranked = rankCandidates({
+      ...base,
+      commitments: [
+        { id: "conv", text: "Send Dana the outline", due: "2026-10-20", status: "open", link: "conversations/2026-10-08-dana-ortiz.md" },
+        { id: "dec", text: "Tell the team", due: "2026-10-21", status: "open", link: "decisions/2026-10-09-focus.md" },
+        { id: "late", text: "Late one", due: "2026-10-10", status: "open", link: "decisions/2026-10-09-focus.md" },
+        { id: "test", text: "Offer five pilots", due: "2026-10-22", status: "open", link: "tests/2026-10-06-paid-pilot.md" },
+      ],
+    });
+    expect(ranked.filter((c) => c.kind === "commitment").map((c) => [c.ref, c.tier])).toEqual([
+      ["late", 4],
+      ["conv", 6],
+      ["dec", 6],
+      ["test", 7],
+    ]);
+    expect(ranked.find((c) => c.ref === "conv")?.reason).toBe("You committed to this for this week.");
+  });
   it("orders guide (8) before program work (9) before upkeep (10)", () => {
     const ranked = rankCandidates({
       ...base,

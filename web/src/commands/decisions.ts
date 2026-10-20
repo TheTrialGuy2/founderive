@@ -1,13 +1,16 @@
+import type { LinkedCommitment } from "../core/commitment-source";
 import { isCustomerEvidence } from "../core/conversations";
+import { byNewestDecision } from "../core/decision-order";
 import { brokenLinks, linksOf, type BrokenLink } from "../core/links";
 import { existingPaths, listEntries } from "../store/read";
 import { AREAS, kindOf, type Area, type KindData } from "../store/schemas";
+import { loadLinkedCommitments } from "./commitment-sources";
 import { createDated } from "./create";
 import { all, isRealDate, lines, oneOf, orNull, required, text, type Parsed } from "./form";
 import { updateEntry } from "../store/update";
 
 export type Decision = KindData<"decision">;
-export type DecisionRow = { path: string; data: Decision; broken: BrokenLink[]; notes: string };
+export type DecisionRow = { path: string; data: Decision; broken: BrokenLink[]; notes: string; commitments: LinkedCommitment[] };
 export const DECISIONS_DIR = "decisions";
 
 export type DecisionInput = {
@@ -127,10 +130,18 @@ export async function loadDecisions(): Promise<{
   evidenceOptions: { path: string; label: string }[];
   tests: { path: string; title: string }[];
 }> {
-  const [entries, conversations, tests, present] = await Promise.all([listEntries("decision"), listEntries("conversation"), listEntries("test"), existingPaths()]);
+  const [entries, conversations, tests, present, linked] = await Promise.all([
+    listEntries("decision"),
+    listEntries("conversation"),
+    listEntries("test"),
+    existingPaths(),
+    loadLinkedCommitments(),
+  ]);
   const rows = entries
-    .flatMap((e) => (e.ok ? [{ path: e.path, data: e.data, broken: brokenLinks(linksOf("decision", e.data), (r) => present.has(r)), notes: e.body }] : []))
-    .sort((a, b) => b.data.date.localeCompare(a.data.date) || a.path.localeCompare(b.path));
+    .flatMap((e) =>
+      e.ok ? [{ path: e.path, data: e.data, broken: brokenLinks(linksOf("decision", e.data), (r) => present.has(r)), notes: e.body, commitments: linked.get(e.path) ?? [] }] : [],
+    )
+    .sort(byNewestDecision);
   const testOptions = tests.flatMap((t) => (t.ok ? [{ path: t.path, title: t.data.title }] : []));
   const evidenceOptions = [
     // Advice is never evidence (amendment §5.3), so each conversation says which it is.

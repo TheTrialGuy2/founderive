@@ -8,11 +8,13 @@ import { CompleteTestForm } from "@/components/tests/CompleteTestForm";
 import { EvidenceNotesForm } from "@/components/tests/EvidenceNotesForm";
 import { StrengthForm } from "@/components/tests/StrengthForm";
 import { ActionButton } from "@/components/today/ActionButton";
+import { LinkedCommitments } from "@/components/commitments/LinkedCommitments";
 import { SeededNote } from "@/components/workbook/SeededNote";
 import { BrokenLinks } from "@/components/workbook/BrokenLinks";
 import { FlaggedFile } from "@/components/workbook/FlaggedFile";
 import { linkEvidenceAction, unlinkEvidenceAction } from "@/app/(workbook)/evidence-actions";
 import { startTestAction } from "@/app/(workbook)/tests/actions";
+import { loadFounderToday } from "@/commands/today";
 import { loadTest, type LinkedConversation } from "@/commands/venture-tests";
 import { whyFrom } from "@/core/venture-tests";
 import { areaLabel, DECISION_LABELS, RESULT_LABELS, STATUS_LABELS, STRENGTH_LABELS, TYPE_LABELS } from "@/lib/loop-labels";
@@ -31,7 +33,7 @@ export default function TestPage({ params }: PageProps<"/tests/[slug]">) {
 
 async function TestContent({ slug }: { slug: string }) {
   await connection();
-  const view = await loadTest(slug);
+  const [view, today] = await Promise.all([loadTest(slug), loadFounderToday()]);
   if (view.status === "missing") {
     return (
       <>
@@ -208,11 +210,21 @@ async function TestContent({ slug }: { slug: string }) {
                 <span className="font-semibold">Result:</span> {RESULT_LABELS[t.result]} · <span className="font-semibold">Decision:</span> {DECISION_LABELS[t.decision]}
               </p>
               <p className="mt-2 text-sm whitespace-pre-wrap text-ink">{whyFrom(view.sections.decisionWhy)}</p>
-              {t.nextCommitment && (
-                <p className="mt-2 text-sm text-ink">
-                  <span className="font-medium">Next commitment:</span> {t.nextCommitment}
-                  {t.nextCommitmentDue ? ` · due ${formatDate(t.nextCommitmentDue)}` : ""}
-                </p>
+              {/* The commitment written at completion, with its status, when it's in a check-in; the test's own words otherwise. */}
+              {view.commitments.length > 0 ? (
+                <div className="mt-2">
+                  <p className="text-sm font-medium text-ink">Next commitment</p>
+                  <div className="mt-1">
+                    <LinkedCommitments commitments={view.commitments} today={today} />
+                  </div>
+                </div>
+              ) : (
+                t.nextCommitment && (
+                  <p className="mt-2 text-sm text-ink">
+                    <span className="font-medium">Next commitment:</span> {t.nextCommitment}
+                    {t.nextCommitmentDue ? ` · due ${formatDate(t.nextCommitmentDue)}` : ""}
+                  </p>
+                )
               )}
             </section>
           </>
