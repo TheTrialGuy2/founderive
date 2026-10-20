@@ -4,7 +4,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readEntry } from "../store/read";
 import { clearLoopRecords, useTempData } from "../store/test-helpers";
 import { addFollowUp, archiveImportedConversation, confirmAllImportedConversations, confirmImportedConversation, confirmWhatChanges, createConversation, loadConversation, loadConversations, parseConversationForm, setFollowUpStatus, STANCE_MESSAGE, updateConversation } from "./conversations";
+import { addCommitment } from "./checkin";
 import { CONTACT_DETAILS_MESSAGE } from "../core/privacy";
+import { slugOf } from "../core/slug";
 import { checkData } from "../store/check";
 import { CONTACT_SAMPLES, DANA, MENTOR } from "./test-inputs";
 
@@ -152,6 +154,13 @@ describe("conversation views", () => {
     expect(await loadConversation("2026-10-08-dana-ortiz-bright-home-care")).toMatchObject({ status: "ready", path: DANA_PATH, notes: "Call notes.", broken: [] });
     expect(await loadConversation("2026-10-09-nobody")).toEqual({ status: "missing" });
     expect(await loadConversation("../founder")).toEqual({ status: "missing" });
+  });
+  it("lists the commitments made from this conversation, open first", async () => {
+    const c = await createConversation(DANA);
+    await addCommitment("2026-W42", { text: "Send Dana the pilot outline", due: "2026-10-16", link: c });
+    await addCommitment("2026-W42", { text: "Unrelated" });
+    const view = await loadConversation(slugOf(c));
+    expect(view.status === "ready" && view.commitments).toEqual([{ week: "2026-W42", id: expect.any(String), text: "Send Dana the pilot outline", due: "2026-10-16", status: "open", reason: null }]);
   });
   it("flags a link to a missing test without dropping the conversation", async () => {
     await mkdir(path.join(env.dir, "conversations"), { recursive: true });
